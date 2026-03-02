@@ -1,0 +1,91 @@
+{% extends 'base.html' %}
+{% block title %}주문현황{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h5 class="fw-bold mb-0">주문현황</h5>
+  {% if request.user.is_teacher %}
+  <a href="{% url 'order_create' %}" class="btn btn-primary btn-sm">+ 주문 입력</a>
+  {% endif %}
+</div>
+
+<!-- 필터 -->
+<form method="get" class="card shadow-sm mb-3">
+  <div class="card-body py-3">
+    <div class="row g-2 align-items-end">
+      <div class="col-auto">
+        <label class="form-label small mb-1">상태</label>
+        <select name="status" class="form-select form-select-sm">
+          <option value="">전체</option>
+          {% for val, label in status_choices %}
+          <option value="{{ val }}" {% if filters.status == val %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% if not request.user.is_teacher %}
+      <div class="col-auto">
+        <label class="form-label small mb-1">배송지</label>
+        <select name="delivery" class="form-select form-select-sm">
+          <option value="">전체</option>
+          {% for d in deliveries %}
+          <option value="{{ d.pk }}" {% if filters.delivery == d.pk|stringformat:"s" %}selected{% endif %}>{{ d.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% endif %}
+      <div class="col-auto">
+        <label class="form-label small mb-1">시작일</label>
+        <input type="date" name="date_from" class="form-control form-control-sm" value="{{ filters.date_from }}">
+      </div>
+      <div class="col-auto">
+        <label class="form-label small mb-1">종료일</label>
+        <input type="date" name="date_to" class="form-control form-control-sm" value="{{ filters.date_to }}">
+      </div>
+      <div class="col-auto">
+        <button type="submit" class="btn btn-sm btn-secondary">조회</button>
+        <a href="{% url 'order_list' %}" class="btn btn-sm btn-outline-secondary">초기화</a>
+      </div>
+    </div>
+  </div>
+</form>
+
+<!-- 목록 -->
+<div class="card shadow-sm">
+  <div class="table-responsive">
+    <table class="table table-hover mb-0">
+      <thead class="table-dark">
+        <tr>
+          <th>주문번호</th>
+          {% if not request.user.is_teacher %}<th>선생님</th>{% endif %}
+          <th>배송지</th>
+          {% if request.user.is_admin %}<th>업체</th>{% endif %}
+          <th>상태</th>
+          <th>주문일시</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for order in orders %}
+        <tr>
+          <td class="font-monospace small">{{ order.order_no }}</td>
+          {% if not request.user.is_teacher %}<td>{{ order.teacher.name }}</td>{% endif %}
+          <td>{{ order.delivery.name }}</td>
+          {% if request.user.is_admin %}<td>{{ order.agency.name }}</td>{% endif %}
+          <td>
+            {% if order.status == 'pending' %}<span class="badge bg-primary">접수</span>
+            {% elif order.status == 'shipping' %}<span class="badge bg-warning text-dark">발송중</span>
+            {% elif order.status == 'delivered' %}<span class="badge bg-success">발송완료</span>
+            {% elif order.status == 'cancelled' %}<span class="badge bg-secondary">취소</span>
+            {% endif %}
+          </td>
+          <td class="small">{{ order.ordered_at|date:"Y-m-d H:i" }}</td>
+          <td><a href="{% url 'order_detail' order.pk %}" class="btn btn-sm btn-outline-secondary">상세</a></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" class="text-center text-muted py-4">주문 내역이 없습니다.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

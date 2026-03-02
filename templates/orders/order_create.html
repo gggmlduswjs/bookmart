@@ -1,0 +1,135 @@
+{% extends 'base.html' %}
+{% block title %}주문 입력{% endblock %}
+
+{% block content %}
+<h5 class="fw-bold mb-3">주문 입력</h5>
+
+<div class="alert alert-info py-2 small">
+  📦 배송지: <strong>{{ delivery.name }}</strong>
+  &nbsp;|&nbsp; ⏰ 시내 마감 <strong>11:20</strong> / 지방 마감 <strong>13:50</strong>
+</div>
+
+<form method="post" x-data="orderForm()" @submit.prevent="submitOrder">
+  {% csrf_token %}
+  <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+
+  <div class="card shadow-sm mb-3">
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table mb-0">
+          <thead class="table-light">
+            <tr>
+              <th style="width:30%">시리즈</th>
+              <th style="width:35%">교재</th>
+              <th style="width:12%">단가</th>
+              <th style="width:10%">수량</th>
+              <th style="width:10%">금액</th>
+              <th style="width:3%"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-for="(row, index) in rows" :key="index">
+              <tr>
+                <td>
+                  <select class="form-select form-select-sm"
+                          x-model="row.series"
+                          @change="row.book_id = ''; row.unit_price = 0">
+                    <option value="">시리즈 선택</option>
+                    {% for s in series_list %}
+                    <option value="{{ s }}">{{ s }}</option>
+                    {% endfor %}
+                  </select>
+                </td>
+                <td>
+                  <select class="form-select form-select-sm"
+                          x-model="row.book_id"
+                          @change="updatePrice(row)">
+                    <option value="">교재 선택</option>
+                    <template x-for="b in getBooks(row.series)" :key="b.id">
+                      <option :value="b.id" x-text="b.name"></option>
+                    </template>
+                  </select>
+                  <!-- 숨겨진 name 필드 -->
+                  <input type="hidden" :name="'book_' + index" :value="row.book_id">
+                </td>
+                <td class="text-end align-middle small text-muted">
+                  <span x-text="row.unit_price ? row.unit_price.toLocaleString() + '원' : '-'"></span>
+                </td>
+                <td>
+                  <input type="number" class="form-control form-control-sm text-center"
+                         :name="'qty_' + index"
+                         x-model.number="row.qty" min="1" max="9999" value="1">
+                </td>
+                <td class="text-end align-middle fw-semibold small">
+                  <span x-text="rowAmount(row) ? rowAmount(row).toLocaleString() + '원' : '-'"></span>
+                </td>
+                <td class="align-middle">
+                  <button type="button" class="btn btn-sm btn-outline-danger"
+                          @click="rows.splice(index, 1)" x-show="rows.length > 1">✕</button>
+                </td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="d-flex align-items-center justify-content-between mb-3">
+    <button type="button" class="btn btn-outline-primary btn-sm" @click="addRow">+ 행 추가</button>
+    <div class="fw-bold fs-5">
+      합계: <span x-text="total().toLocaleString()"></span>원
+    </div>
+  </div>
+
+  <div class="mb-3">
+    <label class="form-label">메모</label>
+    <input type="text" name="memo" class="form-control" placeholder="특이사항이 있으면 입력하세요">
+  </div>
+
+  <button type="submit" class="btn btn-primary px-5">주문 완료</button>
+  <a href="{% url 'order_list' %}" class="btn btn-outline-secondary ms-2">취소</a>
+</form>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const BOOKS = {{ books_json|safe }};
+
+function orderForm() {
+  return {
+    rows: [{ series: '', book_id: '', qty: 1, unit_price: 0 }],
+
+    getBooks(series) {
+      if (!series) return [];
+      return BOOKS.filter(b => b.series === series);
+    },
+
+    updatePrice(row) {
+      const book = BOOKS.find(b => b.id == row.book_id);
+      row.unit_price = book ? book.unit_price : 0;
+    },
+
+    rowAmount(row) {
+      if (!row.book_id || !row.qty) return 0;
+      return row.unit_price * row.qty;
+    },
+
+    total() {
+      return this.rows.reduce((sum, row) => sum + this.rowAmount(row), 0);
+    },
+
+    addRow() {
+      this.rows.push({ series: '', book_id: '', qty: 1, unit_price: 0 });
+    },
+
+    submitOrder() {
+      const valid = this.rows.some(r => r.book_id && r.qty > 0);
+      if (!valid) { alert('주문할 교재를 선택하세요.'); return; }
+      this.$el.submit();
+    }
+  }
+}
+</script>
+{% endblock %}
