@@ -1,0 +1,11 @@
+[
+  {"model": "books.publisher", "pk": 1, "fields": {"name": "해람북스", "supply_rate": "50.00", "is_active": true}},
+  {"model": "books.publisher", "pk": 2, "fields": {"name": "아카데미소프트사", "supply_rate": "55.00", "is_active": true}},
+  {"model": "books.publisher", "pk": 3, "fields": {"name": "마린북스", "supply_rate": "50.00", "is_active": true}},
+  {"model": "books.publisher", "pk": 4, "fields": {"name": "렉스미디어", "supply_rate": "50.00", "is_active": true}},
+  {"model": "books.publisher", "pk": 5, "fields": {"name": "빅식스", "supply_rate": "50.00", "is_active": true}},
+  {"model": "books.publisher", "pk": 6, "fields": {"name": "씨디씨", "supply_rate": "50.00", "is_active": true}},
+  {"model": "books.publisher", "pk": 7, "fields": {"name": "북포유", "supply_rate": "50.00", "is_active": true}},
+  {"model": "books.publisher", "pk": 8, "fields": {"name": "웰북", "supply_rate": "80.00", "is_active": true}},
+  {"model": "books.publisher", "pk": 9, "fields": {"name": "길벗", "supply_rate": "50.00", "is_active": true}}
+]

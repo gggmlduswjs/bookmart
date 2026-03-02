@@ -8,3 +8,15 @@ wheels/
 
 # Virtual environments
 .venv
+
+# Django
+*.sqlite3
+/static/
+/media/
+
+# 환경변수 (절대 커밋 금지)
+.env
+
+# IDE
+.vscode/
+.idea/
