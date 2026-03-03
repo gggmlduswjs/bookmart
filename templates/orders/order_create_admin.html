@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% block title %}주문 입력{% endblock %}
+{% block title %}주문 입력 (대리){% endblock %}
 
 {% block extra_css %}
 <style>
@@ -10,31 +10,61 @@
   .order-row-wrap select { width: 100%; }
   .order-row-wrap input[type=number] { width: 60px; text-align: center; }
   .deadline-warn { background:#fff3cd; border:1px solid #ffc107; color:#856404; padding:6px 12px; margin-bottom:10px; font-size:12px; }
+  select:disabled { background:#f0f0f0; color:#999; cursor:not-allowed; }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="page-title">
-  도서 주문
-  <span class="subtitle">배송지: {{ delivery.name }}</span>
-</div>
+<div class="page-title">주문 입력 <span class="subtitle">총판 대리 주문 — 전화 주문 접수 시 사용</span></div>
 
 {% if past_region %}
-<div class="deadline-warn">
-  ⚠ 현재 시각 {{ now_str }}은 주문 마감 시간(지방 13:50)이 지났습니다. 주문은 가능하나 당일 발송이 어려울 수 있습니다.
-</div>
+<div class="deadline-warn">⚠ 현재 시각 {{ now_str }}은 주문 마감 시간(지방 13:50)이 지났습니다. 주문은 가능하나 당일 발송이 어려울 수 있습니다.</div>
 {% elif past_city %}
-<div class="deadline-warn">
-  ⚠ 현재 시각 {{ now_str }}은 시내 마감(11:20)이 지났습니다. 지방 마감은 13:50입니다.
-</div>
+<div class="deadline-warn">⚠ 현재 시각 {{ now_str }}은 시내 마감(11:20)이 지났습니다. 지방 마감은 13:50입니다.</div>
 {% else %}
 <div class="msg-box msg-info">주문 마감: 시내 <strong>11:20</strong> / 지방 <strong>13:50</strong> &nbsp;|&nbsp; 현재 시각: {{ now_str }}</div>
 {% endif %}
 
-<form method="post" x-data="orderForm()" @submit.prevent="submitOrder">
+<form method="post" x-data="adminOrderForm()">
   {% csrf_token %}
-  <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
 
+  <!-- 업체/선생님 선택 -->
+  <div class="content-box" style="padding:12px 14px;margin-bottom:10px">
+    <table class="form-table">
+      <tr>
+        <th>업체</th>
+        <td>
+          <select x-model="selectedAgency" @change="selectedTeacher = ''; deliveryName = ''" style="width:220px;padding:3px 6px;border:1px solid #bbb;font-size:12px">
+            <option value="">-- 업체 선택 --</option>
+            {% for a in agencies %}
+            <option value="{{ a.pk }}">{{ a.name }}</option>
+            {% endfor %}
+          </select>
+        </td>
+      </tr>
+      <tr>
+        <th>선생님</th>
+        <td>
+          <select x-model="selectedTeacher" @change="updateDelivery" :disabled="!selectedAgency" style="width:220px;padding:3px 6px;border:1px solid #bbb;font-size:12px">
+            <option value="">-- 선생님 선택 --</option>
+            <template x-for="t in filteredTeachers" :key="t.id">
+              <option :value="t.id" x-text="t.name + ' (' + t.delivery_name + ')'"></option>
+            </template>
+          </select>
+          <input type="hidden" name="teacher_id" :value="selectedTeacher">
+        </td>
+      </tr>
+      <tr>
+        <th>배송지</th>
+        <td>
+          <span x-show="deliveryName" x-text="deliveryName" style="font-weight:bold;color:#333"></span>
+          <span x-show="!deliveryName" style="color:#aaa">선생님을 선택하면 자동으로 표시됩니다</span>
+        </td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- 교재 선택 -->
   <div class="order-row-wrap">
     <table class="data-table">
       <thead>
@@ -90,11 +120,11 @@
 
   <div style="margin-top:10px;display:flex;align-items:center;gap:8px">
     <label style="white-space:nowrap;background:#777;color:#fff;padding:3px 8px;font-size:12px">메모</label>
-    <input type="text" name="memo" style="flex:1;padding:4px 8px;border:1px solid #bbb;font-size:12px" placeholder="특이사항">
+    <input type="text" name="memo" style="flex:1;padding:4px 8px;border:1px solid #bbb;font-size:12px" placeholder="전화 주문 접수 등 특이사항">
   </div>
 
   <div style="margin-top:12px">
-    <button type="submit" class="btn btn-orange" style="padding:6px 30px">주문 완료</button>
+    <button type="button" class="btn btn-orange" @click="submitOrder" style="padding:6px 30px">주문 완료</button>
     <a href="{% url 'order_list' %}" class="btn btn-outline" style="margin-left:8px">취소</a>
   </div>
 </form>
@@ -103,18 +133,32 @@
 {% block extra_js %}
 <script>
 const BOOKS = {{ books_json|safe }};
-function orderForm() {
+const ALL_TEACHERS = {{ teachers_json|safe }};
+
+function adminOrderForm() {
   return {
+    selectedAgency: '',
+    selectedTeacher: '',
+    deliveryName: '',
     rows: [{ series: '', book_id: '', qty: 1, unit_price: 0 }],
+
+    get filteredTeachers() {
+      return ALL_TEACHERS.filter(t => String(t.agency_id) === String(this.selectedAgency));
+    },
+    updateDelivery() {
+      const t = ALL_TEACHERS.find(t => String(t.id) === String(this.selectedTeacher));
+      this.deliveryName = t ? t.delivery_name : '';
+    },
     getBooks(series) { return series ? BOOKS.filter(b => b.series === series) : []; },
     updatePrice(row) { const b = BOOKS.find(b => b.id == row.book_id); row.unit_price = b ? b.unit_price : 0; },
     rowAmount(row) { return (row.book_id && row.qty) ? row.unit_price * row.qty : 0; },
     total() { return this.rows.reduce((s, r) => s + this.rowAmount(r), 0); },
     addRow() { this.rows.push({ series: '', book_id: '', qty: 1, unit_price: 0 }); },
     submitOrder() {
+      if (!this.selectedTeacher) { alert('선생님을 선택하세요.'); return; }
       if (!this.rows.some(r => r.book_id && r.qty > 0)) { alert('주문할 교재를 선택하세요.'); return; }
-      this.$el.submit();
-    }
+      this.$el.closest('form').submit();
+    },
   }
 }
 </script>

@@ -2,33 +2,60 @@
 {% block title %}교재 관리{% endblock %}
 
 {% block content %}
-<h5 class="fw-bold mb-3">교재 목록</h5>
+<div class="page-title">
+  교재 목록
+  <a href="{% url 'book_create' %}" class="btn btn-orange btn-sm">+ 교재 등록</a>
+  <a href="{% url 'publisher_list' %}" class="btn btn-gray btn-sm">출판사 관리</a>
+</div>
+
 {% for publisher in publishers %}
-<div class="card shadow-sm mb-3">
-  <div class="card-header fw-bold bg-light">
-    {{ publisher.name }} <span class="text-muted fw-normal small">(공급률 {{ publisher.supply_rate }}%)</span>
+<div style="margin-bottom:14px">
+  <div style="background:#555;color:#fff;padding:6px 12px;font-size:12px;font-weight:bold;display:flex;align-items:center;gap:12px">
+    {{ publisher.name }}
+    <span style="font-weight:normal;opacity:0.75;font-size:11px">(공급률 {{ publisher.supply_rate }}%)</span>
+    <a href="{% url 'publisher_edit' publisher.pk %}" class="btn btn-sm btn-outline" style="margin-left:auto;padding:1px 8px;font-size:11px">수정</a>
   </div>
-  <div class="card-body p-0">
-    <div class="table-responsive">
-      <table class="table table-hover mb-0 small">
-        <thead class="table-light">
-          <tr><th>시리즈</th><th>교재명</th><th class="text-end">정가</th><th class="text-end">공급가</th><th>반품</th><th>상태</th></tr>
-        </thead>
-        <tbody>
-          {% for book in publisher.books.all %}
-          <tr class="{% if not book.is_active %}text-muted{% endif %}">
-            <td>{{ book.series }}</td>
-            <td>{{ book.name }}</td>
-            <td class="text-end">{{ book.list_price|floatformat:0 }}원</td>
-            <td class="text-end">{{ book.unit_price|floatformat:0 }}원</td>
-            <td>{% if book.is_returnable %}✓{% else %}✕{% endif %}</td>
-            <td>{% if book.is_active %}<span class="badge bg-success">활성</span>{% else %}<span class="badge bg-secondary">비활성</span>{% endif %}</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
+  <div class="content-box" style="margin-bottom:0">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>시리즈</th><th>교재명</th>
+          <th class="right" style="width:80px">정가</th>
+          <th class="right" style="width:80px">공급가</th>
+          <th class="center" style="width:50px">반품</th>
+          <th class="center" style="width:60px">상태</th>
+          <th style="width:80px"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for book in publisher.books.all %}
+        <tr {% if not book.is_active %}style="color:#aaa"{% endif %}>
+          <td>{{ book.series }}</td>
+          <td>{{ book.name }}</td>
+          <td class="right">{{ book.list_price|floatformat:0 }}원</td>
+          <td class="right">{{ book.unit_price|floatformat:0 }}원</td>
+          <td class="center">{% if book.is_returnable %}✓{% else %}✕{% endif %}</td>
+          <td class="center">
+            {% if book.is_active %}<span class="badge badge-green">활성</span>
+            {% else %}<span class="badge badge-gray">비활성</span>{% endif %}
+          </td>
+          <td class="center" style="white-space:nowrap">
+            <a href="{% url 'book_edit' book.pk %}" class="btn btn-sm btn-outline">수정</a>
+            <a href="{% url 'book_toggle' book.pk %}"
+               class="btn btn-sm {% if book.is_active %}btn-red{% else %}btn-gray{% endif %}"
+               onclick="return confirm('상태를 변경하시겠습니까?')">
+              {% if book.is_active %}비활성{% else %}활성{% endif %}
+            </a>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" class="center" style="padding:10px;color:#888">등록된 교재가 없습니다.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
   </div>
 </div>
+{% empty %}
+<div class="msg-box msg-info">등록된 출판사가 없습니다. 먼저 출판사를 등록하세요.</div>
 {% endfor %}
 {% endblock %}

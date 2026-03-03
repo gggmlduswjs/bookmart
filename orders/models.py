@@ -55,6 +55,7 @@ class Order(models.Model):
         verbose_name='상태'
     )
     memo = models.TextField(blank=True, verbose_name='메모')
+    tracking_no = models.CharField(max_length=50, blank=True, verbose_name='운송장번호')
     ordered_at = models.DateTimeField(default=timezone.now, verbose_name='주문일시')
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -200,6 +201,41 @@ class ReturnItem(models.Model):
 
     def __str__(self):
         return f'{self.book.name} 반품 × {self.requested_qty}'
+
+
+class InboxMessage(models.Model):
+    class Source(models.TextChoices):
+        EMAIL = 'email', '이메일'
+        SMS   = 'sms',   '문자'
+
+    source       = models.CharField(max_length=10, choices=Source.choices, verbose_name='수신 채널')
+    account_label= models.CharField(max_length=20, blank=True, verbose_name='계정')   # '007bm', '002bm'
+    sender       = models.CharField(max_length=200, verbose_name='발신자')
+    subject      = models.CharField(max_length=500, blank=True, verbose_name='제목')
+    content      = models.TextField(verbose_name='내용')
+    received_at  = models.DateTimeField(verbose_name='수신 시각')
+    is_processed = models.BooleanField(default=False, verbose_name='처리 완료')
+    order        = models.ForeignKey(
+        'Order', null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='inbox_messages', verbose_name='연결 주문'
+    )
+    # 이메일 중복 방지: account_label + IMAP UID
+    imap_key     = models.CharField(max_length=100, null=True, blank=True,
+                                    unique=True, verbose_name='IMAP 키')
+    created_at   = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'inbox_messages'
+        verbose_name = '수신 메시지'
+        verbose_name_plural = '수신 메시지 목록'
+        ordering = ['-received_at']
+
+    def __str__(self):
+        return f'[{self.get_source_display()}] {self.sender} ({self.received_at:%Y-%m-%d %H:%M})'
+
+    @property
+    def preview(self):
+        return self.content[:80].replace('\n', ' ')
 
 
 class Payment(models.Model):

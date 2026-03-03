@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+{% block title %}판매현황{% endblock %}
+
+{% block content %}
+<div class="page-title">판매현황</div>
+
+<form method="get" class="search-bar">
+  <label>시작일</label><input type="date" name="date_from" value="{{ date_from }}">
+  <label>종료일</label><input type="date" name="date_to" value="{{ date_to }}">
+  <button type="submit" class="btn btn-dark btn-sm">조회</button>
+  <a href="{% url 'export_sales' %}?date_from={{ date_from }}&date_to={{ date_to }}" class="btn btn-outline btn-sm">엑셀 저장</a>
+</form>
+
+<div class="content-box" style="padding:8px 12px;margin-bottom:12px;font-weight:bold">
+  합계: <span style="color:#e8720c;font-size:15px">{{ total_amount|floatformat:0 }}원</span>
+  &nbsp;({{ items|length }}건)
+</div>
+
+<div class="content-box">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th style="width:85px">출고일</th>
+        {% if request.user.is_admin %}<th>업체</th>{% endif %}
+        <th>배송지</th>
+        <th>선생님</th>
+        <th>출판사</th>
+        <th>시리즈</th>
+        <th>교재명</th>
+        <th class="center" style="width:50px">수량</th>
+        <th class="right" style="width:80px">정가</th>
+        <th class="center" style="width:55px">공급률</th>
+        <th class="right" style="width:90px">금액</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in items %}
+      <tr>
+        <td>{{ item.order.ordered_at|date:"Y-m-d" }}</td>
+        {% if request.user.is_admin %}<td>{{ item.order.agency.name }}</td>{% endif %}
+        <td>{{ item.order.delivery.name }}</td>
+        <td>{{ item.order.teacher.name }}</td>
+        <td style="font-size:11px">{{ item.book.publisher.name }}</td>
+        <td style="font-size:11px">{{ item.book.series }}</td>
+        <td>{{ item.book.name }}</td>
+        <td class="center">{{ item.quantity }}</td>
+        <td class="right">{{ item.list_price|floatformat:0 }}</td>
+        <td class="center">{{ item.supply_rate }}%</td>
+        <td class="right" style="font-weight:bold">{{ item.amount|floatformat:0 }}원</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="11" class="center" style="padding:20px;color:#888">해당 기간 판매 내역이 없습니다.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

@@ -1,5 +1,6 @@
 from pathlib import Path
 from dotenv import load_dotenv
+import dj_database_url
 import os
 
 load_dotenv()
@@ -27,6 +28,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -63,6 +65,10 @@ DATABASES = {
         'NAME': BASE_DIR / os.environ.get('DB_NAME', 'db.sqlite3'),
     }
 }
+# Railway PostgreSQL (DATABASE_URL 환경변수 있으면 자동 전환)
+_DATABASE_URL = os.environ.get('DATABASE_URL')
+if _DATABASE_URL:
+    DATABASES['default'] = dj_database_url.parse(_DATABASE_URL, conn_max_age=600)
 
 # 커스텀 User 모델
 AUTH_USER_MODEL = 'accounts.User'
@@ -97,10 +103,29 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = '/static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_DIRS = [BASE_DIR / 'static']
+STORAGES = {
+    'staticfiles': {
+        'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage',
+    },
+}
+
+CSRF_TRUSTED_ORIGINS = os.environ.get('CSRF_TRUSTED_ORIGINS', 'http://localhost').split(',')
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 LOGIN_URL = '/login/'
 LOGIN_REDIRECT_URL = '/'
 LOGOUT_REDIRECT_URL = '/login/'
+
+# 알리고 SMS
+ALIGO_API_KEY = os.environ.get('ALIGO_API_KEY', '')
+ALIGO_USER_ID = os.environ.get('ALIGO_USER_ID', '')
+ALIGO_SENDER  = os.environ.get('ALIGO_SENDER', '')
+
+# 네이버 메일 IMAP
+NAVER_EMAIL_1_ID = os.environ.get('NAVER_EMAIL_1_ID', '')
+NAVER_EMAIL_1_PW = os.environ.get('NAVER_EMAIL_1_PW', '')
+NAVER_EMAIL_2_ID = os.environ.get('NAVER_EMAIL_2_ID', '')
+NAVER_EMAIL_2_PW = os.environ.get('NAVER_EMAIL_2_PW', '')

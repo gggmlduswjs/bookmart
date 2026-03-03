@@ -1,4 +1,4 @@
-from orders.models import DeliveryAddress, Order
+from orders.models import DeliveryAddress, Order, Return
 
 
 def get_order_queryset(user):
@@ -10,6 +10,17 @@ def get_order_queryset(user):
     elif user.role == 'teacher':
         return qs.filter(teacher=user)
     return Order.objects.none()
+
+
+def get_return_queryset(user):
+    qs = Return.objects.select_related('agency', 'teacher', 'delivery')
+    if user.role == 'admin':
+        return qs.all()
+    elif user.role == 'agency':
+        return qs.filter(agency=user)
+    elif user.role == 'teacher':
+        return qs.filter(teacher=user)
+    return Return.objects.none()
 
 
 def get_delivery_queryset(user):

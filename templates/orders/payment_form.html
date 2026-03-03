@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+{% block title %}입금 등록{% endblock %}
+
+{% block content %}
+<div class="page-title">입금 등록</div>
+
+<div class="content-box" style="max-width:480px">
+  <form method="post">
+    {% csrf_token %}
+    <table class="form-table">
+      <tr>
+        <th>업체</th>
+        <td>
+          <select name="agency" style="width:220px;padding:3px 6px;border:1px solid #bbb">
+            <option value="">업체 선택</option>
+            {% for a in agencies %}
+            <option value="{{ a.pk }}">{{ a.name }}</option>
+            {% endfor %}
+          </select>
+        </td>
+      </tr>
+      <tr>
+        <th>입금일</th>
+        <td><input type="date" name="paid_at" value="{{ today }}" style="padding:3px 6px;border:1px solid #bbb"></td>
+      </tr>
+      <tr>
+        <th>입금액(원)</th>
+        <td><input type="number" name="amount" min="0" style="width:150px;padding:3px 6px;border:1px solid #bbb" placeholder="0"></td>
+      </tr>
+      <tr>
+        <th>비고</th>
+        <td><input type="text" name="memo" style="width:220px;padding:3px 6px;border:1px solid #bbb" placeholder="메모"></td>
+      </tr>
+    </table>
+    <div style="padding:10px 12px;border-top:1px solid #eee;display:flex;gap:8px">
+      <button type="submit" class="btn btn-orange">등록</button>
+      <a href="{% url 'ledger' %}" class="btn btn-outline">취소</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+{% block title %}반품 거절{% endblock %}
+
+{% block content %}
+<div class="page-title">반품 거절 — {{ ret.return_no }}</div>
+
+<div class="content-box" style="max-width:420px">
+  <form method="post">
+    {% csrf_token %}
+    <table class="form-table">
+      <tr><th>반품번호</th><td>{{ ret.return_no }}</td></tr>
+      <tr><th>배송지</th><td>{{ ret.delivery.name }}</td></tr>
+      <tr>
+        <th>거절 사유</th>
+        <td>
+          <input type="text" name="memo" value="{{ ret.memo }}"
+                 style="width:250px;padding:3px 6px;border:1px solid #bbb" placeholder="거절 사유를 입력하세요">
+        </td>
+      </tr>
+    </table>
+    <div style="padding:10px 12px;border-top:1px solid #eee;display:flex;gap:8px">
+      <button type="submit" class="btn btn-red">거절 확정</button>
+      <a href="{% url 'return_detail' ret.pk %}" class="btn btn-outline">취소</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

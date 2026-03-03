@@ -1,0 +1,211 @@
+{% extends 'base.html' %}
+{% block title %}주문 처리 — 수신함{% endblock %}
+
+{% block extra_css %}
+<style>
+  .inbox-split { display: flex; gap: 14px; align-items: flex-start; }
+  .inbox-msg-box {
+    width: 340px; flex-shrink: 0;
+    background: #fff; border: 1px solid #ccc;
+    display: flex; flex-direction: column;
+    max-height: calc(100vh - 100px);
+  }
+  .inbox-msg-header {
+    background: #555; color: #fff;
+    padding: 8px 12px; font-size: 12px;
+  }
+  .inbox-msg-header .badge { margin-right: 6px; }
+  .inbox-msg-meta { padding: 8px 12px; border-bottom: 1px solid #eee; font-size: 11px; color: #666; }
+  .inbox-msg-meta strong { color: #333; }
+  .inbox-msg-body {
+    padding: 10px 12px; font-size: 12px; line-height: 1.7;
+    overflow-y: auto; flex: 1; white-space: pre-wrap; word-break: break-all;
+  }
+  .order-row-wrap select, .order-row-wrap input[type=number] {
+    padding: 3px 5px; border: 1px solid #bbb;
+    font-size: 12px; font-family: inherit; height: 26px;
+  }
+  .order-row-wrap select { width: 100%; }
+  .order-row-wrap input[type=number] { width: 60px; text-align: center; }
+  select:disabled { background: #f0f0f0; color: #999; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-title">
+  주문 처리
+  <a href="{% url 'inbox_list' %}" class="btn btn-gray btn-sm">← 수신함</a>
+</div>
+
+<div class="inbox-split">
+
+  <!-- 왼쪽: 받은 메시지 -->
+  <div class="inbox-msg-box">
+    <div class="inbox-msg-header">
+      {% if inbox_msg.source == 'email' %}
+      <span class="badge badge-blue">메일</span>{{ inbox_msg.account_label }}
+      {% else %}
+      <span class="badge badge-orange">문자</span>
+      {% endif %}
+      {{ inbox_msg.received_at|date:"m/d H:i" }}
+    </div>
+    <div class="inbox-msg-meta">
+      <div><strong>발신:</strong> {{ inbox_msg.sender }}</div>
+      {% if inbox_msg.subject %}<div><strong>제목:</strong> {{ inbox_msg.subject }}</div>{% endif %}
+    </div>
+    <div class="inbox-msg-body">{{ inbox_msg.content }}</div>
+
+    <!-- 건너뛰기 -->
+    <div style="padding:8px 12px;border-top:1px solid #eee">
+      <form method="post">
+        {% csrf_token %}
+        <button type="submit" name="skip" value="1" class="btn btn-gray btn-sm" style="width:100%"
+                onclick="return confirm('이 메시지를 처리 완료로 표시하고 건너뛰시겠습니까?')">
+          건너뛰기 (주문 없음)
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- 오른쪽: 주문 입력 폼 -->
+  <div style="flex:1">
+    <form method="post" x-data="inboxOrderForm()">
+      {% csrf_token %}
+
+      <div class="content-box" style="padding:12px 14px;margin-bottom:10px">
+        <table class="form-table">
+          <tr>
+            <th>업체</th>
+            <td>
+              <select x-model="selectedAgency" @change="selectedTeacher='';deliveryName=''"
+                      style="width:200px;padding:3px 6px;border:1px solid #bbb;font-size:12px">
+                <option value="">-- 업체 선택 --</option>
+                {% for a in agencies %}
+                <option value="{{ a.pk }}">{{ a.name }}</option>
+                {% endfor %}
+              </select>
+            </td>
+          </tr>
+          <tr>
+            <th>선생님</th>
+            <td>
+              <select x-model="selectedTeacher" @change="updateDelivery" :disabled="!selectedAgency"
+                      style="width:200px;padding:3px 6px;border:1px solid #bbb;font-size:12px">
+                <option value="">-- 선생님 선택 --</option>
+                <template x-for="t in filteredTeachers" :key="t.id">
+                  <option :value="t.id" x-text="t.name + ' (' + t.delivery_name + ')'"></option>
+                </template>
+              </select>
+              <input type="hidden" name="teacher_id" :value="selectedTeacher">
+            </td>
+          </tr>
+          <tr>
+            <th>배송지</th>
+            <td>
+              <span x-show="deliveryName" x-text="deliveryName" style="font-weight:bold"></span>
+              <span x-show="!deliveryName" style="color:#aaa">선생님 선택 시 자동 표시</span>
+            </td>
+          </tr>
+        </table>
+      </div>
+
+      <div class="order-row-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th style="width:28%">시리즈</th>
+              <th style="width:34%">교재</th>
+              <th class="right" style="width:80px">단가</th>
+              <th class="center" style="width:65px">수량</th>
+              <th class="right" style="width:80px">금액</th>
+              <th style="width:28px"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-for="(row, index) in rows" :key="index">
+              <tr>
+                <td>
+                  <select x-model="row.series" @change="row.book_id='';row.unit_price=0">
+                    <option value="">시리즈</option>
+                    {% for s in series_list %}
+                    <option value="{{ s }}">{{ s }}</option>
+                    {% endfor %}
+                  </select>
+                </td>
+                <td>
+                  <select x-model="row.book_id" @change="updatePrice(row)">
+                    <option value="">교재</option>
+                    <template x-for="b in getBooks(row.series)" :key="b.id">
+                      <option :value="b.id" x-text="b.name"></option>
+                    </template>
+                  </select>
+                  <input type="hidden" :name="'book_' + index" :value="row.book_id">
+                </td>
+                <td class="right"><span x-text="row.unit_price ? row.unit_price.toLocaleString()+'원' : '-'" style="color:#666;font-size:11px"></span></td>
+                <td class="center">
+                  <input type="number" :name="'qty_' + index" x-model.number="row.qty" min="1" max="9999">
+                </td>
+                <td class="right" style="font-weight:bold;font-size:11px">
+                  <span x-text="rowAmount(row) ? rowAmount(row).toLocaleString()+'원' : '-'"></span>
+                </td>
+                <td class="center">
+                  <button type="button" class="btn btn-sm btn-red" @click="rows.splice(index,1)"
+                          x-show="rows.length>1" style="padding:1px 5px">✕</button>
+                </td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="order-total-bar">
+        <button type="button" class="btn btn-outline btn-sm" @click="addRow" style="float:left">+ 행 추가</button>
+        합계: <span x-text="total().toLocaleString()" style="font-size:15px;color:#e8720c"></span>원
+      </div>
+
+      <div style="margin-top:8px;display:flex;align-items:center;gap:8px">
+        <label style="white-space:nowrap;background:#777;color:#fff;padding:3px 8px;font-size:12px">메모</label>
+        <input type="text" name="memo" style="flex:1;padding:4px 8px;border:1px solid #bbb;font-size:12px" placeholder="특이사항">
+      </div>
+
+      <div style="margin-top:10px">
+        <button type="button" class="btn btn-orange" @click="submitOrder" style="padding:6px 28px">주문 등록</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const BOOKS = {{ books_json|safe }};
+const ALL_TEACHERS = {{ teachers_json|safe }};
+
+function inboxOrderForm() {
+  return {
+    selectedAgency: '',
+    selectedTeacher: '',
+    deliveryName: '',
+    rows: [{ series: '', book_id: '', qty: 1, unit_price: 0 }],
+
+    get filteredTeachers() {
+      return ALL_TEACHERS.filter(t => String(t.agency_id) === String(this.selectedAgency));
+    },
+    updateDelivery() {
+      const t = ALL_TEACHERS.find(t => String(t.id) === String(this.selectedTeacher));
+      this.deliveryName = t ? t.delivery_name : '';
+    },
+    getBooks(series) { return series ? BOOKS.filter(b => b.series === series) : []; },
+    updatePrice(row) { const b = BOOKS.find(b => b.id == row.book_id); row.unit_price = b ? b.unit_price : 0; },
+    rowAmount(row) { return (row.book_id && row.qty) ? row.unit_price * row.qty : 0; },
+    total() { return this.rows.reduce((s, r) => s + this.rowAmount(r), 0); },
+    addRow() { this.rows.push({ series: '', book_id: '', qty: 1, unit_price: 0 }); },
+    submitOrder() {
+      if (!this.selectedTeacher) { alert('선생님을 선택하세요.'); return; }
+      if (!this.rows.some(r => r.book_id && r.qty > 0)) { alert('교재를 선택하세요.'); return; }
+      this.$el.closest('form').submit();
+    },
+  }
+}
+</script>
+{% endblock %}

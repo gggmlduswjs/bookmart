@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+{% block title %}출판사 관리{% endblock %}
+
+{% block content %}
+<div class="page-title">
+  출판사 관리
+  <a href="{% url 'publisher_create' %}" class="btn btn-orange btn-sm">+ 출판사 등록</a>
+</div>
+
+<div class="content-box">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>출판사명</th>
+        <th class="center" style="width:100px">공급률</th>
+        <th class="center" style="width:60px">상태</th>
+        <th style="width:60px"></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in publishers %}
+      <tr>
+        <td>{{ p.name }}</td>
+        <td class="center">{{ p.supply_rate }}%</td>
+        <td class="center">
+          {% if p.is_active %}<span class="badge badge-green">활성</span>
+          {% else %}<span class="badge badge-gray">비활성</span>{% endif %}
+        </td>
+        <td class="center">
+          <a href="{% url 'publisher_edit' p.pk %}" class="btn btn-sm btn-outline">수정</a>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="4" class="center" style="padding:20px;color:#888">등록된 출판사가 없습니다.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

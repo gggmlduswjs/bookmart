@@ -4,55 +4,469 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}북마트 주문시스템{% endblock %}</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js"></script>
   <style>
-    body { background: #f8f9fa; }
-    .navbar-brand { font-weight: 700; letter-spacing: -0.5px; }
-    .badge-admin { background: #dc3545; }
-    .badge-agency { background: #0d6efd; }
-    .badge-teacher { background: #198754; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Malgun Gothic', '맑은 고딕', dotum, sans-serif;
+      font-size: 13px;
+      background: #e8e8e8;
+      color: #333;
+    }
+
+    a { color: #1155cc; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* ── 사이드바 ── */
+    #sidebar {
+      position: fixed;
+      top: 0; left: 0; bottom: 0;
+      width: 148px;
+      background: #f5f5f5;
+      border-right: 1px solid #ccc;
+      z-index: 200;
+    }
+
+    #logo {
+      background: #fff;
+      border-bottom: 1px solid #ccc;
+      padding: 12px 10px;
+      text-align: center;
+      font-size: 18px;
+      font-weight: bold;
+      color: #e8720c;
+      letter-spacing: -1px;
+      line-height: 1.2;
+    }
+    #logo span { display: block; font-size: 11px; color: #888; font-weight: normal; margin-top: 2px; }
+
+    .sidebar-section {
+      padding: 10px 0 6px 12px;
+      font-weight: bold;
+      font-size: 12px;
+      color: #444;
+    }
+    .sidebar-section::before { content: "⊙ "; color: #e8720c; }
+
+    .sidebar-menu a {
+      display: block;
+      padding: 5px 10px 5px 20px;
+      font-size: 12px;
+      color: #555;
+    }
+    .sidebar-menu a::before { content: "- "; }
+    .sidebar-menu a:hover, .sidebar-menu a.active { color: #e8720c; text-decoration: none; font-weight: bold; }
+
+    /* ── 상단 탭 바 ── */
+    #topbar {
+      position: fixed;
+      top: 0; left: 148px; right: 0;
+      height: 38px;
+      background: #555;
+      display: flex;
+      align-items: stretch;
+      z-index: 100;
+    }
+
+    .tab-item {
+      display: flex;
+      align-items: center;
+      padding: 0 22px;
+      color: #ccc;
+      font-size: 13px;
+      cursor: pointer;
+      text-decoration: none;
+      border-right: 1px solid #666;
+    }
+    .tab-item:hover { background: #666; color: #fff; text-decoration: none; }
+    .tab-item.active { background: #e8720c; color: #fff; font-weight: bold; }
+
+    .topbar-user {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      padding: 0 14px;
+      color: #ccc;
+      font-size: 12px;
+      gap: 8px;
+    }
+    .topbar-user a { color: #ffcc99; font-size: 11px; }
+    .topbar-user a:hover { color: #fff; }
+
+    /* ── 본문 ── */
+    #content {
+      margin-left: 148px;
+      margin-top: 38px;
+      min-height: calc(100vh - 38px - 30px);
+      padding: 14px 16px;
+    }
+
+    /* ── 페이지 제목 ── */
+    .page-title {
+      font-size: 15px;
+      font-weight: bold;
+      border-left: 4px solid #e8720c;
+      padding-left: 8px;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .page-title .subtitle {
+      font-size: 12px;
+      font-weight: normal;
+      color: #555;
+    }
+
+    /* ── 알림 ── */
+    .msg-box {
+      padding: 7px 12px;
+      margin-bottom: 10px;
+      font-size: 12px;
+      border: 1px solid;
+      border-radius: 2px;
+    }
+    .msg-success { background: #dff0d8; border-color: #b2dfb2; color: #3c763d; }
+    .msg-error   { background: #ffd7d7; border-color: #f5a5a5; color: #a94442; }
+    .msg-warning { background: #fff3cd; border-color: #ffc107; color: #856404; }
+    .msg-info    { background: #d9edf7; border-color: #bce8f1; color: #31708f; }
+
+    /* ── 공통 박스 ── */
+    .content-box {
+      background: #fff;
+      border: 1px solid #ccc;
+      margin-bottom: 12px;
+    }
+
+    /* ── 필터/검색 박스 ── */
+    .search-bar {
+      background: #f9f9f9;
+      border: 1px solid #ccc;
+      padding: 8px 12px;
+      margin-bottom: 12px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+    }
+    .search-bar label {
+      background: #777;
+      color: #fff;
+      padding: 3px 8px;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+    .search-bar select, .search-bar input[type=text], .search-bar input[type=date] {
+      padding: 3px 6px;
+      border: 1px solid #bbb;
+      font-size: 12px;
+      height: 26px;
+    }
+
+    /* ── 테이블 ── */
+    table.data-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+    table.data-table th {
+      background: #666;
+      color: #fff;
+      padding: 6px 8px;
+      text-align: center;
+      border: 1px solid #555;
+      white-space: nowrap;
+    }
+    table.data-table td {
+      padding: 5px 8px;
+      border: 1px solid #ddd;
+      vertical-align: middle;
+      background: #fff;
+    }
+    table.data-table tr:nth-child(even) td { background: #fafafa; }
+    table.data-table tr:hover td { background: #fff8f0; }
+    table.data-table td.center { text-align: center; }
+    table.data-table td.right { text-align: right; }
+
+    /* ── 폼 테이블 ── */
+    table.form-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    table.form-table th {
+      background: #777;
+      color: #fff;
+      padding: 6px 10px;
+      text-align: center;
+      width: 120px;
+      border: 1px solid #666;
+      white-space: nowrap;
+    }
+    table.form-table td {
+      padding: 6px 10px;
+      border: 1px solid #ddd;
+      background: #fff;
+    }
+    table.form-table input[type=text],
+    table.form-table input[type=password],
+    table.form-table select {
+      padding: 3px 6px;
+      border: 1px solid #bbb;
+      font-size: 12px;
+      width: 220px;
+    }
+
+    /* ── 버튼 ── */
+    .btn {
+      display: inline-block;
+      padding: 5px 16px;
+      font-size: 12px;
+      cursor: pointer;
+      border: none;
+      border-radius: 2px;
+      text-decoration: none;
+    }
+    .btn:hover { opacity: 0.85; text-decoration: none; }
+    .btn-orange { background: #e8720c; color: #fff; }
+    .btn-gray   { background: #888; color: #fff; }
+    .btn-dark   { background: #555; color: #fff; }
+    .btn-outline { background: #fff; color: #555; border: 1px solid #999; }
+    .btn-red    { background: #cc3333; color: #fff; }
+    .btn-sm { padding: 3px 10px; font-size: 11px; }
+
+    /* ── 인풋 공통 ── */
+    input[type=text], input[type=password], input[type=number], input[type=date], select, textarea {
+      font-family: inherit;
+      font-size: 12px;
+    }
+
+    /* ── 자격증명 박스 ── */
+    .credential-box {
+      background: #fff8f0;
+      border: 2px solid #e8720c;
+      padding: 16px 20px;
+      max-width: 440px;
+    }
+    .credential-box .warn {
+      color: #cc3300;
+      font-size: 12px;
+      margin-bottom: 10px;
+    }
+    .credential-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 6px 0;
+      font-size: 13px;
+    }
+    .credential-row .label { background: #777; color: #fff; padding: 3px 8px; min-width: 80px; text-align: center; }
+    .credential-row .value { font-weight: bold; font-size: 15px; }
+
+    /* ── 주문 입력 폼 ── */
+    .order-row-wrap { background: #fff; border: 1px solid #ccc; }
+    .order-total-bar {
+      background: #f0f0f0;
+      border: 1px solid #ccc;
+      border-top: none;
+      padding: 6px 10px;
+      text-align: right;
+      font-weight: bold;
+    }
+
+    /* ── 배지 ── */
+    .badge {
+      display: inline-block;
+      padding: 2px 7px;
+      font-size: 11px;
+      border-radius: 2px;
+      color: #fff;
+    }
+    .badge-blue   { background: #1a73e8; }
+    .badge-orange { background: #e8720c; }
+    .badge-green  { background: #2e7d32; }
+    .badge-gray   { background: #888; }
+
+    /* ── 푸터 ── */
+    #footer {
+      margin-left: 148px;
+      background: #ddd;
+      border-top: 1px solid #bbb;
+      text-align: center;
+      padding: 6px;
+      font-size: 11px;
+      color: #666;
+    }
   </style>
   {% block extra_css %}{% endblock %}
 </head>
 <body>
 
 {% if user.is_authenticated %}
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-  <div class="container-fluid px-4">
-    <a class="navbar-brand" href="/">📚 북마트</a>
-    <div class="navbar-nav ms-auto align-items-center gap-2">
-      {% if user.is_admin %}
-        <a class="nav-link" href="{% url 'agency_list' %}">업체 관리</a>
-        <a class="nav-link" href="{% url 'book_list' %}">교재 관리</a>
-        <a class="nav-link" href="{% url 'order_list' %}">주문현황</a>
-      {% elif user.is_agency %}
-        <a class="nav-link" href="{% url 'delivery_list' %}">학교 관리</a>
-        <a class="nav-link" href="{% url 'teacher_list' %}">선생님 관리</a>
-        <a class="nav-link" href="{% url 'order_list' %}">주문현황</a>
-      {% elif user.is_teacher %}
-        <a class="nav-link" href="{% url 'order_create' %}">주문 입력</a>
-        <a class="nav-link" href="{% url 'order_list' %}">내 주문</a>
-      {% endif %}
-      <span class="text-white-50 small">{{ user.name }}</span>
-      <a class="btn btn-sm btn-outline-light" href="{% url 'logout' %}">로그아웃</a>
-    </div>
+{% with cur=request.resolver_match.url_name %}
+
+<!-- 사이드바 -->
+<div id="sidebar">
+  <div id="logo">북마트<span>주문관리시스템</span></div>
+
+  {% if user.is_admin %}
+    {# 업체관리 탭 #}
+    {% if cur == 'agency_list' or cur == 'agency_create' or cur == 'agency_toggle' %}
+      <div class="sidebar-section">업체관리</div>
+      <div class="sidebar-menu">
+        <a href="{% url 'agency_list' %}" class="{% if cur == 'agency_list' %}active{% endif %}">업체 목록</a>
+        <a href="{% url 'agency_create' %}" class="{% if cur == 'agency_create' %}active{% endif %}">업체 추가</a>
+      </div>
+    {# 주문/반품 탭 #}
+    {% elif cur == 'order_list' or cur == 'order_detail' or cur == 'order_ship' or cur == 'order_deliver' or cur == 'order_cancel' or cur == 'order_create_admin' or cur == 'return_list' or cur == 'return_detail' or cur == 'return_confirm' or cur == 'return_reject' or cur == 'inbox_list' or cur == 'inbox_process' %}
+      <div class="sidebar-section">주문/반품</div>
+      <div class="sidebar-menu">
+        <a href="{% url 'inbox_list' %}" class="{% if cur == 'inbox_list' or cur == 'inbox_process' %}active{% endif %}">수신함</a>
+        <a href="{% url 'order_list' %}" class="{% if cur == 'order_list' or cur == 'order_detail' or cur == 'order_ship' or cur == 'order_deliver' %}active{% endif %}">주문현황</a>
+        <a href="{% url 'order_create_admin' %}" class="{% if cur == 'order_create_admin' %}active{% endif %}">주문 입력</a>
+        <a href="{% url 'return_list' %}" class="{% if cur == 'return_list' or cur == 'return_detail' or cur == 'return_confirm' or cur == 'return_reject' %}active{% endif %}">반품현황</a>
+      </div>
+    {# 교재관리 탭 #}
+    {% elif cur == 'book_list' or cur == 'book_create' or cur == 'book_edit' or cur == 'book_toggle' or cur == 'publisher_list' or cur == 'publisher_create' or cur == 'publisher_edit' or cur == 'purchase_order' or cur == 'export_purchase' %}
+      <div class="sidebar-section">교재관리</div>
+      <div class="sidebar-menu">
+        <a href="{% url 'book_list' %}" class="{% if cur == 'book_list' or cur == 'book_create' or cur == 'book_edit' or cur == 'book_toggle' %}active{% endif %}">교재 목록</a>
+        <a href="{% url 'publisher_list' %}" class="{% if cur == 'publisher_list' or cur == 'publisher_create' or cur == 'publisher_edit' %}active{% endif %}">출판사 관리</a>
+        <a href="{% url 'purchase_order' %}" class="{% if cur == 'purchase_order' or cur == 'export_purchase' %}active{% endif %}">발주 집계</a>
+      </div>
+    {# 정산관리 탭 #}
+    {% elif cur == 'ledger' or cur == 'sales_report' or cur == 'payment_create' or cur == 'export_ledger' or cur == 'export_sales' %}
+      <div class="sidebar-section">정산관리</div>
+      <div class="sidebar-menu">
+        <a href="{% url 'ledger' %}" class="{% if cur == 'ledger' or cur == 'export_ledger' %}active{% endif %}">거래내역</a>
+        <a href="{% url 'sales_report' %}" class="{% if cur == 'sales_report' or cur == 'export_sales' %}active{% endif %}">판매현황</a>
+        <a href="{% url 'payment_create' %}" class="{% if cur == 'payment_create' %}active{% endif %}">입금 등록</a>
+      </div>
+    {# 기타 (credential 등) — 기본: 주문/반품 #}
+    {% else %}
+      <div class="sidebar-section">주문/반품</div>
+      <div class="sidebar-menu">
+        <a href="{% url 'order_list' %}">주문현황</a>
+        <a href="{% url 'return_list' %}">반품현황</a>
+      </div>
+    {% endif %}
+
+  {% elif user.is_agency %}
+    {# 주문/반품 탭 #}
+    {% if cur == 'order_list' or cur == 'order_detail' or cur == 'order_cancel' or cur == 'return_list' or cur == 'return_detail' %}
+      <div class="sidebar-section">주문/반품</div>
+      <div class="sidebar-menu">
+        <a href="{% url 'order_list' %}" class="{% if cur == 'order_list' or cur == 'order_detail' %}active{% endif %}">주문현황</a>
+        <a href="{% url 'return_list' %}" class="{% if cur == 'return_list' or cur == 'return_detail' %}active{% endif %}">반품현황</a>
+      </div>
+    {# 학교관리 탭 #}
+    {% elif cur == 'delivery_list' or cur == 'delivery_create' %}
+      <div class="sidebar-section">학교관리</div>
+      <div class="sidebar-menu">
+        <a href="{% url 'delivery_list' %}" class="{% if cur == 'delivery_list' %}active{% endif %}">학교 목록</a>
+        <a href="{% url 'delivery_create' %}" class="{% if cur == 'delivery_create' %}active{% endif %}">학교 등록</a>
+      </div>
+    {# 선생님관리 탭 #}
+    {% elif cur == 'teacher_list' or cur == 'teacher_create' or cur == 'teacher_reset_password' or cur == 'teacher_toggle' %}
+      <div class="sidebar-section">선생님관리</div>
+      <div class="sidebar-menu">
+        <a href="{% url 'teacher_list' %}" class="{% if cur == 'teacher_list' %}active{% endif %}">선생님 목록</a>
+        <a href="{% url 'teacher_create' %}" class="{% if cur == 'teacher_create' %}active{% endif %}">선생님 등록</a>
+      </div>
+    {# 거래내역 탭 #}
+    {% elif cur == 'ledger' or cur == 'export_ledger' %}
+      <div class="sidebar-section">거래내역</div>
+      <div class="sidebar-menu">
+        <a href="{% url 'ledger' %}" class="active">거래내역</a>
+      </div>
+    {% else %}
+      <div class="sidebar-section">주문/반품</div>
+      <div class="sidebar-menu">
+        <a href="{% url 'order_list' %}">주문현황</a>
+        <a href="{% url 'return_list' %}">반품현황</a>
+      </div>
+    {% endif %}
+
+  {% elif user.is_teacher %}
+    {# 도서주문 탭 #}
+    {% if cur == 'order_create' %}
+      <div class="sidebar-section">도서주문</div>
+      <div class="sidebar-menu">
+        <a href="{% url 'order_create' %}" class="active">주문 입력</a>
+      </div>
+    {# 반품신청 탭 #}
+    {% elif cur == 'return_create' %}
+      <div class="sidebar-section">반품신청</div>
+      <div class="sidebar-menu">
+        <a href="{% url 'return_create' %}" class="active">반품 입력</a>
+      </div>
+    {# 현황 탭 #}
+    {% else %}
+      <div class="sidebar-section">현황</div>
+      <div class="sidebar-menu">
+        <a href="{% url 'order_list' %}" class="{% if cur == 'order_list' or cur == 'order_detail' %}active{% endif %}">주문현황</a>
+        <a href="{% url 'return_list' %}" class="{% if cur == 'return_list' or cur == 'return_detail' %}active{% endif %}">반품현황</a>
+      </div>
+    {% endif %}
+  {% endif %}
+</div>
+
+<!-- 상단 탭 -->
+<div id="topbar">
+  {% if user.is_admin %}
+    <a href="{% url 'agency_list' %}"
+       class="tab-item {% if cur == 'agency_list' or cur == 'agency_create' or cur == 'agency_toggle' %}active{% endif %}">업체관리</a>
+    <a href="{% url 'order_list' %}"
+       class="tab-item {% if cur == 'order_list' or cur == 'order_detail' or cur == 'order_ship' or cur == 'order_deliver' or cur == 'order_cancel' or cur == 'order_create_admin' or cur == 'return_list' or cur == 'return_detail' or cur == 'return_confirm' or cur == 'return_reject' or cur == 'inbox_list' or cur == 'inbox_process' %}active{% endif %}">주문/반품</a>
+    <a href="{% url 'book_list' %}"
+       class="tab-item {% if cur == 'book_list' or cur == 'book_create' or cur == 'book_edit' or cur == 'publisher_list' or cur == 'publisher_create' or cur == 'publisher_edit' or cur == 'purchase_order' %}active{% endif %}">교재관리</a>
+    <a href="{% url 'ledger' %}"
+       class="tab-item {% if cur == 'ledger' or cur == 'sales_report' or cur == 'payment_create' %}active{% endif %}">정산관리</a>
+  {% elif user.is_agency %}
+    <a href="{% url 'order_list' %}"
+       class="tab-item {% if cur == 'order_list' or cur == 'order_detail' or cur == 'order_cancel' or cur == 'return_list' or cur == 'return_detail' %}active{% endif %}">주문/반품</a>
+    <a href="{% url 'delivery_list' %}"
+       class="tab-item {% if cur == 'delivery_list' or cur == 'delivery_create' %}active{% endif %}">학교관리</a>
+    <a href="{% url 'teacher_list' %}"
+       class="tab-item {% if cur == 'teacher_list' or cur == 'teacher_create' or cur == 'teacher_reset_password' %}active{% endif %}">선생님관리</a>
+    <a href="{% url 'ledger' %}"
+       class="tab-item {% if cur == 'ledger' %}active{% endif %}">거래내역</a>
+  {% elif user.is_teacher %}
+    <a href="{% url 'order_create' %}"
+       class="tab-item {% if cur == 'order_create' %}active{% endif %}">도서주문</a>
+    <a href="{% url 'return_create' %}"
+       class="tab-item {% if cur == 'return_create' %}active{% endif %}">반품신청</a>
+    <a href="{% url 'order_list' %}"
+       class="tab-item {% if cur == 'order_list' or cur == 'order_detail' or cur == 'return_list' or cur == 'return_detail' %}active{% endif %}">현황</a>
+  {% endif %}
+
+  <div class="topbar-user">
+    [{{ user.name }}] 님 어서오세요 &nbsp;::&nbsp;
+    <a href="{% url 'password_change' %}">비밀번호변경</a> ::
+    <a href="{% url 'logout' %}">로그아웃</a>
   </div>
-</nav>
+</div>
+
+{% endwith %}
 {% endif %}
 
-<div class="container-fluid px-4 py-4" style="max-width: 1200px;">
+<!-- 본문 -->
+<div id="content">
   {% for message in messages %}
-  <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show" role="alert">
-    {{ message }}
-    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-  </div>
+    {% if 'error' in message.tags %}
+      <div class="msg-box msg-error">{{ message }}</div>
+    {% elif 'success' in message.tags %}
+      <div class="msg-box msg-success">{{ message }}</div>
+    {% elif 'warning' in message.tags %}
+      <div class="msg-box msg-warning">{{ message }}</div>
+    {% else %}
+      <div class="msg-box msg-info">{{ message }}</div>
+    {% endif %}
   {% endfor %}
 
   {% block content %}{% endblock %}
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<!-- 푸터 -->
+<div id="footer">Copyright &copy; 북마트 All Rights Reserved.</div>
+
 {% block extra_js %}{% endblock %}
 </body>
 </html>

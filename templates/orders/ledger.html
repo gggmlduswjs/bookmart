@@ -1,0 +1,93 @@
+{% extends 'base.html' %}
+{% block title %}거래내역{% endblock %}
+
+{% block content %}
+<div class="page-title">거래내역</div>
+
+<!-- 필터 -->
+<form method="get" class="search-bar">
+  {% if request.user.is_admin %}
+  <label>업체</label>
+  <select name="agency">
+    {% for a in agencies %}
+    <option value="{{ a.pk }}" {% if a.pk|stringformat:"s" == agency_id %}selected{% endif %}>{{ a.name }}</option>
+    {% endfor %}
+  </select>
+  {% endif %}
+  <label>년도</label>
+  <select name="year">
+    {% for y in years %}<option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}년</option>{% endfor %}
+  </select>
+  <label>월</label>
+  <select name="month" style="width:60px">
+    {% for m in months %}<option value="{{ m }}" {% if m == month %}selected{% endif %}>{{ m }}월</option>{% endfor %}
+  </select>
+  <button type="submit" class="btn btn-dark btn-sm">조회</button>
+  {% if request.user.is_admin and selected_agency %}
+  <a href="{% url 'export_ledger' %}?agency={{ agency_id }}&year={{ year }}&month={{ month }}"
+     class="btn btn-outline btn-sm">엑셀 저장</a>
+  <a href="{% url 'payment_create' %}" class="btn btn-orange btn-sm">+ 입금 등록</a>
+  {% endif %}
+</form>
+
+{% if selected_agency %}
+<!-- 집계 요약 -->
+<div style="display:flex;gap:8px;margin-bottom:12px">
+  <div class="content-box" style="flex:1;padding:10px 14px;text-align:center">
+    <div style="font-size:11px;color:#888;margin-bottom:4px">매출 누계</div>
+    <div style="font-size:16px;font-weight:bold">{{ total_sales|floatformat:0 }}원</div>
+  </div>
+  <div class="content-box" style="flex:1;padding:10px 14px;text-align:center">
+    <div style="font-size:11px;color:#888;margin-bottom:4px">반품 누계</div>
+    <div style="font-size:16px;font-weight:bold">{{ total_returns|floatformat:0 }}원</div>
+  </div>
+  <div class="content-box" style="flex:1;padding:10px 14px;text-align:center">
+    <div style="font-size:11px;color:#888;margin-bottom:4px">입금 누계</div>
+    <div style="font-size:16px;font-weight:bold">{{ total_paid|floatformat:0 }}원</div>
+  </div>
+  <div class="content-box" style="flex:1;padding:10px 14px;text-align:center">
+    <div style="font-size:11px;color:#888;margin-bottom:4px">채권 잔액</div>
+    <div style="font-size:16px;font-weight:bold;{% if balance > 0 %}color:#cc3333{% endif %}">{{ balance|floatformat:0 }}원</div>
+  </div>
+</div>
+
+<!-- 거래 내역 -->
+<div class="content-box">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th style="width:85px">날짜</th>
+        <th style="width:50px">구분</th>
+        <th>배송지</th>
+        <th>출판사</th>
+        <th>교재명</th>
+        <th class="center" style="width:50px">수량</th>
+        <th class="right" style="width:80px">정가</th>
+        <th class="center" style="width:50px">공급률</th>
+        <th class="right" style="width:90px">금액</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+      <tr {% if row.type == '반품' %}style="color:#cc3333"{% endif %}>
+        <td>{{ row.date }}</td>
+        <td class="center">
+          {% if row.type == '매출' %}<span class="badge badge-blue">매출</span>
+          {% else %}<span class="badge badge-orange">반품</span>{% endif %}
+        </td>
+        <td>{{ row.delivery }}</td>
+        <td style="font-size:11px">{{ row.publisher }}</td>
+        <td>{{ row.book }}</td>
+        <td class="center">{{ row.qty }}</td>
+        <td class="right">{{ row.list_price|floatformat:0 }}</td>
+        <td class="center">{{ row.supply_rate }}%</td>
+        <td class="right" style="font-weight:bold">{{ row.amount|floatformat:0 }}원</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="9" class="center" style="padding:20px;color:#888">해당 월 거래 내역이 없습니다.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+{% endblock %}

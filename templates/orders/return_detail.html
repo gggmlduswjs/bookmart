@@ -1,0 +1,68 @@
+{% extends 'base.html' %}
+{% block title %}반품 상세 — {{ ret.return_no }}{% endblock %}
+
+{% block content %}
+<div class="page-title">
+  반품 상세
+  <a href="{% url 'return_list' %}" class="btn btn-gray btn-sm">← 목록</a>
+</div>
+
+<div style="display:flex;gap:12px;align-items:flex-start">
+  <div class="content-box" style="width:260px;flex-shrink:0">
+    <table class="form-table" style="width:100%">
+      <tr><th style="width:80px">반품번호</th><td style="font-size:11px">{{ ret.return_no }}</td></tr>
+      <tr><th>배송지</th><td><strong>{{ ret.delivery.name }}</strong></td></tr>
+      <tr><th>선생님</th><td>{{ ret.teacher.name }}</td></tr>
+      {% if request.user.is_admin %}<tr><th>업체</th><td>{{ ret.agency.name }}</td></tr>{% endif %}
+      <tr>
+        <th>상태</th>
+        <td>
+          {% if ret.status == 'requested' %}<span class="badge badge-blue">신청</span>
+          {% elif ret.status == 'confirmed' %}<span class="badge badge-green">확정</span>
+          {% elif ret.status == 'rejected' %}<span class="badge badge-gray">거절</span>{% endif %}
+        </td>
+      </tr>
+      <tr><th>신청일시</th><td style="font-size:11px">{{ ret.requested_at|date:"Y-m-d H:i" }}</td></tr>
+      {% if ret.confirmed_at %}<tr><th>확정일시</th><td style="font-size:11px">{{ ret.confirmed_at|date:"Y-m-d H:i" }}</td></tr>{% endif %}
+      {% if ret.memo %}<tr><th>메모</th><td>{{ ret.memo }}</td></tr>{% endif %}
+    </table>
+
+    {% if can_confirm %}
+    <div style="padding:10px;border-top:1px solid #eee;display:flex;flex-direction:column;gap:6px">
+      <a href="{% url 'return_confirm' ret.pk %}" class="btn btn-orange" style="text-align:center">확정 처리</a>
+      <a href="{% url 'return_reject' ret.pk %}" class="btn btn-red" style="text-align:center">거절 처리</a>
+    </div>
+    {% endif %}
+  </div>
+
+  <div style="flex:1">
+    <div class="content-box">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>교재명</th><th>출판사</th>
+            <th class="right" style="width:80px">단가</th>
+            <th class="center" style="width:70px">요청수량</th>
+            <th class="center" style="width:70px">확정수량</th>
+            <th class="right" style="width:90px">확정금액</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in items %}
+          <tr>
+            <td>{{ item.book.name }}</td>
+            <td style="color:#888;font-size:11px">{{ item.book.publisher.name }}</td>
+            <td class="right">{{ item.unit_price|floatformat:0 }}원</td>
+            <td class="center">{{ item.requested_qty }}</td>
+            <td class="center">{{ item.confirmed_qty|default:'-' }}</td>
+            <td class="right" style="font-weight:bold">
+              {% if item.confirmed_amount %}{{ item.confirmed_amount|floatformat:0 }}원{% else %}-{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

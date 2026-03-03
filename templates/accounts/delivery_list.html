@@ -2,30 +2,34 @@
 {% block title %}학교 관리{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3">
-  <h5 class="fw-bold mb-0">학교(배송지) 관리</h5>
-  <a href="{% url 'delivery_create' %}" class="btn btn-primary btn-sm">+ 학교 등록</a>
+<div class="page-title">
+  학교(배송지) 관리
+  <a href="{% url 'delivery_create' %}" class="btn btn-orange btn-sm">+ 학교 등록</a>
 </div>
 
-<div class="card shadow-sm">
-  <div class="table-responsive">
-    <table class="table table-hover mb-0">
-      <thead class="table-dark">
-        <tr><th>학교명</th><th>주소</th><th>전화</th><th>상태</th></tr>
-      </thead>
-      <tbody>
-        {% for d in deliveries %}
-        <tr>
-          <td class="fw-semibold">{{ d.name }}</td>
-          <td>{{ d.address }}</td>
-          <td>{{ d.phone }}</td>
-          <td>{% if d.is_active %}<span class="badge bg-success">활성</span>{% else %}<span class="badge bg-secondary">비활성</span>{% endif %}</td>
-        </tr>
-        {% empty %}
-        <tr><td colspan="4" class="text-center text-muted py-4">등록된 학교가 없습니다.</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
+<div class="content-box">
+  <table class="data-table">
+    <thead>
+      <tr><th>학교명</th><th>주소</th><th>전화</th><th>상태</th></tr>
+    </thead>
+    <tbody>
+      {% for d in deliveries %}
+      <tr>
+        <td>{{ d.name }}</td>
+        <td>{{ d.address }}</td>
+        <td>{{ d.phone }}</td>
+        <td class="center">
+          {% if d.is_active %}
+            <span class="badge badge-green">활성</span>
+          {% else %}
+            <span class="badge badge-gray">비활성</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="4" class="center" style="padding:20px;color:#888">등록된 학교가 없습니다.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
 </div>
 {% endblock %}

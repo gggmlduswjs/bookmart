@@ -1,0 +1,70 @@
+{% extends 'base.html' %}
+{% block title %}반품현황{% endblock %}
+
+{% block content %}
+<div class="page-title">
+  반품현황
+  {% if request.user.is_teacher %}
+  <a href="{% url 'return_create' %}" class="btn btn-orange btn-sm">+ 반품 신청</a>
+  {% endif %}
+</div>
+
+<form method="get" class="search-bar">
+  <label>상태</label>
+  <select name="status">
+    <option value="">전체</option>
+    {% for val, label in status_choices %}
+    <option value="{{ val }}" {% if filters.status == val %}selected{% endif %}>{{ label }}</option>
+    {% endfor %}
+  </select>
+  {% if not request.user.is_teacher %}
+  <label>배송지</label>
+  <select name="delivery">
+    <option value="">전체</option>
+    {% for d in deliveries %}
+    <option value="{{ d.pk }}" {% if filters.delivery == d.pk|stringformat:"s" %}selected{% endif %}>{{ d.name }}</option>
+    {% endfor %}
+  </select>
+  {% endif %}
+  <label>시작일</label><input type="date" name="date_from" value="{{ filters.date_from }}">
+  <label>종료일</label><input type="date" name="date_to" value="{{ filters.date_to }}">
+  <button type="submit" class="btn btn-dark btn-sm">조회</button>
+  <a href="{% url 'return_list' %}" class="btn btn-outline btn-sm">초기화</a>
+</form>
+
+<div class="content-box">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>반품번호</th>
+        {% if not request.user.is_teacher %}<th>선생님</th>{% endif %}
+        <th>배송지</th>
+        {% if request.user.is_admin %}<th>업체</th>{% endif %}
+        <th>상태</th>
+        <th>신청일시</th>
+        <th style="width:50px"></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for ret in returns %}
+      <tr>
+        <td style="font-size:11px">{{ ret.return_no }}</td>
+        {% if not request.user.is_teacher %}<td>{{ ret.teacher.name }}</td>{% endif %}
+        <td>{{ ret.delivery.name }}</td>
+        {% if request.user.is_admin %}<td>{{ ret.agency.name }}</td>{% endif %}
+        <td class="center">
+          {% if ret.status == 'requested' %}<span class="badge badge-blue">신청</span>
+          {% elif ret.status == 'confirmed' %}<span class="badge badge-green">확정</span>
+          {% elif ret.status == 'rejected' %}<span class="badge badge-gray">거절</span>
+          {% endif %}
+        </td>
+        <td style="font-size:11px">{{ ret.requested_at|date:"Y-m-d H:i" }}</td>
+        <td class="center"><a href="{% url 'return_detail' ret.pk %}" class="btn btn-sm btn-outline">상세</a></td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="7" class="center" style="padding:20px;color:#888">반품 내역이 없습니다.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

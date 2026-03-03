@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+{% block title %}발주 집계{% endblock %}
+
+{% block content %}
+<div class="page-title">발주 집계 (출판사별)</div>
+
+<form method="get" class="search-bar">
+  <label>시작일</label><input type="date" name="date_from" value="{{ date_from }}">
+  <label>종료일</label><input type="date" name="date_to" value="{{ date_to }}">
+  <button type="submit" class="btn btn-dark btn-sm">조회</button>
+  <a href="{% url 'export_purchase' %}?date_from={{ date_from }}&date_to={{ date_to }}" class="btn btn-outline btn-sm">엑셀 저장</a>
+</form>
+
+<div style="margin-bottom:8px;font-weight:bold">
+  전체 합계: <span style="color:#e8720c;font-size:15px">{{ grand_total|floatformat:0 }}원</span>
+</div>
+
+{% for pub in publishers %}
+<div style="margin-bottom:14px">
+  <div style="background:#555;color:#fff;padding:6px 12px;font-size:12px;font-weight:bold">
+    {{ pub.name }}
+    <span style="float:right;font-weight:normal">
+      총 {{ pub.total_qty }}권 / {{ pub.total_amount|floatformat:0 }}원
+    </span>
+  </div>
+  <div class="content-box" style="margin-bottom:0">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>시리즈</th><th>교재명</th>
+          <th class="center" style="width:70px">수량</th>
+          <th class="right" style="width:100px">금액</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for book in pub.books %}
+        <tr>
+          <td>{{ book.series }}</td>
+          <td>{{ book.name }}</td>
+          <td class="center" style="font-weight:bold">{{ book.qty }}</td>
+          <td class="right">{{ book.amount|floatformat:0 }}원</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% empty %}
+<div class="msg-box msg-info">해당 기간 주문 내역이 없습니다.</div>
+{% endfor %}
+{% endblock %}

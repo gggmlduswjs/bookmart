@@ -4,7 +4,7 @@
 {% block content %}
 <div class="page-title">{{ title }}</div>
 
-<div class="content-box" style="max-width:480px">
+<div class="content-box" style="max-width:520px">
   <form method="post">
     {% csrf_token %}
     <table class="form-table">
@@ -14,13 +14,14 @@
         <td>
           {{ field }}
           {% if field.errors %}<div style="color:#a94442;font-size:11px;margin-top:3px">{{ field.errors.0 }}</div>{% endif %}
+          {% if field.help_text %}<div style="color:#888;font-size:11px;margin-top:2px">{{ field.help_text }}</div>{% endif %}
         </td>
       </tr>
       {% endfor %}
     </table>
     <div style="padding:10px 12px;border-top:1px solid #eee;display:flex;gap:8px">
       <button type="submit" class="btn btn-orange">저장</button>
-      <a href="{% url 'teacher_list' %}" class="btn btn-outline">취소</a>
+      <a href="{% url 'book_list' %}" class="btn btn-outline">취소</a>
     </div>
   </form>
 </div>

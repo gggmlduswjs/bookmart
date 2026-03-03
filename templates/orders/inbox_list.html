@@ -1,0 +1,84 @@
+{% extends 'base.html' %}
+{% block title %}수신함{% endblock %}
+
+{% block content %}
+<div class="page-title">
+  수신함
+  {% if unread_count %}
+  <span class="badge badge-orange">미처리 {{ unread_count }}건</span>
+  {% endif %}
+</div>
+
+<div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
+  <form method="post" action="{% url 'fetch_emails' %}">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-orange btn-sm">📬 새 메일 가져오기</button>
+  </form>
+  {% if show_done %}
+    <a href="{% url 'inbox_list' %}" class="btn btn-outline btn-sm">미처리만 보기</a>
+  {% else %}
+    <a href="?done=1" class="btn btn-outline btn-sm">처리 완료 포함</a>
+  {% endif %}
+</div>
+
+<div class="content-box">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th style="width:70px">채널</th>
+        <th style="width:90px">계정</th>
+        <th>발신자</th>
+        <th>제목 / 내용 미리보기</th>
+        <th style="width:130px">수신 시각</th>
+        <th style="width:70px">상태</th>
+        <th style="width:70px"></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for msg in inbox_messages %}
+      <tr style="{% if msg.is_processed %}opacity:0.5{% endif %}">
+        <td class="center">
+          {% if msg.source == 'email' %}
+          <span class="badge badge-blue">메일</span>
+          {% else %}
+          <span class="badge badge-orange">문자</span>
+          {% endif %}
+        </td>
+        <td class="center" style="font-size:11px;color:#666">{{ msg.account_label|default:"-" }}</td>
+        <td style="font-size:11px;max-width:120px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">
+          {{ msg.sender }}
+        </td>
+        <td>
+          {% if msg.subject %}
+          <div style="font-weight:bold;margin-bottom:2px">{{ msg.subject }}</div>
+          {% endif %}
+          <div style="font-size:11px;color:#666">{{ msg.preview }}</div>
+        </td>
+        <td class="center" style="font-size:11px">{{ msg.received_at|date:"m/d H:i" }}</td>
+        <td class="center">
+          {% if msg.is_processed %}
+          <span style="color:#888;font-size:11px">완료</span>
+          {% if msg.order %}
+          <div style="font-size:10px"><a href="{% url 'order_detail' msg.order.pk %}">주문보기</a></div>
+          {% endif %}
+          {% else %}
+          <span style="color:#e8720c;font-size:11px;font-weight:bold">미처리</span>
+          {% endif %}
+        </td>
+        <td class="center">
+          {% if not msg.is_processed %}
+          <a href="{% url 'inbox_process' msg.pk %}" class="btn btn-orange btn-sm">처리</a>
+          {% endif %}
+        </td>
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="7" class="center" style="padding:30px;color:#888">
+          {% if show_done %}메시지가 없습니다.{% else %}미처리 메시지가 없습니다.{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

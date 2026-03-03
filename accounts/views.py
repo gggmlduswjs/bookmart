@@ -2,7 +2,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LoginView, PasswordChangeView
 from django.shortcuts import render, redirect, get_object_or_404
-from django.urls import reverse_lazy
+from django.urls import reverse, reverse_lazy
 
 from .decorators import role_required
 from .forms import (LoginForm, CustomPasswordChangeForm, AgencyForm,
@@ -55,7 +55,7 @@ def agency_create(request):
                 'title': '업체 계정 생성 완료',
                 'login_id': agency.login_id,
                 'password': temp_pw,
-                'back_url': 'agency_list',
+                'back_url': reverse('agency_list'),
             })
     else:
         form = AgencyForm()
@@ -126,7 +126,7 @@ def teacher_create(request):
                 'title': '선생님 계정 등록 완료',
                 'login_id': teacher.login_id,
                 'password': temp_pw,
-                'back_url': 'teacher_list',
+                'back_url': reverse('teacher_list'),
             })
     else:
         form = TeacherForm(request.user)
@@ -144,7 +144,7 @@ def teacher_reset_password(request, pk):
         'title': f'{teacher.name} 비밀번호 초기화',
         'login_id': teacher.login_id,
         'password': temp_pw,
-        'back_url': 'teacher_list',
+        'back_url': reverse('teacher_list'),
     })
 
 

@@ -11,7 +11,7 @@ wheels/
 
 # Django
 *.sqlite3
-/static/
+/staticfiles/
 /media/
 
 # 환경변수 (절대 커밋 금지)

@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+{% block title %}반품 확정{% endblock %}
+
+{% block content %}
+<div class="page-title">반품 확정 처리 — {{ ret.return_no }}</div>
+
+<div class="msg-box msg-warning">요청 수량과 다를 경우 확정 수량을 수정하세요. 조정금액은 손상 패널티 등 차감액(음수)을 입력합니다.</div>
+
+<form method="post">
+  {% csrf_token %}
+  <div class="content-box">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>교재명</th>
+          <th class="right" style="width:80px">단가</th>
+          <th class="center" style="width:80px">요청수량</th>
+          <th class="center" style="width:100px">확정수량</th>
+          <th class="right" style="width:110px">조정금액(원)</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in items %}
+        <tr>
+          <td>{{ item.book.name }}</td>
+          <td class="right">{{ item.unit_price|floatformat:0 }}원</td>
+          <td class="center">{{ item.requested_qty }}</td>
+          <td class="center">
+            <input type="number" name="confirmed_qty_{{ item.pk }}"
+                   value="{{ item.requested_qty }}" min="0"
+                   style="width:70px;padding:3px;border:1px solid #bbb;text-align:center">
+          </td>
+          <td class="right">
+            <input type="number" name="adjusted_{{ item.pk }}"
+                   value="0"
+                   style="width:90px;padding:3px;border:1px solid #bbb;text-align:right">
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div style="display:flex;gap:8px">
+    <button type="submit" class="btn btn-orange">확정 완료</button>
+    <a href="{% url 'return_detail' ret.pk %}" class="btn btn-outline">취소</a>
+  </div>
+</form>
+{% endblock %}
