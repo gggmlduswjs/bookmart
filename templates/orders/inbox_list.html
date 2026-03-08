@@ -53,6 +53,11 @@
           <div style="font-weight:bold;margin-bottom:2px">{{ msg.subject }}</div>
           {% endif %}
           <div style="font-size:11px;color:#666">{{ msg.preview }}</div>
+          {% if msg.attachments.count %}
+          <div style="font-size:10px;color:#1a73e8;margin-top:2px">
+            📎 첨부 {{ msg.attachments.count }}건
+          </div>
+          {% endif %}
         </td>
         <td class="center" style="font-size:11px">{{ msg.received_at|date:"m/d H:i" }}</td>
         <td class="center">

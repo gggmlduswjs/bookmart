@@ -13,9 +13,51 @@ from django.utils import timezone
 from accounts.decorators import role_required
 from accounts.models import User
 from books.models import Book
-from .models import Order, OrderItem, Return, ReturnItem, Payment, DeliveryAddress, InboxMessage
+from .models import Order, OrderItem, Return, ReturnItem, Payment, DeliveryAddress, InboxMessage, InboxAttachment
 from .services import get_order_queryset, get_return_queryset, get_delivery_queryset
 from .sms import send_ship_notification
+
+
+# ── 대시보드 ──────────────────────────────────────────────────────────────────
+
+@role_required('admin')
+def dashboard(request):
+    today = timezone.localtime().date()
+    now = timezone.localtime()
+
+    # 상단 4개 요약 카드
+    unprocessed_inbox = InboxMessage.objects.filter(is_processed=False).count()
+    today_orders = Order.objects.filter(ordered_at__date=today).count()
+    pending_orders = Order.objects.filter(status='pending').count()
+    shipping_orders = Order.objects.filter(status='shipping').count()
+
+    # 오늘 할 일: 미처리 수신함 최근 5건
+    recent_inbox = InboxMessage.objects.filter(is_processed=False)[:5]
+    # 발송 대기 주문 5건
+    pending_order_list = Order.objects.filter(status='pending').order_by('-ordered_at')[:5]
+    # 미확인 반품 3건
+    pending_returns = Return.objects.filter(status='requested').order_by('-requested_at')[:3]
+
+    # 마감 시간
+    deadline_city = now.replace(hour=11, minute=20, second=0, microsecond=0)
+    deadline_region = now.replace(hour=13, minute=50, second=0, microsecond=0)
+
+    # 최근 발송 완료 5건
+    recent_delivered = Order.objects.filter(status='delivered').order_by('-ordered_at')[:5]
+
+    return render(request, 'orders/dashboard.html', {
+        'unprocessed_inbox': unprocessed_inbox,
+        'today_orders': today_orders,
+        'pending_orders': pending_orders,
+        'shipping_orders': shipping_orders,
+        'recent_inbox': recent_inbox,
+        'pending_order_list': pending_order_list,
+        'pending_returns': pending_returns,
+        'deadline_city': deadline_city,
+        'deadline_region': deadline_region,
+        'now': now,
+        'recent_delivered': recent_delivered,
+    })
 
 
 # ── 주문 목록 ──────────────────────────────────────────────────────────────────
@@ -799,6 +841,8 @@ def fetch_emails(request):
         (conf.NAVER_EMAIL_2_ID, conf.NAVER_EMAIL_2_PW, '002bm'),
     ]
 
+    from django.core.files.base import ContentFile
+
     new_count = 0
     for acc_id, acc_pw, label in accounts:
         if not acc_id or not acc_pw:
@@ -814,8 +858,10 @@ def fetch_emails(request):
             .values_list('imap_key', flat=True)
         )
 
-        new_msgs = [
-            InboxMessage(
+        for e in emails:
+            if e['imap_key'] in existing_keys:
+                continue
+            msg_obj = InboxMessage.objects.create(
                 source=InboxMessage.Source.EMAIL,
                 account_label=e['account_label'],
                 sender=e['sender'],
@@ -824,10 +870,17 @@ def fetch_emails(request):
                 received_at=e['received_at'],
                 imap_key=e['imap_key'],
             )
-            for e in emails if e['imap_key'] not in existing_keys
-        ]
-        InboxMessage.objects.bulk_create(new_msgs, ignore_conflicts=True)
-        new_count += len(new_msgs)
+            # 첨부파일 저장
+            for att in e.get('attachments', []):
+                file_obj = ContentFile(att['data'], name=att['filename'])
+                InboxAttachment.objects.create(
+                    message=msg_obj,
+                    file=file_obj,
+                    filename=att['filename'],
+                    content_type=att['content_type'],
+                    size=len(att['data']),
+                )
+            new_count += 1
 
     messages.success(request, f'새 메일 {new_count}건을 가져왔습니다.')
     return redirect('inbox_list')
@@ -922,13 +975,77 @@ def inbox_process(request, pk):
             messages.success(request, f'주문 등록 완료. 주문번호: {order.order_no}')
             return redirect('inbox_list')
 
+    attachments = inbox_msg.attachments.all()
+
     return render(request, 'orders/inbox_process.html', {
         'inbox_msg': inbox_msg,
         'agencies': agencies,
         'teachers_json': teachers_json,
         'series_list': series_list,
         'books_json': books_json,
+        'attachments': attachments,
     })
+
+
+@role_required('admin')
+def attachment_download(request, pk):
+    """첨부파일 다운로드"""
+    att = get_object_or_404(InboxAttachment, pk=pk)
+    resp = HttpResponse(att.file.read(), content_type=att.content_type or 'application/octet-stream')
+    resp['Content-Disposition'] = f"attachment; filename*=UTF-8''{att.filename}"
+    return resp
+
+
+@role_required('admin')
+def attachment_preview(request, pk):
+    """엑셀 첨부파일 미리보기 (HTML 테이블)"""
+    att = get_object_or_404(InboxAttachment, pk=pk)
+    if not att.is_excel:
+        return HttpResponse('미리보기를 지원하지 않는 파일입니다.', status=400)
+
+    import openpyxl
+
+    try:
+        wb = openpyxl.load_workbook(att.file, read_only=True, data_only=True)
+    except Exception:
+        return HttpResponse('엑셀 파일을 열 수 없습니다.', status=400)
+
+    sheets_html = []
+    for ws in wb.worksheets:
+        rows = list(ws.iter_rows(values_only=True))
+        if not rows:
+            continue
+        table = f'<h3 style="margin:10px 0 4px;font-size:13px">{ws.title}</h3>'
+        table += '<table class="data-table"><thead><tr>'
+        for cell in rows[0]:
+            table += f'<th>{cell if cell is not None else ""}</th>'
+        table += '</tr></thead><tbody>'
+        for row in rows[1:200]:  # 최대 200행
+            table += '<tr>'
+            for cell in row:
+                val = f'{cell:,}' if isinstance(cell, (int, float)) and not isinstance(cell, bool) else (cell if cell is not None else '')
+                table += f'<td>{val}</td>'
+            table += '</tr>'
+        table += '</tbody></table>'
+        sheets_html.append(table)
+    wb.close()
+
+    html = f'''<!DOCTYPE html>
+<html lang="ko"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{att.filename}</title>
+<style>
+body {{ font-family:'Malgun Gothic',sans-serif; font-size:12px; padding:12px; background:#f5f5f5; }}
+table {{ width:100%; border-collapse:collapse; margin-bottom:16px; background:#fff; }}
+th {{ background:#666; color:#fff; padding:5px 8px; border:1px solid #555; text-align:center; white-space:nowrap; }}
+td {{ padding:4px 8px; border:1px solid #ddd; }}
+tr:nth-child(even) td {{ background:#fafafa; }}
+h3 {{ color:#e8720c; }}
+</style></head><body>
+<h2 style="font-size:14px;margin-bottom:8px">{att.filename}</h2>
+{"".join(sheets_html)}
+</body></html>'''
+    return HttpResponse(html)
 
 
 from django.views.decorators.csrf import csrf_exempt

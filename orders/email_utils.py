@@ -75,10 +75,42 @@ def _get_body(msg):
     return ''
 
 
+def _get_attachments(msg):
+    """이메일 첨부파일 추출 — (filename, content_type, data) 리스트 반환"""
+    attachments = []
+    if not msg.is_multipart():
+        return attachments
+
+    for part in msg.walk():
+        content_disposition = part.get('Content-Disposition', '')
+        if 'attachment' not in content_disposition and 'inline' not in content_disposition:
+            continue
+
+        # 파일명 추출
+        filename = part.get_filename()
+        if filename:
+            filename = _decode_str(filename)
+        if not filename:
+            continue
+
+        payload = part.get_payload(decode=True)
+        if not payload:
+            continue
+
+        content_type = part.get_content_type() or 'application/octet-stream'
+        attachments.append({
+            'filename': filename,
+            'content_type': content_type,
+            'data': payload,
+        })
+
+    return attachments
+
+
 def fetch_naver_emails(account_id, account_pw, account_label, days=60):
     """
     네이버 메일함에서 최근 N일치 메일 목록 반환.
-    Returns: list of dict {imap_key, account_label, sender, subject, content, received_at}
+    Returns: list of dict {imap_key, account_label, sender, subject, content, received_at, attachments}
     """
     import datetime
     from django.utils import timezone
@@ -118,6 +150,7 @@ def fetch_naver_emails(account_id, account_pw, account_label, days=60):
                 received_at = timezone.now()
 
             content = _get_body(msg)
+            attachments = _get_attachments(msg)
 
             results.append({
                 'imap_key':      imap_key,
@@ -126,6 +159,7 @@ def fetch_naver_emails(account_id, account_pw, account_label, days=60):
                 'subject':       subject,
                 'content':       content,
                 'received_at':   received_at,
+                'attachments':   attachments,
             })
 
         mail.logout()

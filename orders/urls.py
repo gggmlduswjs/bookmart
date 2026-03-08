@@ -2,6 +2,9 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
+    # ── 대시보드 ──────────────────────────────────────────────────────────────
+    path('dashboard/', views.dashboard, name='dashboard'),
+
     # ── 주문 ──────────────────────────────────────────────────────────────────
     path('orders/', views.order_list, name='order_list'),
     path('orders/create/', views.order_create, name='order_create'),
@@ -28,6 +31,8 @@ urlpatterns = [
     path('inbox/', views.inbox_list, name='inbox_list'),
     path('inbox/fetch/', views.fetch_emails, name='fetch_emails'),
     path('inbox/<int:pk>/', views.inbox_process, name='inbox_process'),
+    path('inbox/attachment/<int:pk>/download/', views.attachment_download, name='attachment_download'),
+    path('inbox/attachment/<int:pk>/preview/', views.attachment_preview, name='attachment_preview'),
     path('webhook/sms/', views.sms_webhook, name='sms_webhook'),
 
     # ── 엑셀 Export ────────────────────────────────────────────────────────────

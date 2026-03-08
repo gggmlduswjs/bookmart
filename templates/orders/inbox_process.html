@@ -55,6 +55,22 @@
     </div>
     <div class="inbox-msg-body">{{ inbox_msg.content }}</div>
 
+    {% if attachments %}
+    <div style="padding:8px 12px;border-top:1px solid #eee;background:#f9f9f9">
+      <div style="font-size:11px;font-weight:bold;color:#444;margin-bottom:4px">📎 첨부파일</div>
+      {% for att in attachments %}
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;font-size:11px">
+        <a href="{% url 'attachment_download' att.pk %}" class="btn btn-outline btn-sm" style="padding:2px 8px;font-size:10px">다운로드</a>
+        {% if att.is_excel %}
+        <a href="{% url 'attachment_preview' att.pk %}" target="_blank" class="btn btn-sm btn-orange" style="padding:2px 8px;font-size:10px">미리보기</a>
+        {% endif %}
+        <span style="color:#333">{{ att.filename }}</span>
+        <span style="color:#999">({{ att.size|filesizeformat }})</span>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
     <!-- 건너뛰기 -->
     <div style="padding:8px 12px;border-top:1px solid #eee">
       <form method="post">

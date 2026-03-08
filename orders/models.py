@@ -238,6 +238,35 @@ class InboxMessage(models.Model):
         return self.content[:80].replace('\n', ' ')
 
 
+class InboxAttachment(models.Model):
+    message = models.ForeignKey(
+        InboxMessage, on_delete=models.CASCADE,
+        related_name='attachments', verbose_name='수신 메시지'
+    )
+    file = models.FileField(upload_to='inbox_attachments/%Y/%m/', verbose_name='파일')
+    filename = models.CharField(max_length=255, verbose_name='원본 파일명')
+    content_type = models.CharField(max_length=100, blank=True, verbose_name='MIME 타입')
+    size = models.IntegerField(default=0, verbose_name='파일 크기(bytes)')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'inbox_attachments'
+        verbose_name = '수신 첨부파일'
+        verbose_name_plural = '수신 첨부파일'
+
+    def __str__(self):
+        return self.filename
+
+    @property
+    def is_excel(self):
+        ext = self.filename.lower().rsplit('.', 1)[-1] if '.' in self.filename else ''
+        return ext in ('xls', 'xlsx')
+
+    @property
+    def extension(self):
+        return self.filename.lower().rsplit('.', 1)[-1] if '.' in self.filename else ''
+
+
 class Payment(models.Model):
     agency = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
