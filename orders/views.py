@@ -15,7 +15,7 @@ from accounts.models import User
 from books.models import Book
 from .models import Order, OrderItem, Return, ReturnItem, Payment, DeliveryAddress, InboxMessage, InboxAttachment
 from .services import get_order_queryset, get_return_queryset, get_delivery_queryset
-from .sms import send_ship_notification
+from .sms import send_ship_notification, send_delivery_notification
 
 
 # ── 대시보드 ──────────────────────────────────────────────────────────────────
@@ -57,6 +57,70 @@ def dashboard(request):
         'deadline_region': deadline_region,
         'now': now,
         'recent_delivered': recent_delivered,
+    })
+
+
+# ── 업체 대시보드 ─────────────────────────────────────────────────────────────
+
+@role_required('agency')
+def agency_dashboard(request):
+    user = request.user
+    today = timezone.localtime().date()
+    now = timezone.localtime()
+
+    # 소속 학교
+    deliveries = DeliveryAddress.objects.filter(agency=user, is_active=True)
+    teachers = User.objects.filter(role='teacher', agency=user, is_active=True)
+
+    # 주문 통계
+    my_orders = Order.objects.filter(agency=user)
+    today_orders = my_orders.filter(ordered_at__date=today).count()
+    pending_orders = my_orders.filter(status='pending').count()
+    shipping_orders = my_orders.filter(status='shipping').count()
+    total_schools = deliveries.count()
+
+    # 이번 달 주문금액
+    month_start = today.replace(day=1)
+    month_items = OrderItem.objects.filter(
+        order__agency=user,
+        order__status__in=['pending', 'shipping', 'delivered'],
+        order__ordered_at__date__gte=month_start,
+    )
+    month_amount = month_items.aggregate(total=Sum('amount'))['total'] or 0
+
+    # 최근 주문 10건
+    recent_orders = my_orders.select_related(
+        'teacher', 'delivery'
+    ).order_by('-ordered_at')[:10]
+
+    # 학교별 최근 주문 현황
+    school_stats = []
+    for d in deliveries:
+        last_order = my_orders.filter(delivery=d).order_by('-ordered_at').first()
+        school_teachers = teachers.filter(delivery_address=d).count()
+        school_stats.append({
+            'school': d,
+            'teacher_count': school_teachers,
+            'last_order': last_order,
+            'pending': my_orders.filter(delivery=d, status='pending').count(),
+            'shipping': my_orders.filter(delivery=d, status='shipping').count(),
+        })
+
+    # 미확인 반품
+    pending_returns = Return.objects.filter(
+        agency=user, status='requested'
+    ).select_related('teacher', 'delivery').order_by('-requested_at')[:5]
+
+    return render(request, 'orders/agency_dashboard.html', {
+        'today_orders': today_orders,
+        'pending_orders': pending_orders,
+        'shipping_orders': shipping_orders,
+        'total_schools': total_schools,
+        'month_amount': month_amount,
+        'recent_orders': recent_orders,
+        'school_stats': school_stats,
+        'pending_returns': pending_returns,
+        'now': now,
     })
 
 
@@ -337,6 +401,7 @@ def order_deliver(request, pk):
     if request.method == 'POST':
         order.status = Order.Status.DELIVERED
         order.save(update_fields=['status'])
+        send_delivery_notification(order)
         messages.success(request, f'주문 {order.order_no} → 발송완료 처리되었습니다.')
     return redirect('order_detail', pk=pk)
 
@@ -868,24 +933,21 @@ def fetch_emails(request):
 
     from django.core.files.base import ContentFile
 
+    # DB에 있는 imap_key를 미리 전부 조회 (IMAP 다운로드 전 필터링용)
+    all_existing_keys = set(
+        InboxMessage.objects.values_list('imap_key', flat=True)
+    )
+
     new_count = 0
     for acc_id, acc_pw, label in accounts:
         if not acc_id or not acc_pw:
             continue
-        emails = fetch_naver_emails(acc_id, acc_pw, label)
+        emails = fetch_naver_emails(acc_id, acc_pw, label,
+                                    existing_keys=all_existing_keys)
         if not emails:
             continue
 
-        # 이미 저장된 imap_key 한 번에 조회
-        incoming_keys = [e['imap_key'] for e in emails]
-        existing_keys = set(
-            InboxMessage.objects.filter(imap_key__in=incoming_keys)
-            .values_list('imap_key', flat=True)
-        )
-
         for e in emails:
-            if e['imap_key'] in existing_keys:
-                continue
             # 스팸 판별: 주문 관련이 아니면 자동으로 처리완료 표시
             auto_skip = not is_order_related(e['sender'], e['subject'], e['content'])
             msg_obj = InboxMessage.objects.create(

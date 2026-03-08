@@ -1,16 +1,22 @@
+import uuid
+
 from django.contrib import messages
+from django.contrib.auth import login as auth_login
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LoginView, PasswordChangeView
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse, reverse_lazy
+from django.utils import timezone
+from django.views.decorators.http import require_POST
 from openpyxl import Workbook, load_workbook
 
 from .decorators import role_required
 from .forms import (LoginForm, CustomPasswordChangeForm, AgencyForm,
                     TeacherForm, DeliveryAddressForm, generate_temp_password)
-from .models import User, AgencyInfo
+from .models import User, AgencyInfo, InviteToken
 from orders.models import DeliveryAddress
+from orders.sms import send_sms
 
 
 class CustomLoginView(LoginView):
@@ -124,11 +130,15 @@ def teacher_create(request):
             teacher.set_password(temp_pw)
             teacher.must_change_password = True
             teacher.save()
-            return render(request, 'accounts/credential.html', {
-                'title': '선생님 계정 등록 완료',
-                'login_id': teacher.login_id,
-                'password': temp_pw,
-                'back_url': reverse('teacher_list'),
+
+            # 초대 링크 생성 후 바로 보여주기
+            invite = InviteToken.create_for_user(teacher)
+            invite_url = request.build_absolute_uri(
+                reverse('invite_setup', args=[invite.token])
+            )
+            return render(request, 'accounts/invite_link.html', {
+                'teacher': teacher, 'invite_url': invite_url,
+                'is_new': True,
             })
     else:
         form = TeacherForm(request.user)
@@ -243,6 +253,144 @@ def agency_import(request):
             return redirect('agency_import')
 
     return render(request, 'accounts/agency_import.html')
+
+
+# ── 초대 링크 ─────────────────────────────────────────────────────────────────
+
+@require_POST
+@role_required('agency')
+def invite_send(request, pk):
+    """선생님에게 초대 링크를 문자 또는 이메일로 발송"""
+    teacher = get_object_or_404(User, pk=pk, role='teacher', agency=request.user)
+    method = request.POST.get('method', 'sms')  # sms or email
+
+    # 기존 미사용 토큰 무효화
+    teacher.invite_tokens.filter(used_at__isnull=True).update(
+        expires_at=timezone.now()
+    )
+
+    # 새 토큰 생성
+    invite = InviteToken.create_for_user(teacher)
+    invite_url = request.build_absolute_uri(
+        reverse('invite_setup', args=[invite.token])
+    )
+
+    if method == 'sms':
+        if not teacher.phone:
+            messages.error(request, f'{teacher.name} 선생님의 연락처가 등록되지 않았습니다.')
+            return redirect('teacher_list')
+        msg = (
+            f'[북마트] {teacher.name} 선생님\n'
+            f'주문 계정이 생성되었습니다.\n'
+            f'아래 링크에서 비밀번호를 설정해 주세요.\n'
+            f'{invite_url}'
+        )
+        ok = send_sms(teacher.phone, msg)
+        if ok:
+            messages.success(request, f'{teacher.name} 선생님에게 초대 문자를 발송했습니다.')
+        else:
+            messages.warning(
+                request,
+                f'문자 발송에 실패했습니다. 링크를 직접 전달해 주세요.'
+            )
+            return render(request, 'accounts/invite_link.html', {
+                'teacher': teacher, 'invite_url': invite_url,
+            })
+    elif method == 'email':
+        # TODO: 이메일 발송 구현 (Django send_mail)
+        messages.info(request, '이메일 발송은 준비 중입니다. 아래 링크를 직접 전달해 주세요.')
+        return render(request, 'accounts/invite_link.html', {
+            'teacher': teacher, 'invite_url': invite_url,
+        })
+    else:
+        # 링크만 생성 (직접 전달용)
+        return render(request, 'accounts/invite_link.html', {
+            'teacher': teacher, 'invite_url': invite_url,
+        })
+
+    return redirect('teacher_list')
+
+
+def invite_setup(request, token):
+    """초대 링크를 통한 비밀번호 설정 (로그인 불필요)"""
+    invite = get_object_or_404(InviteToken, token=token)
+
+    if not invite.is_valid:
+        return render(request, 'accounts/invite_expired.html')
+
+    user = invite.user
+
+    if request.method == 'POST':
+        pw1 = request.POST.get('password1', '')
+        pw2 = request.POST.get('password2', '')
+
+        if len(pw1) < 4:
+            error = '비밀번호는 4자 이상이어야 합니다.'
+        elif pw1 != pw2:
+            error = '비밀번호가 일치하지 않습니다.'
+        else:
+            user.set_password(pw1)
+            user.must_change_password = False
+            user.save(update_fields=['password', 'must_change_password'])
+
+            invite.used_at = timezone.now()
+            invite.save(update_fields=['used_at'])
+
+            # 자동 로그인
+            auth_login(request, user, backend='django.contrib.auth.backends.ModelBackend')
+            messages.success(request, f'{user.name} 선생님, 환영합니다! 비밀번호가 설정되었습니다.')
+            return redirect('home')
+
+        return render(request, 'accounts/invite_setup.html', {
+            'token': token, 'user': user, 'error': error,
+        })
+
+    return render(request, 'accounts/invite_setup.html', {
+        'token': token, 'user': user,
+    })
+
+
+@role_required('agency')
+def invite_link(request, pk):
+    """초대 링크만 생성해서 보여주기 (직접 카톡 등으로 전달)"""
+    teacher = get_object_or_404(User, pk=pk, role='teacher', agency=request.user)
+
+    # 기존 미사용 토큰 무효화
+    teacher.invite_tokens.filter(used_at__isnull=True).update(
+        expires_at=timezone.now()
+    )
+
+    invite = InviteToken.create_for_user(teacher)
+    invite_url = request.build_absolute_uri(
+        reverse('invite_setup', args=[invite.token])
+    )
+
+    return render(request, 'accounts/invite_link.html', {
+        'teacher': teacher, 'invite_url': invite_url,
+    })
+
+
+# ── 업체 간편주문 링크 ────────────────────────────────────────────────────────
+
+@role_required('agency')
+def agency_link(request):
+    user = request.user
+    link_url = request.build_absolute_uri(
+        reverse('simple_landing', args=[user.agency_slug])
+    )
+    return render(request, 'accounts/agency_link.html', {
+        'link_url': link_url,
+    })
+
+
+@require_POST
+@role_required('agency')
+def agency_regenerate_slug(request):
+    user = request.user
+    user.agency_slug = uuid.uuid4()
+    user.save(update_fields=['agency_slug'])
+    messages.success(request, '간편주문 링크가 재생성되었습니다. 기존 링크는 더 이상 사용할 수 없습니다.')
+    return redirect('agency_link')
 
 
 @role_required('admin')

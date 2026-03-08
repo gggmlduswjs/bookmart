@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+{% block title %}간편주문 링크{% endblock %}
+
+{% block content %}
+<div class="page-title">간편주문 링크</div>
+
+<div class="content-box" style="padding:24px">
+  <p style="font-size:13px;color:#64748b;margin-bottom:16px">
+    아래 링크를 선생님들에게 공유하면, 별도 계정 생성 없이 바로 교재를 주문할 수 있습니다.
+  </p>
+
+  <div style="background:#f1f5f9;border:2px solid #3b82f6;border-radius:8px;padding:16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+    <input type="text" id="link-input" value="{{ link_url }}" readonly
+           style="flex:1;min-width:200px;padding:8px 12px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;background:#fff">
+    <button type="button" class="btn btn-orange" onclick="copyLink()" id="copy-btn">복사</button>
+  </div>
+
+  <div style="margin-top:20px;padding-top:16px;border-top:1px solid #e2e8f0">
+    <p style="font-size:13px;color:#64748b;margin-bottom:10px">
+      링크를 재생성하면 기존 링크는 더 이상 사용할 수 없습니다.
+    </p>
+    <form method="post" action="{% url 'agency_regenerate_slug' %}" onsubmit="return confirm('기존 링크가 무효화됩니다. 계속하시겠습니까?')">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-gray btn-sm">링크 재생성</button>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function copyLink() {
+  const input = document.getElementById('link-input');
+  navigator.clipboard.writeText(input.value).then(function() {
+    const btn = document.getElementById('copy-btn');
+    btn.textContent = '복사됨!';
+    setTimeout(function() { btn.textContent = '복사'; }, 2000);
+  });
+}
+</script>
+{% endblock %}

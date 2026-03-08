@@ -107,19 +107,24 @@ def _get_attachments(msg):
     return attachments
 
 
-def fetch_naver_emails(account_id, account_pw, account_label, days=60):
+def fetch_naver_emails(account_id, account_pw, account_label, days=60,
+                       existing_keys=None):
     """
     네이버 메일함에서 최근 N일치 메일 목록 반환.
+    existing_keys: set of imap_key — 이미 DB에 있는 키 (전달하면 해당 메일은 건너뜀)
     Returns: list of dict {imap_key, account_label, sender, subject, content, received_at, attachments}
     """
     import datetime
     from django.utils import timezone
 
+    if existing_keys is None:
+        existing_keys = set()
+
     results = []
     try:
         mail = imaplib.IMAP4_SSL(NAVER_IMAP_HOST, NAVER_IMAP_PORT)
         mail.login(account_id, account_pw)
-        mail.select('INBOX')
+        mail.select('INBOX', readonly=True)
 
         # 최근 N일간 전체 메일 가져오기
         since_date = (datetime.datetime.now() - datetime.timedelta(days=days)).strftime('%d-%b-%Y')
@@ -129,10 +134,23 @@ def fetch_naver_emails(account_id, account_pw, account_label, days=60):
             return results
 
         uid_list = data[0].split()
+
+        # 이미 DB에 있는 UID는 건너뛰기 (RFC822 다운로드 전에 필터링)
+        new_uids = []
         for uid_bytes in uid_list:
             uid_str = uid_bytes.decode()
             imap_key = f'{account_label}:{uid_str}'
+            if imap_key not in existing_keys:
+                new_uids.append((uid_bytes, uid_str, imap_key))
 
+        if not new_uids:
+            mail.logout()
+            return results
+
+        logger.info('IMAP %s: %d건 중 %d건 새 메일 다운로드',
+                    account_label, len(uid_list), len(new_uids))
+
+        for uid_bytes, uid_str, imap_key in new_uids:
             status, msg_data = mail.uid('fetch', uid_bytes, '(RFC822)')
             if status != 'OK' or not msg_data or msg_data[0] is None:
                 continue

@@ -1,9 +1,16 @@
 from django.urls import path
-from . import views
+from . import views, views_simple
 
 urlpatterns = [
+    # ── 간편주문 (공개, 로그인 불필요) ──────────────────────────────────────────
+    path('s/<uuid:slug>/', views_simple.simple_landing, name='simple_landing'),
+    path('s/<uuid:slug>/order/', views_simple.simple_order, name='simple_order'),
+    path('s/<uuid:slug>/confirm/<int:order_id>/', views_simple.simple_confirm, name='simple_confirm'),
+    path('s/<uuid:slug>/orders/', views_simple.simple_order_list, name='simple_order_list'),
+
     # ── 대시보드 ──────────────────────────────────────────────────────────────
     path('dashboard/', views.dashboard, name='dashboard'),
+    path('dashboard/agency/', views.agency_dashboard, name='agency_dashboard'),
 
     # ── 주문 ──────────────────────────────────────────────────────────────────
     path('orders/', views.order_list, name='order_list'),

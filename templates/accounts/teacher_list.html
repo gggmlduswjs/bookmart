@@ -12,7 +12,7 @@
   <table class="data-table">
     <thead>
       <tr>
-        <th>이름</th><th>아이디</th><th>담당 학교</th><th>연락처</th><th>상태</th><th style="width:120px"></th>
+        <th>이름</th><th>아이디</th><th>담당 학교</th><th>연락처</th><th>상태</th><th style="width:200px"></th>
       </tr>
     </thead>
     <tbody>
@@ -30,6 +30,16 @@
           {% endif %}
         </td>
         <td class="center" style="white-space:nowrap">
+          <a href="{% url 'invite_link' t.pk %}"
+             class="btn btn-sm btn-orange">초대링크</a>
+          {% if t.phone %}
+          <form method="post" action="{% url 'invite_send' t.pk %}" style="display:inline">
+            {% csrf_token %}
+            <input type="hidden" name="method" value="sms">
+            <button type="submit" class="btn btn-sm btn-blue"
+              onclick="return confirm('{{ t.name }} 선생님에게 초대 문자를 발송하시겠습니까?')">문자발송</button>
+          </form>
+          {% endif %}
           <a href="{% url 'teacher_reset_password' t.pk %}"
              class="btn btn-sm btn-gray"
              onclick="return confirm('비밀번호를 초기화하시겠습니까?')">비번초기화</a>

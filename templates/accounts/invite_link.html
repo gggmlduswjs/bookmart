@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+{% block title %}초대 링크{% endblock %}
+
+{% block content %}
+<div class="page-title">
+  초대 링크 생성 완료
+  <span class="subtitle">{{ teacher.name }} 선생님</span>
+</div>
+
+<div class="credential-box">
+  <div class="warn">아래 링크를 카카오톡이나 문자로 선생님께 전달해 주세요.</div>
+
+  <div class="credential-row">
+    <span class="label">선생님</span>
+    <span class="value">{{ teacher.name }}</span>
+  </div>
+  <div class="credential-row">
+    <span class="label">아이디</span>
+    <span class="value">{{ teacher.login_id }}</span>
+  </div>
+  <div class="credential-row" style="flex-wrap:wrap">
+    <span class="label">초대 링크</span>
+    <input type="text" id="invite-url" value="{{ invite_url }}" readonly
+      style="flex:1;padding:4px 8px;border:1px solid #bbb;font-size:12px;background:#f9f9f9;min-width:200px">
+    <button class="btn btn-orange btn-sm" style="margin-left:6px"
+      onclick="navigator.clipboard.writeText(document.getElementById('invite-url').value).then(() => { this.textContent='복사됨 ✓'; this.style.background='#2e7d32'; })">링크 복사</button>
+  </div>
+
+  <div style="margin-top:12px;padding:10px;background:#f0f7ff;border:1px solid #bdd7f1;font-size:12px;line-height:1.6;color:#333">
+    <strong>카톡 전달용 메시지 예시:</strong><br>
+    {{ teacher.name }} 선생님, 북마트 주문 계정이 생성되었습니다.<br>
+    아래 링크에서 비밀번호를 설정해 주세요.<br>
+    {{ invite_url }}
+    <br><br>
+    <button class="btn btn-gray btn-sm"
+      onclick="navigator.clipboard.writeText('{{ teacher.name }} 선생님, 북마트 주문 계정이 생성되었습니다.\n아래 링크에서 비밀번호를 설정해 주세요.\n{{ invite_url }}').then(() => { this.textContent='복사됨 ✓'; this.style.background='#2e7d32'; })">메시지 전체 복사</button>
+  </div>
+
+  <div style="margin-top:18px">
+    <a href="{% url 'teacher_list' %}" class="btn btn-orange">확인 (목록으로)</a>
+  </div>
+</div>
+{% endblock %}

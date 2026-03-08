@@ -1,6 +1,7 @@
 from django.shortcuts import redirect
 
 EXEMPT_PATHS = {'/login/', '/logout/', '/password-change/', '/admin/'}
+EXEMPT_PREFIXES = ('/admin/', '/invite/', '/s/')
 
 
 class ForcePasswordChangeMiddleware:
@@ -12,7 +13,7 @@ class ForcePasswordChangeMiddleware:
             request.user.is_authenticated
             and getattr(request.user, 'must_change_password', False)
             and request.path not in EXEMPT_PATHS
-            and not request.path.startswith('/admin/')
+            and not any(request.path.startswith(p) for p in EXEMPT_PREFIXES)
         ):
             return redirect('/password-change/')
         return self.get_response(request)

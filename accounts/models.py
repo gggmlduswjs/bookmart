@@ -1,5 +1,8 @@
+import secrets
+import uuid
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.db import models
+from django.utils import timezone
 
 
 class UserManager(BaseUserManager):
@@ -44,6 +47,10 @@ class User(AbstractBaseUser, PermissionsMixin):
         related_name='assigned_teachers', verbose_name='담당 학교'
     )
 
+    agency_slug = models.UUIDField(
+        null=True, blank=True, unique=True, verbose_name='간편주문 링크'
+    )
+
     is_active = models.BooleanField(default=True, verbose_name='활성')
     is_staff = models.BooleanField(default=False)
     must_change_password = models.BooleanField(default=True, verbose_name='비번 변경 필요')
@@ -63,6 +70,11 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     def __str__(self):
         return f'{self.name} ({self.get_role_display()})'
+
+    def save(self, *args, **kwargs):
+        if self.role == self.Role.AGENCY and not self.agency_slug:
+            self.agency_slug = uuid.uuid4()
+        super().save(*args, **kwargs)
 
     @property
     def is_admin(self):
@@ -96,3 +108,35 @@ class AgencyInfo(models.Model):
 
     def __str__(self):
         return f'{self.user.name} 상세정보'
+
+
+class InviteToken(models.Model):
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='invite_tokens',
+        verbose_name='대상 사용자'
+    )
+    token = models.CharField(max_length=64, unique=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField(verbose_name='만료일시')
+    used_at = models.DateTimeField(null=True, blank=True, verbose_name='사용일시')
+
+    class Meta:
+        db_table = 'invite_tokens'
+        verbose_name = '초대 토큰'
+        verbose_name_plural = '초대 토큰 목록'
+
+    def __str__(self):
+        return f'{self.user.name} 초대 ({self.token[:8]}...)'
+
+    @property
+    def is_valid(self):
+        return self.used_at is None and self.expires_at > timezone.now()
+
+    @classmethod
+    def create_for_user(cls, user, expire_days=7):
+        token = secrets.token_urlsafe(32)
+        return cls.objects.create(
+            user=user,
+            token=token,
+            expires_at=timezone.now() + timezone.timedelta(days=expire_days),
+        )

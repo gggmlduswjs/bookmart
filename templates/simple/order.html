@@ -1,0 +1,126 @@
+{% extends 'simple/base.html' %}
+{% block title %}교재 주문 - {{ agency.name }}{% endblock %}
+
+{% block extra_style %}
+  .order-row-wrap select, .order-row-wrap input[type=number] {
+    padding: 6px 8px; border: 1px solid #cbd5e1;
+    font-size: 13px; font-family: inherit; height: 32px;
+    border-radius: 4px;
+  }
+  .order-row-wrap select { width: 100%; }
+  .order-row-wrap input[type=number] { width: 60px; text-align: center; }
+  .order-total-bar {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-top: none;
+    border-radius: 0 0 10px 10px;
+    padding: 10px 14px;
+    text-align: right;
+    font-weight: 600;
+  }
+{% endblock %}
+
+{% block content %}
+<div class="simple-nav">
+  <a href="{% url 'simple_order' slug=slug %}" class="active">주문하기</a>
+  <a href="{% url 'simple_order_list' slug=slug %}">주문내역</a>
+</div>
+
+<div class="simple-card" style="padding:16px">
+  <div style="margin-bottom:12px;display:flex;justify-content:space-between;align-items:center">
+    <h2 style="margin-bottom:0">교재 주문</h2>
+    <span style="font-size:12px;color:#64748b">{{ teacher.name }} | {{ delivery.name }}</span>
+  </div>
+
+  {% if error %}
+  <div class="error-msg">{{ error }}</div>
+  {% endif %}
+
+  <form method="post" x-data="orderForm()" @submit.prevent="submitOrder">
+    {% csrf_token %}
+    <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+
+    <div class="order-row-wrap" style="border:1px solid #e2e8f0;border-radius:10px 10px 0 0;overflow:hidden">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th style="width:30%">시리즈</th>
+            <th style="width:30%">교재</th>
+            <th class="right" style="width:70px">단가</th>
+            <th class="center" style="width:55px">수량</th>
+            <th class="right" style="width:70px">금액</th>
+            <th style="width:30px"></th>
+          </tr>
+        </thead>
+        <tbody>
+          <template x-for="(row, index) in rows" :key="index">
+            <tr>
+              <td>
+                <select x-model="row.series" @change="row.book_id = ''; row.unit_price = 0">
+                  <option value="">시리즈</option>
+                  {% for s in series_list %}
+                  <option value="{{ s }}">{{ s }}</option>
+                  {% endfor %}
+                </select>
+              </td>
+              <td>
+                <select x-model="row.book_id" @change="updatePrice(row)">
+                  <option value="">교재</option>
+                  <template x-for="b in getBooks(row.series)" :key="b.id">
+                    <option :value="b.id" x-text="b.name"></option>
+                  </template>
+                </select>
+                <input type="hidden" :name="'book_' + index" :value="row.book_id">
+              </td>
+              <td class="right"><span x-text="row.unit_price ? row.unit_price.toLocaleString() : '-'" style="color:#666;font-size:12px"></span></td>
+              <td class="center">
+                <input type="number" :name="'qty_' + index" x-model.number="row.qty" min="1" max="9999">
+              </td>
+              <td class="right" style="font-weight:bold;font-size:12px">
+                <span x-text="rowAmount(row) ? rowAmount(row).toLocaleString() : '-'"></span>
+              </td>
+              <td class="center">
+                <button type="button" class="btn btn-sm btn-red" @click="rows.splice(index, 1)" x-show="rows.length > 1" style="padding:2px 6px;font-size:11px">X</button>
+              </td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="order-total-bar">
+      <button type="button" class="btn btn-outline btn-sm" @click="addRow" style="float:left">+ 행 추가</button>
+      합계: <span x-text="total().toLocaleString()" style="font-size:16px;color:#2563eb"></span>원
+    </div>
+
+    <div style="margin-top:12px">
+      <div class="form-group">
+        <label>메모</label>
+        <input type="text" name="memo" placeholder="특이사항 (선택)">
+      </div>
+    </div>
+
+    <button type="submit" class="btn btn-primary btn-block" style="margin-top:8px">주문 완료</button>
+  </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const BOOKS = {{ books_json|safe }};
+function orderForm() {
+  return {
+    rows: [{ series: '', book_id: '', qty: 1, unit_price: 0 }],
+    getBooks(series) { return series ? BOOKS.filter(b => b.series === series) : []; },
+    updatePrice(row) { const b = BOOKS.find(b => b.id == row.book_id); row.unit_price = b ? b.unit_price : 0; },
+    rowAmount(row) { return (row.book_id && row.qty) ? row.unit_price * row.qty : 0; },
+    total() { return this.rows.reduce((s, r) => s + this.rowAmount(r), 0); },
+    addRow() { this.rows.push({ series: '', book_id: '', qty: 1, unit_price: 0 }); },
+    submitOrder() {
+      if (!this.rows.some(r => r.book_id && r.qty > 0)) { alert('주문할 교재를 선택하세요.'); return; }
+      this.$el.submit();
+    }
+  }
+}
+</script>
+{% endblock %}

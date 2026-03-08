@@ -65,3 +65,26 @@ def send_ship_notification(order) -> bool:
         f'{tracking_part}'
     )
     return send_sms(receiver, message)
+
+
+def send_order_confirmation(order) -> bool:
+    """주문 접수 완료 문자"""
+    teacher = order.teacher
+    receiver = teacher.phone
+    message = (
+        f'[북마트] {teacher.name} 선생님\n'
+        f'{order.delivery.name} 교재 주문이 접수되었습니다.\n'
+        f'주문번호: {order.order_no}'
+    )
+    return send_sms(receiver, message)
+
+
+def send_delivery_notification(order) -> bool:
+    """배송 완료 문자"""
+    teacher = order.teacher
+    receiver = teacher.phone
+    message = (
+        f'[북마트] {teacher.name} 선생님\n'
+        f'{order.delivery.name} 교재가 배송 완료되었습니다.'
+    )
+    return send_sms(receiver, message)

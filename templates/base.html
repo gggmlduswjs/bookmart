@@ -283,6 +283,8 @@
     .btn-outline:hover { background: #f8fafc; border-color: #94a3b8; }
     .btn-red    { background: #dc2626; color: #fff; }
     .btn-red:hover { background: #b91c1c; }
+    .btn-blue   { background: #2563eb; color: #fff; }
+    .btn-blue:hover { background: #1d4ed8; }
     .btn-sm { padding: 4px 12px; font-size: 11px; }
 
     /* ── 인풋 공통 ── */
@@ -532,6 +534,12 @@
         <a href="{% url 'teacher_list' %}" class="{% if cur == 'teacher_list' %}active{% endif %}">선생님 목록</a>
         <a href="{% url 'teacher_create' %}" class="{% if cur == 'teacher_create' %}active{% endif %}">선생님 등록</a>
       </div>
+    {# 간편주문 링크 탭 #}
+    {% elif cur == 'agency_link' %}
+      <div class="sidebar-section">간편주문 링크</div>
+      <div class="sidebar-menu">
+        <a href="{% url 'agency_link' %}" class="active">내 링크 관리</a>
+      </div>
     {# 거래내역 탭 #}
     {% elif cur == 'ledger' or cur == 'export_ledger' %}
       <div class="sidebar-section">거래내역</div>
@@ -590,6 +598,8 @@
        class="tab-item {% if cur == 'delivery_list' or cur == 'delivery_create' %}active{% endif %}">학교관리</a>
     <a href="{% url 'teacher_list' %}"
        class="tab-item {% if cur == 'teacher_list' or cur == 'teacher_create' or cur == 'teacher_reset_password' %}active{% endif %}">선생님관리</a>
+    <a href="{% url 'agency_link' %}"
+       class="tab-item {% if cur == 'agency_link' %}active{% endif %}">간편주문링크</a>
     <a href="{% url 'ledger' %}"
        class="tab-item {% if cur == 'ledger' %}active{% endif %}">거래내역</a>
   {% elif user.is_teacher %}
