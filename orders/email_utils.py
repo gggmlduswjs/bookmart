@@ -169,3 +169,36 @@ def fetch_naver_emails(account_id, account_pw, account_label, days=60):
         logger.error('IMAP 수신 오류 (%s): %s', account_label, e)
 
     return results
+
+
+# ── 스팸 필터링 ──────────────────────────────────────────────────────────────
+
+ORDER_KEYWORDS = ['주문', '교재', '발주', '주문서', '도서']
+
+SPAM_SENDERS = [
+    '사람인', 'saramin', '스마트스토어', 'smartstore',
+    '쿠팡', 'coupang', '네이버 전자문서', 'naver_edoc',
+    '기프트서울', '잡코리아', 'jobkorea',
+    'noreply', 'no-reply', 'donotreply',
+    'newsletter', 'marketing',
+]
+
+
+def is_order_related(sender, subject, content):
+    """
+    이메일이 주문 관련인지 판별.
+    - 스팸 발신자 → False
+    - 제목/내용에 주문 키워드 포함 → True
+    - 그 외 → False (스팸으로 간주)
+    """
+    sender_lower = (sender or '').lower()
+    for spam in SPAM_SENDERS:
+        if spam.lower() in sender_lower:
+            return False
+
+    text = f'{subject or ""} {content or ""}'
+    for kw in ORDER_KEYWORDS:
+        if kw in text:
+            return True
+
+    return False

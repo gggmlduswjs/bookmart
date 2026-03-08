@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+
+{% block title %}업체 일괄등록{% endblock %}
+
+{% block content %}
+<div class="page-title">업체 일괄등록 (엑셀)</div>
+
+{% if created_list %}
+<div class="content-box" style="padding: 20px;">
+  <div style="margin-bottom: 12px; font-weight: 600; font-size: 14px;">생성된 계정 목록</div>
+  <div style="color: #dc2626; font-size: 12px; margin-bottom: 10px;">
+    아래 비밀번호는 이 화면을 벗어나면 다시 확인할 수 없습니다. 반드시 메모하세요.
+  </div>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>업체명</th>
+        <th>아이디</th>
+        <th>비밀번호</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in created_list %}
+      <tr>
+        <td class="center">{{ item.name }}</td>
+        <td class="center">{{ item.login_id }}</td>
+        <td class="center" style="font-weight: bold;">{{ item.password }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <div style="margin-top: 12px; text-align: center;">
+    <a href="{% url 'agency_list' %}" class="btn btn-orange">업체 목록으로</a>
+  </div>
+</div>
+{% endif %}
+
+<div class="content-box" style="padding: 20px;">
+  <div style="margin-bottom: 16px;">
+    <a href="{% url 'agency_import_sample' %}" class="btn btn-gray btn-sm">샘플 엑셀 다운로드</a>
+  </div>
+
+  <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 14px; margin-bottom: 16px; font-size: 13px; color: #475569;">
+    <strong>엑셀 파일 양식 안내</strong>
+    <table class="data-table" style="margin-top: 8px; min-width: auto;">
+      <thead>
+        <tr>
+          <th>A열</th><th>B열</th><th>C열</th><th>D열</th><th>E열</th><th>F열</th><th>G열</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="center">업체명</td>
+          <td class="center">아이디</td>
+          <td class="center">비밀번호</td>
+          <td class="center">대표자명</td>
+          <td class="center">사업자번호</td>
+          <td class="center">연락처</td>
+          <td class="center">주소</td>
+        </tr>
+      </tbody>
+    </table>
+    <ul style="margin-top: 10px; padding-left: 20px; line-height: 1.8;">
+      <li>첫 번째 행은 헤더(제목)로 인식하여 건너뜁니다.</li>
+      <li>비밀번호가 비어 있으면 임시 비밀번호가 자동 생성됩니다.</li>
+      <li>아이디가 이미 존재하는 경우 해당 행은 건너뜁니다.</li>
+      <li>생성된 계정은 최초 로그인 시 비밀번호 변경이 필요합니다.</li>
+      <li>.xlsx 파일만 지원됩니다.</li>
+    </ul>
+  </div>
+
+  <form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    <table class="form-table">
+      <tr>
+        <th>엑셀 파일</th>
+        <td>
+          <input type="file" name="file" accept=".xlsx" required
+                 style="font-size: 13px;">
+        </td>
+      </tr>
+    </table>
+    <div style="margin-top: 16px; text-align: center;">
+      <button type="submit" class="btn btn-orange">업로드 및 등록</button>
+      <a href="{% url 'agency_list' %}" class="btn btn-outline" style="margin-left: 6px;">취소</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

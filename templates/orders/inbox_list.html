@@ -9,7 +9,7 @@
   {% endif %}
 </div>
 
-<div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
+<div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
   <form method="post" action="{% url 'fetch_emails' %}">
     {% csrf_token %}
     <button type="submit" class="btn btn-orange btn-sm">📬 새 메일 가져오기</button>
@@ -21,69 +21,112 @@
   {% endif %}
 </div>
 
-<div class="content-box">
-  <table class="data-table">
-    <thead>
-      <tr>
-        <th style="width:70px">채널</th>
-        <th style="width:90px">계정</th>
-        <th>발신자</th>
-        <th>제목 / 내용 미리보기</th>
-        <th style="width:130px">수신 시각</th>
-        <th style="width:70px">상태</th>
-        <th style="width:70px"></th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for msg in inbox_messages %}
-      <tr style="{% if msg.is_processed %}opacity:0.5{% endif %}">
-        <td class="center">
-          {% if msg.source == 'email' %}
-          <span class="badge badge-blue">메일</span>
-          {% else %}
-          <span class="badge badge-orange">문자</span>
+<form method="post" action="{% url 'inbox_bulk_skip' %}" id="bulkForm">
+  {% csrf_token %}
+
+  {% if not show_done and inbox_messages %}
+  <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
+    <button type="submit" name="action" value="skip_selected" class="btn btn-outline btn-sm"
+            onclick="return confirmSelected()">선택 건너뛰기</button>
+    <button type="submit" name="action" value="skip_all" class="btn btn-outline btn-sm"
+            style="color:#c00;border-color:#c00"
+            onclick="return confirm('미처리 메시지를 모두 건너뛰시겠습니까?')">전체 건너뛰기</button>
+  </div>
+  {% endif %}
+
+  <div class="content-box">
+    <table class="data-table">
+      <thead>
+        <tr>
+          {% if not show_done %}
+          <th style="width:36px">
+            <input type="checkbox" id="checkAll" title="전체 선택" onchange="toggleAll(this)">
+          </th>
           {% endif %}
-        </td>
-        <td class="center" style="font-size:11px;color:#666">{{ msg.account_label|default:"-" }}</td>
-        <td style="font-size:11px;max-width:120px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">
-          {{ msg.sender }}
-        </td>
-        <td>
-          {% if msg.subject %}
-          <div style="font-weight:bold;margin-bottom:2px">{{ msg.subject }}</div>
+          <th style="width:70px">채널</th>
+          <th style="width:90px">계정</th>
+          <th>발신자</th>
+          <th>제목 / 내용 미리보기</th>
+          <th style="width:130px">수신 시각</th>
+          <th style="width:70px">상태</th>
+          <th style="width:70px"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for msg in inbox_messages %}
+        <tr style="{% if msg.is_processed %}opacity:0.5{% endif %}">
+          {% if not show_done %}
+          <td class="center">
+            {% if not msg.is_processed %}
+            <input type="checkbox" name="msg_ids" value="{{ msg.pk }}" class="msg-check">
+            {% endif %}
+          </td>
           {% endif %}
-          <div style="font-size:11px;color:#666">{{ msg.preview }}</div>
-          {% if msg.attachments.count %}
-          <div style="font-size:10px;color:#1a73e8;margin-top:2px">
-            📎 첨부 {{ msg.attachments.count }}건
-          </div>
-          {% endif %}
-        </td>
-        <td class="center" style="font-size:11px">{{ msg.received_at|date:"m/d H:i" }}</td>
-        <td class="center">
-          {% if msg.is_processed %}
-          <span style="color:#888;font-size:11px">완료</span>
-          {% if msg.order %}
-          <div style="font-size:10px"><a href="{% url 'order_detail' msg.order.pk %}">주문보기</a></div>
-          {% endif %}
-          {% else %}
-          <span style="color:#e8720c;font-size:11px;font-weight:bold">미처리</span>
-          {% endif %}
-        </td>
-        <td class="center">
-          {% if not msg.is_processed %}
-          <a href="{% url 'inbox_process' msg.pk %}" class="btn btn-orange btn-sm">처리</a>
-          {% endif %}
-        </td>
-      </tr>
-      {% empty %}
-      <tr>
-        <td colspan="7" class="center" style="padding:30px;color:#888">
-          {% if show_done %}메시지가 없습니다.{% else %}미처리 메시지가 없습니다.{% endif %}
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
+          <td class="center">
+            {% if msg.source == 'email' %}
+            <span class="badge badge-blue">메일</span>
+            {% else %}
+            <span class="badge badge-orange">문자</span>
+            {% endif %}
+          </td>
+          <td class="center" style="font-size:11px;color:#666">{{ msg.account_label|default:"-" }}</td>
+          <td style="font-size:11px;max-width:120px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">
+            {{ msg.sender }}
+          </td>
+          <td>
+            {% if msg.subject %}
+            <div style="font-weight:bold;margin-bottom:2px">{{ msg.subject }}</div>
+            {% endif %}
+            <div style="font-size:11px;color:#666">{{ msg.preview }}</div>
+            {% if msg.attachments.count %}
+            <div style="font-size:10px;color:#1a73e8;margin-top:2px">
+              📎 첨부 {{ msg.attachments.count }}건
+            </div>
+            {% endif %}
+          </td>
+          <td class="center" style="font-size:11px">{{ msg.received_at|date:"m/d H:i" }}</td>
+          <td class="center">
+            {% if msg.is_processed %}
+            <span style="color:#888;font-size:11px">완료</span>
+            {% if msg.order %}
+            <div style="font-size:10px"><a href="{% url 'order_detail' msg.order.pk %}">주문보기</a></div>
+            {% endif %}
+            {% else %}
+            <span style="color:#e8720c;font-size:11px;font-weight:bold">미처리</span>
+            {% endif %}
+          </td>
+          <td class="center">
+            {% if not msg.is_processed %}
+            <a href="{% url 'inbox_process' msg.pk %}" class="btn btn-orange btn-sm">처리</a>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="{% if show_done %}7{% else %}8{% endif %}" class="center" style="padding:30px;color:#888">
+            {% if show_done %}메시지가 없습니다.{% else %}미처리 메시지가 없습니다.{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</form>
+
+<script>
+function toggleAll(master) {
+  document.querySelectorAll('.msg-check').forEach(function(cb) {
+    cb.checked = master.checked;
+  });
+}
+
+function confirmSelected() {
+  var checked = document.querySelectorAll('.msg-check:checked');
+  if (checked.length === 0) {
+    alert('건너뛸 메시지를 선택해 주세요.');
+    return false;
+  }
+  return confirm(checked.length + '건을 건너뛰시겠습니까?');
+}
+</script>
 {% endblock %}

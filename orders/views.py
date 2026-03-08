@@ -828,13 +828,38 @@ def inbox_list(request):
 
 
 @role_required('admin')
+def inbox_bulk_skip(request):
+    """선택한 수신 메시지를 일괄 건너뛰기 (is_processed=True)"""
+    if request.method != 'POST':
+        return redirect('inbox_list')
+
+    action = request.POST.get('action', '')
+    if action == 'skip_all':
+        # 미처리 전체 건너뛰기
+        updated = InboxMessage.objects.filter(is_processed=False).update(is_processed=True)
+        messages.success(request, f'미처리 메시지 {updated}건을 모두 건너뛰었습니다.')
+    else:
+        # 선택 건너뛰기
+        msg_ids = request.POST.getlist('msg_ids')
+        if msg_ids:
+            updated = InboxMessage.objects.filter(
+                pk__in=msg_ids, is_processed=False
+            ).update(is_processed=True)
+            messages.success(request, f'{updated}건을 건너뛰었습니다.')
+        else:
+            messages.warning(request, '선택된 메시지가 없습니다.')
+
+    return redirect('inbox_list')
+
+
+@role_required('admin')
 def fetch_emails(request):
     """네이버 IMAP 메일 가져오기"""
     if request.method != 'POST':
         return redirect('inbox_list')
 
     from django.conf import settings as conf
-    from .email_utils import fetch_naver_emails
+    from .email_utils import fetch_naver_emails, is_order_related
 
     accounts = [
         (conf.NAVER_EMAIL_1_ID, conf.NAVER_EMAIL_1_PW, '007bm'),
@@ -861,6 +886,8 @@ def fetch_emails(request):
         for e in emails:
             if e['imap_key'] in existing_keys:
                 continue
+            # 스팸 판별: 주문 관련이 아니면 자동으로 처리완료 표시
+            auto_skip = not is_order_related(e['sender'], e['subject'], e['content'])
             msg_obj = InboxMessage.objects.create(
                 source=InboxMessage.Source.EMAIL,
                 account_label=e['account_label'],
@@ -869,6 +896,7 @@ def fetch_emails(request):
                 content=e['content'],
                 received_at=e['received_at'],
                 imap_key=e['imap_key'],
+                is_processed=auto_skip,
             )
             # 첨부파일 저장
             for att in e.get('attachments', []):

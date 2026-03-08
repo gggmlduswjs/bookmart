@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block title %}교재 일괄등록{% endblock %}
+
+{% block content %}
+<div class="page-title">교재 일괄등록 (엑셀)</div>
+
+<div class="content-box" style="padding: 20px;">
+  <div style="margin-bottom: 16px;">
+    <a href="{% url 'book_import_sample' %}" class="btn btn-gray btn-sm">샘플 엑셀 다운로드</a>
+  </div>
+
+  <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 14px; margin-bottom: 16px; font-size: 13px; color: #475569;">
+    <strong>엑셀 파일 양식 안내</strong>
+    <table class="data-table" style="margin-top: 8px; min-width: auto;">
+      <thead>
+        <tr>
+          <th>A열</th><th>B열</th><th>C열</th><th>D열</th><th>E열</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="center">출판사</td>
+          <td class="center">시리즈</td>
+          <td class="center">교재명</td>
+          <td class="center">정가</td>
+          <td class="center">반품가능(O/X)</td>
+        </tr>
+      </tbody>
+    </table>
+    <ul style="margin-top: 10px; padding-left: 20px; line-height: 1.8;">
+      <li>첫 번째 행은 헤더(제목)로 인식하여 건너뜁니다.</li>
+      <li>출판사가 없으면 자동 생성됩니다 (기본 공급률 40%).</li>
+      <li>동일 출판사 + 교재명이 이미 존재하면 정보를 업데이트합니다.</li>
+      <li>.xlsx 파일만 지원됩니다.</li>
+    </ul>
+  </div>
+
+  <form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    <table class="form-table">
+      <tr>
+        <th>엑셀 파일</th>
+        <td>
+          <input type="file" name="file" accept=".xlsx" required
+                 style="font-size: 13px;">
+        </td>
+      </tr>
+    </table>
+    <div style="margin-top: 16px; text-align: center;">
+      <button type="submit" class="btn btn-orange">업로드 및 등록</button>
+      <a href="{% url 'book_list' %}" class="btn btn-outline" style="margin-left: 6px;">취소</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

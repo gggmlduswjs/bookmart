@@ -29,6 +29,7 @@ urlpatterns = [
 
     # ── 수신함 ────────────────────────────────────────────────────────────────
     path('inbox/', views.inbox_list, name='inbox_list'),
+    path('inbox/bulk-skip/', views.inbox_bulk_skip, name='inbox_bulk_skip'),
     path('inbox/fetch/', views.fetch_emails, name='fetch_emails'),
     path('inbox/<int:pk>/', views.inbox_process, name='inbox_process'),
     path('inbox/attachment/<int:pk>/download/', views.attachment_download, name='attachment_download'),
