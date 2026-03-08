@@ -11,9 +11,15 @@
   }
   .dash-card {
     background: #fff;
-    border: 1px solid #ccc;
-    padding: 14px 16px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 18px 16px;
     text-align: center;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+    transition: box-shadow 0.15s;
+  }
+  .dash-card:hover {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
   }
   .dash-card .card-label {
     font-size: 12px;
@@ -22,12 +28,12 @@
   }
   .dash-card .card-value {
     font-size: 28px;
-    font-weight: bold;
-    color: #e8720c;
+    font-weight: 700;
+    color: #1e40af;
   }
-  .dash-card .card-value.blue { color: #1a73e8; }
-  .dash-card .card-value.green { color: #2e7d32; }
-  .dash-card .card-value.gray { color: #555; }
+  .dash-card .card-value.blue { color: #2563eb; }
+  .dash-card .card-value.green { color: #059669; }
+  .dash-card .card-value.gray { color: #64748b; }
 
   .dash-mid {
     display: grid;
@@ -38,14 +44,17 @@
 
   .dash-section {
     background: #fff;
-    border: 1px solid #ccc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
   }
   .dash-section-title {
-    background: #666;
-    color: #fff;
-    padding: 6px 12px;
+    background: #334155;
+    color: #f1f5f9;
+    padding: 10px 16px;
     font-size: 13px;
-    font-weight: bold;
+    font-weight: 600;
   }
   .dash-section-body {
     padding: 10px 12px;
@@ -84,22 +93,23 @@
   .deadline-item {
     flex: 1;
     text-align: center;
-    padding: 10px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
+    padding: 12px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    background: #f8fafc;
   }
-  .deadline-item .dl-label { font-size: 12px; color: #666; margin-bottom: 4px; }
-  .deadline-item .dl-time { font-size: 18px; font-weight: bold; color: #333; }
-  .deadline-item .dl-remain { font-size: 12px; margin-top: 2px; }
-  .deadline-item .dl-remain.past { color: #cc3333; font-weight: bold; }
-  .deadline-item .dl-remain.ok { color: #2e7d32; }
+  .deadline-item .dl-label { font-size: 12px; color: #64748b; margin-bottom: 4px; }
+  .deadline-item .dl-time { font-size: 20px; font-weight: 700; color: #1e293b; }
+  .deadline-item .dl-remain { font-size: 12px; margin-top: 4px; }
+  .deadline-item .dl-remain.past { color: #dc2626; font-weight: 600; }
+  .deadline-item .dl-remain.ok { color: #059669; font-weight: 500; }
 
   .dash-buttons {
     display: flex;
     gap: 10px;
     margin-bottom: 16px;
   }
-  .dash-buttons .btn { padding: 10px 24px; font-size: 13px; font-weight: bold; }
+  .dash-buttons .btn { padding: 12px 28px; font-size: 13px; font-weight: 600; }
 
   @media (max-width: 768px) {
     .dash-cards { grid-template-columns: 1fr 1fr; }
@@ -221,7 +231,7 @@
 <div class="dash-buttons">
   <a href="{% url 'inbox_list' %}" class="btn btn-orange">수신함 확인</a>
   <a href="{% url 'order_create_admin' %}" class="btn btn-dark">주문 입력</a>
-  <a href="{% url 'purchase_order' %}" class="btn btn-gray">발주 집계</a>
+  <a href="{% url 'purchase_order' %}" class="btn btn-outline">발주 집계</a>
 </div>
 {% endblock %}
 
