@@ -121,8 +121,9 @@ def fetch_naver_emails(account_id, account_pw, account_label, days=60):
         mail.login(account_id, account_pw)
         mail.select('INBOX')
 
-        # 읽지 않은 메일만 가져오기 (UNSEEN)
-        status, data = mail.uid('search', None, 'UNSEEN')
+        # 최근 N일간 전체 메일 가져오기
+        since_date = (datetime.datetime.now() - datetime.timedelta(days=days)).strftime('%d-%b-%Y')
+        status, data = mail.uid('search', None, f'SINCE {since_date}')
         if status != 'OK' or not data[0]:
             mail.logout()
             return results
@@ -173,14 +174,17 @@ def fetch_naver_emails(account_id, account_pw, account_label, days=60):
 
 # ── 스팸 필터링 ──────────────────────────────────────────────────────────────
 
-ORDER_KEYWORDS = ['주문', '교재', '발주', '주문서', '도서']
+ORDER_KEYWORDS = ['주문', '교재', '발주', '주문서', '도서', '초등학교', '중학교', '학교', '학원']
 
 SPAM_SENDERS = [
     '사람인', 'saramin', '스마트스토어', 'smartstore',
     '쿠팡', 'coupang', '네이버 전자문서', 'naver_edoc',
     '기프트서울', '잡코리아', 'jobkorea',
-    'noreply', 'no-reply', 'donotreply',
     'newsletter', 'marketing',
+    'kb손해보험', 'kbinsure', '국민건강보험',
+    '서울보증', 'sgic', '유니포스트', 'unipost',
+    '국세청', 'hometax', 'kosa biz',
+    '크라운출판사', '메이킹북스',
 ]
 
 
