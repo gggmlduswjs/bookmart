@@ -425,6 +425,41 @@ def order_invoice(request, pk):
     })
 
 
+@role_required('admin', 'agency')
+def order_invoice_bulk(request):
+    ids_str = request.GET.get('ids', '')
+    try:
+        ids = [int(x) for x in ids_str.split(',') if x.strip()]
+    except ValueError:
+        ids = []
+    if not ids:
+        return HttpResponse('인쇄할 주문이 없습니다.', status=400)
+
+    orders_data = []
+    qs = Order.objects.filter(pk__in=ids).select_related(
+        'teacher', 'delivery', 'agency'
+    ).order_by('ordered_at')
+    if request.user.role == 'agency':
+        qs = qs.filter(agency=request.user)
+
+    for order in qs:
+        items = order.items.select_related('book', 'book__publisher')
+        total_amount = sum(item.amount for item in items)
+        total_qty = sum(item.quantity for item in items)
+        empty_rows = range(max(0, 8 - items.count()))
+        orders_data.append({
+            'order': order,
+            'items': items,
+            'total_amount': total_amount,
+            'total_qty': total_qty,
+            'empty_rows': empty_rows,
+        })
+
+    return render(request, 'orders/order_invoice_bulk.html', {
+        'orders_data': orders_data,
+    })
+
+
 # ── 반품 목록 ──────────────────────────────────────────────────────────────────
 
 @login_required

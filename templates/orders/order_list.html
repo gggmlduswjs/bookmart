@@ -40,10 +40,20 @@
 </form>
 
 <!-- 목록 -->
+{% if not request.user.is_teacher %}
+<div style="margin-bottom:8px;display:flex;align-items:center;gap:8px">
+  <label style="font-size:13px;color:#64748b;cursor:pointer">
+    <input type="checkbox" id="check-all" onchange="toggleAll(this)"> 전체 선택
+  </label>
+  <button class="btn btn-dark btn-sm" onclick="bulkPrint()">선택 일괄 인쇄</button>
+</div>
+{% endif %}
+
 <div class="content-box">
   <table class="data-table">
     <thead>
       <tr>
+        {% if not request.user.is_teacher %}<th style="width:30px"></th>{% endif %}
         <th>주문번호</th>
         {% if not request.user.is_teacher %}<th>선생님</th>{% endif %}
         <th>배송지</th>
@@ -56,6 +66,9 @@
     <tbody>
       {% for order in orders %}
       <tr>
+        {% if not request.user.is_teacher %}
+        <td class="center"><input type="checkbox" class="order-chk" value="{{ order.pk }}"></td>
+        {% endif %}
         <td style="font-size:11px">{{ order.order_no }}</td>
         {% if not request.user.is_teacher %}<td>{{ order.teacher.name }}</td>{% endif %}
         <td>{{ order.delivery.name }}</td>
@@ -73,9 +86,23 @@
         </td>
       </tr>
       {% empty %}
-      <tr><td colspan="7" class="center" style="padding:20px;color:#888">주문 내역이 없습니다.</td></tr>
+      <tr><td colspan="8" class="center" style="padding:20px;color:#888">주문 내역이 없습니다.</td></tr>
       {% endfor %}
     </tbody>
   </table>
 </div>
+
+{% if not request.user.is_teacher %}
+<script>
+function toggleAll(el) {
+  document.querySelectorAll('.order-chk').forEach(function(cb) { cb.checked = el.checked; });
+}
+function bulkPrint() {
+  var ids = [];
+  document.querySelectorAll('.order-chk:checked').forEach(function(cb) { ids.push(cb.value); });
+  if (ids.length === 0) { alert('인쇄할 주문을 선택해주세요.'); return; }
+  window.open('{% url "order_invoice_bulk" %}?ids=' + ids.join(','), '_blank');
+}
+</script>
+{% endif %}
 {% endblock %}

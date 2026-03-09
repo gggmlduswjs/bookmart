@@ -21,6 +21,7 @@ urlpatterns = [
     path('orders/<int:pk>/ship/', views.order_ship, name='order_ship'),
     path('orders/<int:pk>/deliver/', views.order_deliver, name='order_deliver'),
     path('orders/<int:pk>/invoice/', views.order_invoice, name='order_invoice'),
+    path('orders/invoice/bulk/', views.order_invoice_bulk, name='order_invoice_bulk'),
 
     # ── 반품 ──────────────────────────────────────────────────────────────────
     path('returns/', views.return_list, name='return_list'),
