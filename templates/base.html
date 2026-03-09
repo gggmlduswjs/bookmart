@@ -592,7 +592,7 @@
     <a href="{% url 'dashboard' %}"
        class="tab-item {% if cur == 'dashboard' %}active{% endif %}">대시보드</a>
     <a href="{% url 'order_list' %}"
-       class="tab-item {% if cur == 'order_list' or cur == 'order_detail' or cur == 'order_ship' or cur == 'order_deliver' or cur == 'order_cancel' or cur == 'order_create_admin' or cur == 'return_list' or cur == 'return_detail' or cur == 'return_confirm' or cur == 'return_reject' or cur == 'inbox_list' or cur == 'inbox_process' %}active{% endif %}">주문관리{% if unread_inbox_count %} <span class="tab-badge">{{ unread_inbox_count }}</span>{% endif %}</a>
+       class="tab-item {% if cur == 'order_list' or cur == 'order_detail' or cur == 'order_ship' or cur == 'order_deliver' or cur == 'order_cancel' or cur == 'order_create_admin' or cur == 'return_list' or cur == 'return_detail' or cur == 'return_confirm' or cur == 'return_reject' or cur == 'inbox_list' or cur == 'inbox_process' %}active{% endif %}">주문관리{% if pending_order_count %} <span class="tab-badge">{{ pending_order_count }}</span>{% endif %}</a>
     <a href="{% url 'book_list' %}"
        class="tab-item {% if cur == 'book_list' or cur == 'book_create' or cur == 'book_edit' or cur == 'book_import' or cur == 'publisher_list' or cur == 'publisher_create' or cur == 'publisher_edit' or cur == 'purchase_order' %}active{% endif %}">교재관리</a>
     <a href="{% url 'ledger' %}"
