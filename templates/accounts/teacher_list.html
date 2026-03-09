@@ -5,16 +5,14 @@
 <div class="page-title">
   선생님 관리
   <span class="subtitle">{{ request.user.name }}</span>
-  {% if request.user.is_admin %}
   <a href="{% url 'teacher_create' %}" class="btn btn-orange btn-sm">+ 선생님 등록</a>
-  {% endif %}
 </div>
 
 <div class="content-box">
   <table class="data-table">
     <thead>
       <tr>
-        <th>이름</th><th>아이디</th><th>담당 학교</th><th>연락처</th><th>상태</th>{% if request.user.is_admin %}<th style="width:200px"></th>{% endif %}
+        <th>이름</th><th>아이디</th><th>담당 학교</th><th>연락처</th><th>상태</th><th style="width:200px"></th>
       </tr>
     </thead>
     <tbody>
@@ -31,7 +29,6 @@
             <span class="badge badge-gray">비활성</span>
           {% endif %}
         </td>
-        {% if request.user.is_admin %}
         <td class="center" style="white-space:nowrap">
           <a href="{% url 'invite_link' t.pk %}"
              class="btn btn-sm btn-orange">초대링크</a>
@@ -52,10 +49,9 @@
             {% if t.is_active %}비활성화{% else %}활성화{% endif %}
           </a>
         </td>
-        {% endif %}
       </tr>
       {% empty %}
-      <tr><td colspan="{% if request.user.is_admin %}6{% else %}5{% endif %}" class="center" style="padding:20px;color:#888">등록된 선생님이 없습니다.</td></tr>
+      <tr><td colspan="6" class="center" style="padding:20px;color:#888">등록된 선생님이 없습니다.</td></tr>
       {% endfor %}
     </tbody>
   </table>

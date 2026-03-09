@@ -62,11 +62,13 @@ def agency_create(request):
             simple_link = request.build_absolute_uri(
                 reverse('simple_landing', args=[agency.agency_slug])
             )
+            site_url = request.build_absolute_uri('/').rstrip('/')
             return render(request, 'accounts/credential.html', {
                 'title': '업체 계정 생성 완료',
                 'login_id': agency.login_id,
                 'password': temp_pw,
                 'simple_link': simple_link,
+                'site_url': site_url,
                 'back_url': reverse('agency_list'),
             })
     else:

@@ -4,9 +4,7 @@
 {% block content %}
 <div class="page-title">
   학교(배송지) 관리
-  {% if request.user.is_admin %}
   <a href="{% url 'delivery_create' %}" class="btn btn-orange btn-sm">+ 학교 등록</a>
-  {% endif %}
 </div>
 
 <div class="content-box">
