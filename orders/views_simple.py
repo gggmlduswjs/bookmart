@@ -187,7 +187,7 @@ def simple_order(request, slug):
         'series': b.series or '기타',
         'name': b.name,
         'publisher': b.publisher.name,
-        'unit_price': math.floor(b.list_price * float(b.publisher.supply_rate) / 100),
+        'list_price': b.list_price,
     } for b in books], ensure_ascii=False)
 
     error = None
@@ -251,11 +251,15 @@ def simple_confirm(request, slug, order_id):
     teacher = request.simple_teacher
     order = get_object_or_404(Order, pk=order_id, teacher=teacher)
     items = order.items.select_related('book', 'book__publisher')
+    for item in items:
+        item.list_price_amount = item.list_price * item.quantity
+    list_price_total = sum(item.list_price_amount for item in items)
 
     return render(request, 'simple/confirm.html', {
         'agency': request.simple_agency,
         'order': order,
         'items': items,
+        'list_price_total': f'{list_price_total:,}',
         'slug': slug,
     })
 
@@ -265,7 +269,9 @@ def simple_confirm(request, slug, order_id):
 @simple_session_required
 def simple_order_list(request, slug):
     teacher = request.simple_teacher
-    orders = Order.objects.filter(teacher=teacher).order_by('-ordered_at')
+    orders = Order.objects.filter(teacher=teacher).prefetch_related('items').order_by('-ordered_at')
+    for order in orders:
+        order.list_price_total = sum(item.list_price * item.quantity for item in order.items.all())
 
     return render(request, 'simple/order_list.html', {
         'agency': request.simple_agency,

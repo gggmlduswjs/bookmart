@@ -28,7 +28,7 @@
           <a href="{% url 'simple_confirm' slug=slug order_id=order.pk %}">{{ order.order_no }}</a>
         </td>
         <td>{{ order.delivery.name }}</td>
-        <td class="right">{{ order.total_amount|floatformat:0 }}원</td>
+        <td class="right">{{ order.list_price_total|floatformat:0 }}원</td>
         <td class="center">
           {% if order.status == 'pending' %}
             <span class="badge badge-blue">접수</span>

@@ -23,13 +23,13 @@
       <tr>
         <td>{{ item.book.name }}</td>
         <td class="center">{{ item.quantity }}</td>
-        <td class="right">{{ item.amount|floatformat:0 }}원</td>
+        <td class="right">{{ item.list_price_amount }}원</td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
   <div style="text-align:right;padding:10px;font-weight:bold;font-size:15px;border-top:2px solid #e2e8f0">
-    합계: {{ order.total_amount|floatformat:0 }}원
+    합계: {{ list_price_total }}원
   </div>
 
   <div style="margin-top:4px;font-size:13px;color:#64748b">

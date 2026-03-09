@@ -46,7 +46,7 @@
           <tr>
             <th style="width:30%">시리즈</th>
             <th style="width:30%">교재</th>
-            <th class="right" style="width:70px">단가</th>
+            <th class="right" style="width:70px">정가</th>
             <th class="center" style="width:55px">수량</th>
             <th class="right" style="width:70px">금액</th>
             <th style="width:30px"></th>
@@ -56,7 +56,7 @@
           <template x-for="(row, index) in rows" :key="index">
             <tr>
               <td>
-                <select x-model="row.series" @change="row.book_id = ''; row.unit_price = 0">
+                <select x-model="row.series" @change="row.book_id = ''; row.list_price = 0">
                   <option value="">시리즈</option>
                   {% for s in series_list %}
                   <option value="{{ s }}">{{ s }}</option>
@@ -72,7 +72,7 @@
                 </select>
                 <input type="hidden" :name="'book_' + index" :value="row.book_id">
               </td>
-              <td class="right"><span x-text="row.unit_price ? row.unit_price.toLocaleString() : '-'" style="color:#666;font-size:12px"></span></td>
+              <td class="right"><span x-text="row.list_price ? row.list_price.toLocaleString() : '-'" style="color:#666;font-size:12px"></span></td>
               <td class="center">
                 <input type="number" :name="'qty_' + index" x-model.number="row.qty" min="1" max="9999">
               </td>
@@ -110,12 +110,12 @@
 const BOOKS = {{ books_json|safe }};
 function orderForm() {
   return {
-    rows: [{ series: '', book_id: '', qty: 1, unit_price: 0 }],
+    rows: [{ series: '', book_id: '', qty: 1, list_price: 0 }],
     getBooks(series) { return series ? BOOKS.filter(b => b.series === series) : BOOKS; },
-    updatePrice(row) { const b = BOOKS.find(b => b.id == row.book_id); row.unit_price = b ? b.unit_price : 0; },
-    rowAmount(row) { return (row.book_id && row.qty) ? row.unit_price * row.qty : 0; },
+    updatePrice(row) { const b = BOOKS.find(b => b.id == row.book_id); row.list_price = b ? b.list_price : 0; },
+    rowAmount(row) { return (row.book_id && row.qty) ? row.list_price * row.qty : 0; },
     total() { return this.rows.reduce((s, r) => s + this.rowAmount(r), 0); },
-    addRow() { this.rows.push({ series: '', book_id: '', qty: 1, unit_price: 0 }); },
+    addRow() { this.rows.push({ series: '', book_id: '', qty: 1, list_price: 0 }); },
     submitOrder() {
       if (!this.rows.some(r => r.book_id && r.qty > 0)) { alert('주문할 교재를 선택하세요.'); return; }
       this.$el.submit();
