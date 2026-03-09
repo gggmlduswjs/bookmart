@@ -102,7 +102,7 @@
         <td class="center" style="white-space:nowrap">
           <a href="{% url 'agency_edit' agency.pk %}" class="btn btn-outline btn-sm">수정</a>
           <button class="btn btn-sm btn-blue"
-            onclick="openMsgModal('{{ agency.name }}', '{{ agency.login_id }}', '{{ site_url }}/orders/s/{{ agency.agency_code }}/', {{ agency.pk }})">문자양식</button>
+            onclick="openMsgModal('{{ agency.name }}', '{{ agency.login_id }}', '{{ site_url }}/orders/s/{{ agency.agency_code }}/', {{ agency.pk }}, '{{ agency.plain_password }}')">문자양식</button>
           <a href="{% url 'agency_toggle' agency.pk %}"
              class="btn btn-sm {% if agency.is_active %}btn-red{% else %}btn-outline{% endif %}"
              onclick="return confirm('{% if agency.is_active %}비활성화{% else %}활성화{% endif %}하시겠습니까?')">
@@ -161,11 +161,11 @@ var currentLoginId = '';
 var currentSimpleLink = '';
 var currentPassword = '(비밀번호 초기화 버튼을 눌러주세요)';
 
-function openMsgModal(name, loginId, simpleLink, pk) {
+function openMsgModal(name, loginId, simpleLink, pk, plainPw) {
   currentAgencyPk = pk;
   currentLoginId = loginId;
   currentSimpleLink = simpleLink;
-  currentPassword = '(비밀번호 초기화 버튼을 눌러주세요)';
+  currentPassword = plainPw || '(비밀번호 초기화 버튼을 눌러주세요)';
 
   document.getElementById('modal-title').textContent = name + ' 문자양식';
   document.getElementById('pw-display').style.display = 'none';

@@ -66,6 +66,7 @@ def agency_create(request):
             agency = form.save(commit=False)
             agency.role = 'agency'
             agency.set_password(temp_pw)
+            agency.plain_password = temp_pw
             agency.must_change_password = True
             agency.save()
             simple_link = request.build_absolute_uri(
@@ -124,8 +125,9 @@ def agency_reset_password(request, pk):
     agency = get_object_or_404(User, pk=pk, role='agency')
     temp_pw = generate_temp_password()
     agency.set_password(temp_pw)
+    agency.plain_password = temp_pw
     agency.must_change_password = True
-    agency.save(update_fields=['password', 'must_change_password'])
+    agency.save(update_fields=['password', 'plain_password', 'must_change_password'])
     return JsonResponse({'password': temp_pw, 'name': agency.name})
 
 

@@ -65,6 +65,8 @@ class User(AbstractBaseUser, PermissionsMixin):
         max_length=8, null=True, blank=True, unique=True, verbose_name='간편주문 코드'
     )
 
+    plain_password = models.CharField(max_length=50, blank=True, default='', verbose_name='비밀번호(원문)')
+
     is_active = models.BooleanField(default=True, verbose_name='활성')
     is_staff = models.BooleanField(default=False)
     must_change_password = models.BooleanField(default=True, verbose_name='비번 변경 필요')
