@@ -5,7 +5,7 @@ from datetime import date, datetime
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.db.models import Sum, Q
+from django.db.models import Sum, Q, Count
 from django.http import HttpResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.utils import timezone
@@ -900,7 +900,9 @@ def export_sales(request):
 @role_required('admin')
 def inbox_list(request):
     show_done = request.GET.get('done', '')
-    qs = InboxMessage.objects.all()
+    qs = InboxMessage.objects.annotate(
+        attachment_count=Count('attachments')
+    ).select_related('order')
     if not show_done:
         qs = qs.filter(is_processed=False)
     unread_count = InboxMessage.objects.filter(is_processed=False).count()
