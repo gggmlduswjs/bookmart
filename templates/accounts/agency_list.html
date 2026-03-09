@@ -1,6 +1,60 @@
 {% extends 'base.html' %}
 {% block title %}업체 관리{% endblock %}
 
+{% block extra_css %}
+<style>
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 1000;
+    justify-content: center;
+    align-items: center;
+  }
+  .modal-overlay.active { display: flex; }
+  .modal-box {
+    background: #fff;
+    border-radius: 10px;
+    padding: 24px;
+    width: 90%;
+    max-width: 520px;
+    max-height: 80vh;
+    overflow-y: auto;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+  }
+  .modal-box h3 { margin: 0 0 16px; font-size: 16px; }
+  .modal-box .msg-block {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 12px;
+    margin-bottom: 12px;
+  }
+  .modal-box .msg-block-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #64748b;
+    margin-bottom: 6px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .modal-box pre {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 4px;
+    padding: 10px;
+    font-size: 13px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-break: break-all;
+    margin: 0;
+    font-family: inherit;
+  }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="page-title">
   업체 관리
@@ -11,7 +65,7 @@
   <table class="data-table">
     <thead>
       <tr>
-        <th>업체명</th><th>아이디</th><th>연락처</th><th>상태</th><th style="width:80px"></th>
+        <th>업체명</th><th>아이디</th><th>연락처</th><th>상태</th><th style="width:160px"></th>
       </tr>
     </thead>
     <tbody>
@@ -27,7 +81,9 @@
             <span class="badge badge-gray">비활성</span>
           {% endif %}
         </td>
-        <td class="center">
+        <td class="center" style="white-space:nowrap">
+          <button class="btn btn-sm btn-blue"
+            onclick="showMsgModal('{{ agency.name }}', '{{ agency.login_id }}', '{{ site_url }}/orders/s/{{ agency.agency_slug }}/')">문자양식</button>
           <a href="{% url 'agency_toggle' agency.pk %}"
              class="btn btn-sm {% if agency.is_active %}btn-red{% else %}btn-outline{% endif %}"
              onclick="return confirm('{% if agency.is_active %}비활성화{% else %}활성화{% endif %}하시겠습니까?')">
@@ -41,4 +97,79 @@
     </tbody>
   </table>
 </div>
+
+<!-- 문자양식 모달 -->
+<div class="modal-overlay" id="msg-modal" onclick="if(event.target===this)closeMsgModal()">
+  <div class="modal-box">
+    <h3 id="modal-title"></h3>
+
+    <div class="msg-block">
+      <div class="msg-block-label">
+        업체에게 보낼 문자
+        <button class="btn btn-gray btn-sm" onclick="copyMsg('agency-msg-area', this)">복사</button>
+      </div>
+      <pre id="agency-msg-area"></pre>
+      <textarea id="agency-msg-copy" style="position:absolute;left:-9999px"></textarea>
+    </div>
+
+    <div class="msg-block">
+      <div class="msg-block-label">
+        선생님 전달용 문자
+        <button class="btn btn-gray btn-sm" onclick="copyMsg('teacher-msg-area', this)">복사</button>
+      </div>
+      <pre id="teacher-msg-area"></pre>
+      <textarea id="teacher-msg-copy" style="position:absolute;left:-9999px"></textarea>
+    </div>
+
+    <div style="text-align:center;margin-top:16px">
+      <button class="btn btn-gray" onclick="closeMsgModal()">닫기</button>
+    </div>
+  </div>
+</div>
+
+<script>
+function showMsgModal(name, loginId, simpleLink) {
+  document.getElementById('modal-title').textContent = name + ' 문자양식';
+
+  var agencyMsg = '[북마트] 관리자 계정 안내\n'
+    + '관리페이지: {{ site_url }}\n'
+    + '아이디: ' + loginId + '\n'
+    + '비밀번호: (생성 시 안내된 비밀번호)\n\n'
+    + '로그인 후 주문현황, 선생님/학교 관리가 가능합니다.\n\n'
+    + '아래 문자를 선생님들께 전달해주세요.\n'
+    + '────────────\n'
+    + '[교재주문] 아래 링크에서 교재를 주문해주세요.\n'
+    + simpleLink + '\n'
+    + '────────────';
+
+  var teacherMsg = '[교재주문] 아래 링크에서 교재를 주문해주세요.\n' + simpleLink;
+
+  document.getElementById('agency-msg-area').textContent = agencyMsg;
+  document.getElementById('teacher-msg-area').textContent = teacherMsg;
+  document.getElementById('msg-modal').classList.add('active');
+}
+
+function closeMsgModal() {
+  document.getElementById('msg-modal').classList.remove('active');
+}
+
+function copyMsg(preId, btn) {
+  var text = document.getElementById(preId).textContent;
+  var copyId = preId.replace('-area', '-copy');
+  var ta = document.getElementById(copyId);
+  ta.value = text;
+  ta.style.position = 'static';
+  ta.select();
+  ta.setSelectionRange(0, 99999);
+  document.execCommand('copy');
+  ta.style.position = 'absolute';
+  ta.style.left = '-9999px';
+  btn.textContent = '복사됨 ✓';
+  btn.style.background = '#2e7d32';
+  setTimeout(function() {
+    btn.textContent = '복사';
+    btn.style.background = '';
+  }, 2000);
+}
+</script>
 {% endblock %}

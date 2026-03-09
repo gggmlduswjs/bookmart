@@ -45,7 +45,11 @@ class CustomPasswordChangeView(PasswordChangeView):
 @role_required('admin')
 def agency_list(request):
     agencies = User.objects.filter(role='agency').order_by('name')
-    return render(request, 'accounts/agency_list.html', {'agencies': agencies})
+    site_url = request.build_absolute_uri('/').rstrip('/')
+    return render(request, 'accounts/agency_list.html', {
+        'agencies': agencies,
+        'site_url': site_url,
+    })
 
 
 @role_required('admin')
