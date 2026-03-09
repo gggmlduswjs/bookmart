@@ -5,6 +5,9 @@
 <div class="page-title">
   주문 상세
   <a href="{% url 'order_list' %}" class="btn btn-gray btn-sm">← 목록</a>
+  {% if request.user.is_admin %}
+  <a href="{% url 'order_invoice' order.pk %}" target="_blank" class="btn btn-dark btn-sm">거래명세서 인쇄</a>
+  {% endif %}
 </div>
 
 <div style="display:flex;gap:12px;align-items:flex-start">

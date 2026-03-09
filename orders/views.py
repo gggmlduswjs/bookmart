@@ -406,6 +406,25 @@ def order_deliver(request, pk):
     return redirect('order_detail', pk=pk)
 
 
+# ── 거래명세서 인쇄 ────────────────────────────────────────────────────────────
+
+@role_required('admin')
+def order_invoice(request, pk):
+    order = get_object_or_404(Order, pk=pk)
+    items = order.items.select_related('book', 'book__publisher')
+    total_amount = sum(item.amount for item in items)
+    total_qty = sum(item.quantity for item in items)
+    # 빈 행 채우기 (최소 10행)
+    empty_rows = range(max(0, 10 - items.count()))
+    return render(request, 'orders/order_invoice.html', {
+        'order': order,
+        'items': items,
+        'total_amount': total_amount,
+        'total_qty': total_qty,
+        'empty_rows': empty_rows,
+    })
+
+
 # ── 반품 목록 ──────────────────────────────────────────────────────────────────
 
 @login_required

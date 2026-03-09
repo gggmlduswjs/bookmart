@@ -128,9 +128,9 @@ LOGIN_REDIRECT_URL = '/'
 LOGOUT_REDIRECT_URL = '/login/'
 
 # 알리고 SMS
-ALIGO_API_KEY = os.environ.get('ALIGO_API_KEY', '')
-ALIGO_USER_ID = os.environ.get('ALIGO_USER_ID', '')
-ALIGO_SENDER  = os.environ.get('ALIGO_SENDER', '')
+ALIGO_API_KEY = os.environ.get('ALIGO_API_KEY', 'q8dyet1xv53jbsg0at8azt0v4bnlkp3z')
+ALIGO_USER_ID = os.environ.get('ALIGO_USER_ID', '007bm')
+ALIGO_SENDER  = os.environ.get('ALIGO_SENDER', '01063182299')
 
 # 네이버 메일 IMAP
 NAVER_EMAIL_1_ID = os.environ.get('NAVER_EMAIL_1_ID', '')
