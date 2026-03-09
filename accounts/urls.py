@@ -12,6 +12,8 @@ urlpatterns = [
     path('agencies/new/', views.agency_create, name='agency_create'),
     path('agencies/import/', views.agency_import, name='agency_import'),
     path('agencies/import/sample/', views.agency_import_sample, name='agency_import_sample'),
+    path('agencies/<int:pk>/edit/', views.agency_edit, name='agency_edit'),
+    path('agencies/<int:pk>/reset-password/', views.agency_reset_password, name='agency_reset_password'),
     path('agencies/<int:pk>/toggle/', views.agency_toggle, name='agency_toggle'),
 
     # 업체 전용 — 배송지(학교) 관리

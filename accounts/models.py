@@ -1,8 +1,19 @@
+import random
 import secrets
+import string
 import uuid
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.db import models
 from django.utils import timezone
+
+
+def generate_agency_code():
+    """6자리 영소문자+숫자 코드 생성"""
+    chars = string.ascii_lowercase + string.digits
+    while True:
+        code = ''.join(random.choices(chars, k=6))
+        if not User.objects.filter(agency_code=code).exists():
+            return code
 
 
 class UserManager(BaseUserManager):
@@ -48,7 +59,10 @@ class User(AbstractBaseUser, PermissionsMixin):
     )
 
     agency_slug = models.UUIDField(
-        null=True, blank=True, unique=True, verbose_name='간편주문 링크'
+        null=True, blank=True, unique=True, verbose_name='간편주문 링크(레거시)'
+    )
+    agency_code = models.CharField(
+        max_length=8, null=True, blank=True, unique=True, verbose_name='간편주문 코드'
     )
 
     is_active = models.BooleanField(default=True, verbose_name='활성')
@@ -72,8 +86,11 @@ class User(AbstractBaseUser, PermissionsMixin):
         return f'{self.name} ({self.get_role_display()})'
 
     def save(self, *args, **kwargs):
-        if self.role == self.Role.AGENCY and not self.agency_slug:
-            self.agency_slug = uuid.uuid4()
+        if self.role == self.Role.AGENCY:
+            if not self.agency_slug:
+                self.agency_slug = uuid.uuid4()
+            if not self.agency_code:
+                self.agency_code = generate_agency_code()
         super().save(*args, **kwargs)
 
     @property

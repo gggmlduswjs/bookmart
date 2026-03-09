@@ -52,6 +52,16 @@
     margin: 0;
     font-family: inherit;
   }
+  .pw-display {
+    background: #fef3c7;
+    border: 1px solid #f59e0b;
+    border-radius: 6px;
+    padding: 10px 14px;
+    margin-bottom: 12px;
+    font-size: 13px;
+    display: none;
+  }
+  .pw-display strong { color: #b45309; }
 </style>
 {% endblock %}
 
@@ -61,11 +71,19 @@
   <a href="{% url 'agency_create' %}" class="btn btn-orange btn-sm">+ 업체 추가</a>
 </div>
 
+<div style="margin-bottom:8px">
+  {% if show_inactive %}
+  <a href="{% url 'agency_list' %}" class="btn btn-outline btn-sm">활성 업체만 보기</a>
+  {% else %}
+  <a href="{% url 'agency_list' %}?inactive=1" class="btn btn-outline btn-sm">비활성 업체 포함</a>
+  {% endif %}
+</div>
+
 <div class="content-box">
   <table class="data-table">
     <thead>
       <tr>
-        <th>업체명</th><th>아이디</th><th>연락처</th><th>상태</th><th style="width:160px"></th>
+        <th>업체명</th><th>아이디</th><th>연락처</th><th>상태</th><th style="width:240px"></th>
       </tr>
     </thead>
     <tbody>
@@ -82,8 +100,9 @@
           {% endif %}
         </td>
         <td class="center" style="white-space:nowrap">
+          <a href="{% url 'agency_edit' agency.pk %}" class="btn btn-outline btn-sm">수정</a>
           <button class="btn btn-sm btn-blue"
-            onclick="showMsgModal('{{ agency.name }}', '{{ agency.login_id }}', '{{ site_url }}/orders/s/{{ agency.agency_slug }}/')">문자양식</button>
+            onclick="openMsgModal('{{ agency.name }}', '{{ agency.login_id }}', '{{ site_url }}/orders/s/{{ agency.agency_code }}/', {{ agency.pk }})">문자양식</button>
           <a href="{% url 'agency_toggle' agency.pk %}"
              class="btn btn-sm {% if agency.is_active %}btn-red{% else %}btn-outline{% endif %}"
              onclick="return confirm('{% if agency.is_active %}비활성화{% else %}활성화{% endif %}하시겠습니까?')">
@@ -102,6 +121,15 @@
 <div class="modal-overlay" id="msg-modal" onclick="if(event.target===this)closeMsgModal()">
   <div class="modal-box">
     <h3 id="modal-title"></h3>
+
+    <!-- 비밀번호 초기화 -->
+    <div style="margin-bottom:12px">
+      <button class="btn btn-orange btn-sm" id="reset-pw-btn" onclick="resetPassword()">비밀번호 초기화</button>
+      <span style="font-size:11px;color:#94a3b8;margin-left:4px">초기화 후 문자양식에 비밀번호가 자동 반영됩니다</span>
+    </div>
+    <div class="pw-display" id="pw-display">
+      새 비밀번호: <strong id="pw-value"></strong>
+    </div>
 
     <div class="msg-block">
       <div class="msg-block-label">
@@ -128,25 +156,51 @@
 </div>
 
 <script>
-function showMsgModal(name, loginId, simpleLink) {
-  document.getElementById('modal-title').textContent = name + ' 문자양식';
+var currentAgencyPk = null;
+var currentLoginId = '';
+var currentSimpleLink = '';
+var currentPassword = '(비밀번호 초기화 버튼을 눌러주세요)';
 
+function openMsgModal(name, loginId, simpleLink, pk) {
+  currentAgencyPk = pk;
+  currentLoginId = loginId;
+  currentSimpleLink = simpleLink;
+  currentPassword = '(비밀번호 초기화 버튼을 눌러주세요)';
+
+  document.getElementById('modal-title').textContent = name + ' 문자양식';
+  document.getElementById('pw-display').style.display = 'none';
+  updateMsgTexts();
+  document.getElementById('msg-modal').classList.add('active');
+}
+
+function updateMsgTexts() {
   var agencyMsg = '[북마트] 관리자 계정 안내\n'
     + '관리페이지: {{ site_url }}\n'
-    + '아이디: ' + loginId + '\n'
-    + '비밀번호: (생성 시 안내된 비밀번호)\n\n'
+    + '아이디: ' + currentLoginId + '\n'
+    + '비밀번호: ' + currentPassword + '\n\n'
     + '로그인 후 주문현황, 선생님/학교 관리가 가능합니다.\n\n'
     + '아래 문자를 선생님들께 전달해주세요.\n'
     + '────────────\n'
     + '[교재주문] 아래 링크에서 교재를 주문해주세요.\n'
-    + simpleLink + '\n'
+    + currentSimpleLink + '\n'
     + '────────────';
 
-  var teacherMsg = '[교재주문] 아래 링크에서 교재를 주문해주세요.\n' + simpleLink;
+  var teacherMsg = '[교재주문] 아래 링크에서 교재를 주문해주세요.\n' + currentSimpleLink;
 
   document.getElementById('agency-msg-area').textContent = agencyMsg;
   document.getElementById('teacher-msg-area').textContent = teacherMsg;
-  document.getElementById('msg-modal').classList.add('active');
+}
+
+function resetPassword() {
+  if (!confirm('비밀번호를 초기화하시겠습니까?')) return;
+  fetch('{% url "agency_list" %}' + currentAgencyPk + '/reset-password/')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      currentPassword = data.password;
+      document.getElementById('pw-value').textContent = data.password;
+      document.getElementById('pw-display').style.display = 'block';
+      updateMsgTexts();
+    });
 }
 
 function closeMsgModal() {

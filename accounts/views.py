@@ -44,11 +44,16 @@ class CustomPasswordChangeView(PasswordChangeView):
 
 @role_required('admin')
 def agency_list(request):
-    agencies = User.objects.filter(role='agency').order_by('name')
+    show_inactive = request.GET.get('inactive') == '1'
+    if show_inactive:
+        agencies = User.objects.filter(role='agency').order_by('name')
+    else:
+        agencies = User.objects.filter(role='agency', is_active=True).order_by('name')
     site_url = request.build_absolute_uri('/').rstrip('/')
     return render(request, 'accounts/agency_list.html', {
         'agencies': agencies,
         'site_url': site_url,
+        'show_inactive': show_inactive,
     })
 
 
@@ -64,7 +69,7 @@ def agency_create(request):
             agency.must_change_password = True
             agency.save()
             simple_link = request.build_absolute_uri(
-                reverse('simple_landing', args=[agency.agency_slug])
+                reverse('simple_landing', args=[agency.agency_code])
             )
             site_url = request.build_absolute_uri('/').rstrip('/')
             return render(request, 'accounts/credential.html', {
@@ -78,6 +83,44 @@ def agency_create(request):
     else:
         form = AgencyForm()
     return render(request, 'accounts/agency_form.html', {'form': form, 'title': '업체 계정 추가'})
+
+
+@role_required('admin')
+def agency_edit(request, pk):
+    """업체 상세정보 수정"""
+    from .models import AgencyInfo
+    agency_user = get_object_or_404(User, pk=pk, role='agency')
+    info, created = AgencyInfo.objects.get_or_create(user=agency_user)
+
+    if request.method == 'POST':
+        agency_user.name = request.POST.get('name', agency_user.name).strip()
+        agency_user.phone = request.POST.get('phone', agency_user.phone).strip()
+        agency_user.save(update_fields=['name', 'phone'])
+
+        info.rep_name = request.POST.get('rep_name', '').strip()
+        info.biz_no = request.POST.get('biz_no', '').strip()
+        info.fax = request.POST.get('fax', '').strip()
+        info.postal_code = request.POST.get('postal_code', '').strip()
+        info.address = request.POST.get('address', '').strip()
+        info.save()
+
+        messages.success(request, f'{agency_user.name} 업체 정보를 수정했습니다.')
+        return redirect('agency_list')
+
+    return render(request, 'accounts/agency_edit.html', {
+        'agency_user': agency_user,
+        'info': info,
+    })
+
+
+@role_required('admin')
+def agency_reset_password(request, pk):
+    agency = get_object_or_404(User, pk=pk, role='agency')
+    temp_pw = generate_temp_password()
+    agency.set_password(temp_pw)
+    agency.must_change_password = True
+    agency.save(update_fields=['password', 'must_change_password'])
+    return JsonResponse({'password': temp_pw, 'name': agency.name})
 
 
 @role_required('admin')
@@ -386,7 +429,7 @@ def invite_link(request, pk):
 def agency_link(request):
     user = request.user
     link_url = request.build_absolute_uri(
-        reverse('simple_landing', args=[user.agency_slug])
+        reverse('simple_landing', args=[user.agency_code])
     )
     return render(request, 'accounts/agency_link.html', {
         'link_url': link_url,

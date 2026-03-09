@@ -7,24 +7,29 @@ from django.http import Http404
 
 from accounts.models import User
 from books.models import Book
-from .models import Order, OrderItem, DeliveryAddress
+from .models import Order, OrderItem, DeliveryAddress, LinkAccessLog
 from .sms import send_order_confirmation
 
 
 def _get_agency_or_404(slug):
-    """slug로 업체 조회, 없거나 비활성이면 404"""
+    """slug 또는 code로 업체 조회, 없거나 비활성이면 404"""
     try:
-        agency = User.objects.get(agency_slug=slug, role='agency', is_active=True)
+        # 짧은 코드 먼저 시도
+        agency = User.objects.get(agency_code=slug, role='agency', is_active=True)
     except User.DoesNotExist:
-        raise Http404
+        try:
+            # 기존 UUID 호환
+            agency = User.objects.get(agency_slug=slug, role='agency', is_active=True)
+        except (User.DoesNotExist, ValueError):
+            raise Http404
     return agency
 
 
 def _get_session_teacher(request, agency):
     """세션에서 teacher 조회. 없거나 불일치 시 None"""
     teacher_id = request.session.get('simple_teacher_id')
-    agency_slug = request.session.get('simple_agency_slug')
-    if not teacher_id or str(agency_slug) != str(agency.agency_slug):
+    session_code = request.session.get('simple_agency_code') or request.session.get('simple_agency_slug')
+    if not teacher_id or (str(session_code) != str(agency.agency_code) and str(session_code) != str(agency.agency_slug)):
         return None
     try:
         return User.objects.get(pk=teacher_id, role='teacher', agency=agency, is_active=True)
@@ -50,6 +55,15 @@ def simple_session_required(view_func):
 
 def simple_landing(request, slug):
     agency = _get_agency_or_404(slug)
+
+    # 접속 이력 기록 (GET only)
+    if request.method == 'GET':
+        LinkAccessLog.objects.create(
+            agency=agency,
+            ip_address=request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR', '')).split(',')[0].strip(),
+            user_agent=request.META.get('HTTP_USER_AGENT', '')[:500],
+            action='visit',
+        )
 
     # 이미 세션 있으면 주문 페이지로
     teacher = _get_session_teacher(request, agency)
@@ -100,6 +114,12 @@ def simple_landing(request, slug):
                     )
                     teacher.set_unusable_password()
                     teacher.save()
+                    LinkAccessLog.objects.create(
+                        agency=agency, teacher=teacher,
+                        ip_address=request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR', '')).split(',')[0].strip(),
+                        user_agent=request.META.get('HTTP_USER_AGENT', '')[:500],
+                        action='register',
+                    )
 
                 # 배송지(학교) 생성 또는 매칭
                 delivery, _ = DeliveryAddress.objects.get_or_create(
@@ -112,7 +132,7 @@ def simple_landing(request, slug):
 
             # 세션에 저장
             request.session['simple_teacher_id'] = teacher.pk
-            request.session['simple_agency_slug'] = str(agency.agency_slug)
+            request.session['simple_agency_code'] = str(agency.agency_code)
             return redirect('simple_order', slug=slug)
 
     return render(request, 'simple/landing.html', {
@@ -177,6 +197,12 @@ def simple_order(request, slug):
                 except Book.DoesNotExist:
                     pass
 
+            LinkAccessLog.objects.create(
+                agency=agency, teacher=teacher,
+                ip_address=request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR', '')).split(',')[0].strip(),
+                user_agent=request.META.get('HTTP_USER_AGENT', '')[:500],
+                action='order',
+            )
             send_order_confirmation(order)
             return redirect('simple_confirm', slug=slug, order_id=order.pk)
 
