@@ -293,3 +293,33 @@ class Payment(models.Model):
 
     def __str__(self):
         return f'{self.agency.name} {self.paid_at} {self.amount:,}원'
+
+
+class LinkAccessLog(models.Model):
+    agency = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+        related_name='link_access_logs', limit_choices_to={'role': 'agency'},
+        verbose_name='업체'
+    )
+    teacher = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='link_accesses',
+        verbose_name='선생님'
+    )
+    ip_address = models.GenericIPAddressField(null=True, blank=True, verbose_name='IP')
+    user_agent = models.CharField(max_length=500, blank=True, verbose_name='User-Agent')
+    action = models.CharField(max_length=20, choices=[
+        ('visit', '링크 접속'),
+        ('register', '신규 등록'),
+        ('order', '주문 완료'),
+    ], verbose_name='행동')
+    accessed_at = models.DateTimeField(auto_now_add=True, verbose_name='접속 시각')
+
+    class Meta:
+        db_table = 'link_access_logs'
+        verbose_name = '간편링크 접속 이력'
+        verbose_name_plural = '간편링크 접속 이력'
+        ordering = ['-accessed_at']
+        indexes = [
+            models.Index(fields=['agency', 'accessed_at']),
+        ]
