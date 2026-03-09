@@ -193,14 +193,15 @@ function updateMsgTexts() {
 
 function resetPassword() {
   if (!confirm('비밀번호를 초기화하시겠습니까?')) return;
-  fetch('{% url "agency_list" %}' + currentAgencyPk + '/reset-password/')
+  fetch('/agencies/' + currentAgencyPk + '/reset-password/')
     .then(function(r) { return r.json(); })
     .then(function(data) {
       currentPassword = data.password;
       document.getElementById('pw-value').textContent = data.password;
       document.getElementById('pw-display').style.display = 'block';
       updateMsgTexts();
-    });
+    })
+    .catch(function() { alert('오류가 발생했습니다.'); });
 }
 
 function closeMsgModal() {
