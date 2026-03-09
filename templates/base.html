@@ -513,8 +513,16 @@
     {% endif %}
 
   {% elif user.is_agency %}
+    {# 대시보드 탭 #}
+    {% if cur == 'agency_dashboard' %}
+      <div class="sidebar-section">대시보드</div>
+      <div class="sidebar-menu">
+        <a href="{% url 'agency_dashboard' %}" class="active">현황 요약</a>
+        <a href="{% url 'order_list' %}">주문현황</a>
+        <a href="{% url 'return_list' %}">반품현황</a>
+      </div>
     {# 주문/반품 탭 #}
-    {% if cur == 'order_list' or cur == 'order_detail' or cur == 'order_cancel' or cur == 'return_list' or cur == 'return_detail' %}
+    {% elif cur == 'order_list' or cur == 'order_detail' or cur == 'order_cancel' or cur == 'return_list' or cur == 'return_detail' %}
       <div class="sidebar-section">주문/반품</div>
       <div class="sidebar-menu">
         <a href="{% url 'order_list' %}" class="{% if cur == 'order_list' or cur == 'order_detail' %}active{% endif %}">주문현황</a>
@@ -592,6 +600,8 @@
     <a href="{% url 'agency_list' %}"
        class="tab-item {% if cur == 'agency_list' or cur == 'agency_create' or cur == 'agency_toggle' or cur == 'agency_import' %}active{% endif %}">업체관리</a>
   {% elif user.is_agency %}
+    <a href="{% url 'agency_dashboard' %}"
+       class="tab-item {% if cur == 'agency_dashboard' %}active{% endif %}">대시보드</a>
     <a href="{% url 'order_list' %}"
        class="tab-item {% if cur == 'order_list' or cur == 'order_detail' or cur == 'order_cancel' or cur == 'return_list' or cur == 'return_detail' %}active{% endif %}">주문/반품</a>
     <a href="{% url 'delivery_list' %}"
@@ -614,7 +624,7 @@
   <div class="topbar-user">
     {{ user.name }}
     <a href="{% url 'password_change' %}">비밀번호변경</a>
-    <a href="{% url 'logout' %}">로그아웃</a>
+    <form method="post" action="{% url 'logout' %}" style="display:inline">{% csrf_token %}<button type="submit" style="background:none;border:none;color:#93c5fd;font-size:13px;cursor:pointer;padding:0;font-family:inherit">로그아웃</button></form>
   </div>
 </div>
 
