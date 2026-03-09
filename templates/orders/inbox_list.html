@@ -93,6 +93,16 @@
       <button type="submit" name="action" value="skip_all" class="btn btn-outline btn-sm"
               style="color:#c00;border-color:#c00"
               onclick="return confirm('미처리 메일을 모두 처리완료하시겠습니까?')">전체 처리완료</button>
+      <button type="button" class="btn btn-outline btn-sm"
+              style="color:#888;border-color:#ccc"
+              onclick="bulkDelete('email')">선택 삭제</button>
+    </div>
+    {% endif %}
+    {% if show_done and email_messages %}
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
+      <button type="button" class="btn btn-outline btn-sm"
+              style="color:#888;border-color:#ccc"
+              onclick="bulkDelete('email')">선택 삭제</button>
     </div>
     {% endif %}
 
@@ -100,7 +110,7 @@
       <table class="data-table">
         <thead>
           <tr>
-            {% if not show_done %}<th style="width:36px"><input type="checkbox" onchange="toggleAll(this,'email')"></th>{% endif %}
+            <th style="width:36px"><input type="checkbox" onchange="toggleAll(this,'email')"></th>
             <th style="width:28px"></th>
             <th style="width:90px">계정</th>
             <th>발신자</th>
@@ -113,13 +123,9 @@
         <tbody>
           {% for msg in email_messages %}
           <tr class="{% if not msg.is_read %}unread{% elif msg.is_read and not msg.is_processed %}read{% endif %}" style="{% if msg.is_processed %}opacity:0.5{% endif %}">
-            {% if not show_done %}
             <td class="center">
-              {% if not msg.is_processed %}
               <input type="checkbox" name="msg_ids" value="{{ msg.pk }}" class="msg-check-email">
-              {% endif %}
             </td>
-            {% endif %}
             <td class="center">{% if not msg.is_read %}<span class="read-dot"></span>{% endif %}</td>
             <td class="center" style="font-size:11px;color:#666">{{ msg.account_label|default:"-" }}</td>
             <td style="font-size:11px;max-width:120px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">
@@ -160,7 +166,7 @@
           </tr>
           {% empty %}
           <tr>
-            <td colspan="{% if show_done %}7{% else %}8{% endif %}" class="center" style="padding:30px;color:#888">
+            <td colspan="8" class="center" style="padding:30px;color:#888">
               {% if show_done %}메일이 없습니다.{% else %}미처리 메일이 없습니다.{% endif %}
             </td>
           </tr>
@@ -192,6 +198,16 @@
       <button type="submit" name="action" value="skip_all_sms" class="btn btn-outline btn-sm"
               style="color:#c00;border-color:#c00"
               onclick="return confirm('미처리 문자를 모두 처리완료하시겠습니까?')">전체 처리완료</button>
+      <button type="button" class="btn btn-outline btn-sm"
+              style="color:#888;border-color:#ccc"
+              onclick="bulkDelete('sms')">선택 삭제</button>
+    </div>
+    {% endif %}
+    {% if show_done and sms_messages %}
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
+      <button type="button" class="btn btn-outline btn-sm"
+              style="color:#888;border-color:#ccc"
+              onclick="bulkDelete('sms')">선택 삭제</button>
     </div>
     {% endif %}
 
@@ -199,7 +215,7 @@
       <table class="data-table">
         <thead>
           <tr>
-            {% if not show_done %}<th style="width:36px"><input type="checkbox" onchange="toggleAll(this,'sms')"></th>{% endif %}
+            <th style="width:36px"><input type="checkbox" onchange="toggleAll(this,'sms')"></th>
             <th style="width:28px"></th>
             <th style="width:130px">발신번호</th>
             <th>내용</th>
@@ -211,13 +227,9 @@
         <tbody>
           {% for msg in sms_messages %}
           <tr class="{% if not msg.is_read %}unread{% elif msg.is_read and not msg.is_processed %}read{% endif %}" style="{% if msg.is_processed %}opacity:0.5{% endif %}">
-            {% if not show_done %}
             <td class="center">
-              {% if not msg.is_processed %}
               <input type="checkbox" name="msg_ids" value="{{ msg.pk }}" class="msg-check-sms">
-              {% endif %}
             </td>
-            {% endif %}
             <td class="center">{% if not msg.is_read %}<span class="read-dot"></span>{% endif %}</td>
             <td style="font-size:12px;font-weight:bold">{{ msg.sender }}</td>
             <td>
@@ -247,7 +259,7 @@
           </tr>
           {% empty %}
           <tr>
-            <td colspan="{% if show_done %}6{% else %}7{% endif %}" class="center" style="padding:30px;color:#888">
+            <td colspan="7" class="center" style="padding:30px;color:#888">
               {% if show_done %}문자가 없습니다.{% else %}미처리 문자가 없습니다.{% endif %}
             </td>
           </tr>
@@ -261,11 +273,36 @@
 <form id="singleSkipForm" method="post" style="display:none">
   {% csrf_token %}
 </form>
+<form id="bulkDeleteForm" method="post" action="{% url 'inbox_bulk_delete' %}" style="display:none">
+  {% csrf_token %}
+  <input type="hidden" name="tab" id="bulkDeleteTab">
+</form>
 
 <script>
 function singleSkip(url) {
   var form = document.getElementById('singleSkipForm');
   form.action = url;
+  form.submit();
+}
+
+function bulkDelete(type) {
+  var checked = document.querySelectorAll('.msg-check-' + type + ':checked');
+  if (checked.length === 0) {
+    alert('삭제할 메시지를 선택해 주세요.');
+    return;
+  }
+  if (!confirm(checked.length + '건을 삭제하시겠습니까? 복구할 수 없습니다.')) return;
+  var form = document.getElementById('bulkDeleteForm');
+  document.getElementById('bulkDeleteTab').value = type === 'sms' ? 'sms' : 'email';
+  // remove old msg_ids
+  form.querySelectorAll('input[name=msg_ids]').forEach(function(el) { el.remove(); });
+  checked.forEach(function(cb) {
+    var input = document.createElement('input');
+    input.type = 'hidden';
+    input.name = 'msg_ids';
+    input.value = cb.value;
+    form.appendChild(input);
+  });
   form.submit();
 }
 

@@ -103,14 +103,20 @@
       </table>
     </div>
 
-    {% if can_cancel %}
-    <div style="text-align:right">
+    <div style="text-align:right;display:flex;gap:8px;justify-content:flex-end">
+      {% if can_cancel %}
       <form method="post" action="{% url 'order_cancel' order.pk %}" onsubmit="return confirm('주문을 취소하시겠습니까?')">
         {% csrf_token %}
         <button type="submit" class="btn btn-red btn-sm">주문 취소</button>
       </form>
+      {% endif %}
+      {% if request.user.is_admin %}
+      <form method="post" action="{% url 'order_delete' order.pk %}" onsubmit="return confirm('주문을 완전히 삭제합니다. 복구할 수 없습니다.\n삭제하시겠습니까?')">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-outline btn-sm" style="color:#c00;border-color:#c00">삭제</button>
+      </form>
+      {% endif %}
     </div>
-    {% endif %}
   </div>
 </div>
 {% endblock %}

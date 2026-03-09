@@ -425,6 +425,20 @@ def order_cancel(request, pk):
     return render(request, 'orders/order_cancel_confirm.html', {'order': order})
 
 
+# ── 주문 삭제 (총판) ──────────────────────────────────────────────────────────
+
+@role_required('admin')
+def order_delete(request, pk):
+    order = get_object_or_404(Order, pk=pk)
+    if request.method == 'POST':
+        order_no = order.order_no
+        order.items.all().delete()
+        order.delete()
+        messages.success(request, f'주문 {order_no}을 삭제했습니다.')
+        return redirect('order_list')
+    return redirect('order_detail', pk=pk)
+
+
 # ── 발송 처리 (총판) ───────────────────────────────────────────────────────────
 
 @role_required('admin')
@@ -1018,6 +1032,36 @@ def inbox_single_skip(request, pk):
         msg.is_processed = True
         msg.save(update_fields=['is_processed'])
         messages.success(request, '처리완료했습니다.')
+    return redirect(f'/inbox/?tab={tab}')
+
+
+@role_required('admin')
+def inbox_delete(request, pk):
+    """수신 메시지 단건 삭제"""
+    if request.method != 'POST':
+        return redirect('inbox_list')
+    msg = get_object_or_404(InboxMessage, pk=pk)
+    tab = 'sms' if msg.source == 'sms' else 'email'
+    msg.attachments.all().delete()
+    msg.delete()
+    messages.success(request, '삭제했습니다.')
+    return redirect(f'/inbox/?tab={tab}')
+
+
+@role_required('admin')
+def inbox_bulk_delete(request):
+    """선택한 수신 메시지 일괄 삭제"""
+    if request.method != 'POST':
+        return redirect('inbox_list')
+    tab = request.POST.get('tab', 'email')
+    msg_ids = request.POST.getlist('msg_ids')
+    if msg_ids:
+        qs = InboxMessage.objects.filter(pk__in=msg_ids)
+        count = qs.count()
+        qs.delete()
+        messages.success(request, f'{count}건을 삭제했습니다.')
+    else:
+        messages.warning(request, '선택된 메시지가 없습니다.')
     return redirect(f'/inbox/?tab={tab}')
 
 
