@@ -45,7 +45,8 @@
   <label style="font-size:13px;color:#64748b;cursor:pointer">
     <input type="checkbox" id="check-all" onchange="toggleAll(this)"> 전체 선택
   </label>
-  <button class="btn btn-dark btn-sm" onclick="bulkPrint()">선택 일괄 인쇄</button>
+  <button class="btn btn-dark btn-sm" onclick="bulkPrint()">거래명세서</button>
+  <button class="btn btn-outline btn-sm" onclick="bulkQuote()">견적서</button>
   {% if request.user.is_admin %}
   <button class="btn btn-outline btn-sm" style="color:#c00;border-color:#c00" onclick="bulkDelete()">선택 삭제</button>
   {% endif %}
@@ -111,6 +112,12 @@ function bulkPrint() {
   document.querySelectorAll('.order-chk:checked').forEach(function(cb) { ids.push(cb.value); });
   if (ids.length === 0) { alert('인쇄할 주문을 선택해주세요.'); return; }
   window.open('{% url "order_invoice_bulk" %}?ids=' + ids.join(','), '_blank');
+}
+function bulkQuote() {
+  var ids = [];
+  document.querySelectorAll('.order-chk:checked').forEach(function(cb) { ids.push(cb.value); });
+  if (ids.length === 0) { alert('견적서를 인쇄할 주문을 선택해주세요.'); return; }
+  window.open('{% url "order_quote_bulk" %}?ids=' + ids.join(','), '_blank');
 }
 function bulkDelete() {
   var ids = [];

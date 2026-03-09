@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>견적서 — {{ order.order_no }}</title>
+  <style>
+    @page { size: A4; margin: 12mm 15mm; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: '맑은 고딕', 'Malgun Gothic', sans-serif;
+      font-size: 11px;
+      color: #000;
+      background: #e0e0e0;
+    }
+    .quote-wrap {
+      max-width: 780px;
+      margin: 16px auto;
+      padding: 30px 36px;
+      background: #fff;
+      border: 1px solid #999;
+    }
+
+    /* ── 제목 ── */
+    .quote-title {
+      text-align: center;
+      font-size: 28px;
+      font-weight: bold;
+      letter-spacing: 20px;
+      padding: 8px 0 6px;
+      border-bottom: 2px solid #000;
+      margin-bottom: 10px;
+    }
+
+    /* ── 본문 영역 (왼쪽: 귀중, 오른쪽: 공급자) ── */
+    .header-area {
+      display: flex;
+      gap: 0;
+      margin-bottom: 6px;
+    }
+    .header-left {
+      flex: 1;
+      padding-right: 16px;
+      font-size: 12px;
+      line-height: 2.0;
+    }
+    .header-left .date-line { margin-bottom: 10px; }
+    .header-left .school-line {
+      font-size: 14px;
+      font-weight: bold;
+      margin-bottom: 6px;
+    }
+    .header-left .remark-line { margin-top: 14px; }
+
+    .header-right {
+      flex: 0 0 380px;
+    }
+
+    /* ── 공급자 테이블 ── */
+    .supplier-tbl {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
+    }
+    .supplier-tbl th, .supplier-tbl td {
+      border: 1px solid #000;
+      padding: 4px 8px;
+    }
+    .supplier-tbl th {
+      background: #f5f5f0;
+      text-align: center;
+      font-weight: bold;
+      white-space: nowrap;
+      width: 70px;
+    }
+    .supplier-tbl td {
+      text-align: left;
+    }
+    .supplier-tbl .label-cell {
+      writing-mode: vertical-lr;
+      text-align: center;
+      font-weight: bold;
+      font-size: 12px;
+      letter-spacing: 6px;
+      width: 28px;
+      background: #f5f5f0;
+    }
+
+    /* ── 금액 행 ── */
+    .amount-row {
+      display: flex;
+      border: 2px solid #000;
+      margin-bottom: 0;
+      font-size: 13px;
+      font-weight: bold;
+    }
+    .amount-row .a-label {
+      padding: 7px 14px;
+      background: #f5f5f0;
+      border-right: 2px solid #000;
+      white-space: nowrap;
+      letter-spacing: 4px;
+    }
+    .amount-row .a-value {
+      flex: 1;
+      padding: 7px 14px;
+      text-align: center;
+      font-size: 14px;
+    }
+
+    /* ── 품목 테이블 ── */
+    .items-tbl {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: -1px;
+    }
+    .items-tbl th, .items-tbl td {
+      border: 1px solid #000;
+      padding: 5px 6px;
+    }
+    .items-tbl thead th {
+      background: #f5f5f0;
+      font-weight: bold;
+      text-align: center;
+      font-size: 11px;
+    }
+    .items-tbl tbody td {
+      font-size: 11px;
+    }
+    .items-tbl .r { text-align: right; font-family: 'Consolas', monospace; }
+    .items-tbl .c { text-align: center; }
+    .items-tbl .name-cell { text-align: left; }
+    .items-tbl tbody tr:last-child td { border-bottom: 2px solid #000; }
+
+    /* 합계 행 */
+    .items-tbl .total-row td {
+      font-weight: bold;
+      font-size: 12px;
+      border-top: 2px solid #000;
+      border-bottom: 2px solid #000;
+    }
+
+    /* ── 계좌 ── */
+    .bank-info {
+      text-align: center;
+      font-size: 12px;
+      font-weight: bold;
+      padding: 8px 0;
+      margin-top: 4px;
+      border: 1px solid #000;
+    }
+
+    /* ── 인쇄 ── */
+    .btn-bar {
+      margin-top: 16px;
+      display: flex;
+      gap: 6px;
+      justify-content: center;
+    }
+    .btn-bar button, .btn-bar a {
+      padding: 8px 28px;
+      font-size: 13px;
+      font-weight: bold;
+      border: 2px outset #ccc;
+      background: #e8e8e8;
+      color: #000;
+      cursor: pointer;
+      text-decoration: none;
+    }
+    .btn-bar button:hover, .btn-bar a:hover { background: #d0d0d0; }
+    .btn-bar .btn-primary {
+      background: #1e40af; color: #fff; border-color: #1e40af;
+    }
+    .btn-bar .btn-primary:hover { background: #1e3a8a; }
+
+    @media print {
+      body { background: #fff; }
+      .quote-wrap { margin: 0; border: none; box-shadow: none; padding: 0; }
+      .btn-bar { display: none; }
+    }
+  </style>
+</head>
+<body>
+<div class="quote-wrap">
+
+  <!-- 제목 -->
+  <div class="quote-title">견 적 서</div>
+
+  <!-- 헤더: 왼쪽 (수신), 오른쪽 (공급자) -->
+  <div class="header-area">
+    <div class="header-left">
+      <div class="date-line">{{ order.ordered_at|date:"Y" }}년 &nbsp; {{ order.ordered_at|date:"n" }}월 &nbsp; {{ order.ordered_at|date:"j" }}일</div>
+      <div class="school-line">{{ order.delivery.name }} &nbsp; 귀중</div>
+      <div class="remark-line">아래와 같이 견적합니다.</div>
+    </div>
+    <div class="header-right">
+      <table class="supplier-tbl">
+        <tr>
+          <td class="label-cell" rowspan="5">공 급 자</td>
+          <th>등록번호</th>
+          <td colspan="3">108-91-20797</td>
+        </tr>
+        <tr>
+          <th>상 호</th>
+          <td>북마트E&C</td>
+          <th>성 명</th>
+          <td>전우득</td>
+        </tr>
+        <tr>
+          <th>사업장 주소</th>
+          <td colspan="3" style="font-size:10px">경기도 고양시 일산동구 일산로207, 지층 13-1호</td>
+        </tr>
+        <tr>
+          <th>업 태</th>
+          <td>도소매</td>
+          <th>종 목</th>
+          <td>서 적</td>
+        </tr>
+        <tr>
+          <th>전화번호</th>
+          <td colspan="3" style="font-size:10px">02-833-0864 / 031-917-0864 / 팩스:031-917-0866</td>
+        </tr>
+      </table>
+    </div>
+  </div>
+
+  <!-- 금액 -->
+  <div class="amount-row">
+    <div class="a-label">金 額 (공급가액)</div>
+    <div class="a-value">일금 {{ amount_korean }}원정</div>
+  </div>
+
+  <!-- 품목 -->
+  <table class="items-tbl">
+    <thead>
+      <tr>
+        <th style="width:40%">품 명</th>
+        <th style="width:40px">단위</th>
+        <th style="width:80px">공급가</th>
+        <th style="width:55px">수량</th>
+        <th style="width:100px">공급가합계</th>
+        <th style="width:80px">출판사</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in items %}
+      <tr>
+        <td class="name-cell">{{ item.book.name }}</td>
+        <td class="c"></td>
+        <td class="r">{{ item.list_price|floatformat:0 }}</td>
+        <td class="c">{{ item.quantity }}</td>
+        <td class="r">{{ item.list_price_total|floatformat:0 }}</td>
+        <td class="c" style="font-size:10px">{{ item.book.publisher.name }}</td>
+      </tr>
+      {% endfor %}
+      {% for i in empty_rows %}
+      <tr>
+        <td>&nbsp;</td><td></td><td></td><td></td><td></td><td></td>
+      </tr>
+      {% endfor %}
+      <tr class="total-row">
+        <td class="c" style="font-weight:bold">합계</td>
+        <td></td>
+        <td></td>
+        <td class="c">{{ total_qty }}</td>
+        <td class="r">{{ total_amount|floatformat:0 }}</td>
+        <td></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- 계좌 -->
+  <div class="bank-info">국민은행 493601-01-149387 전우득(북마트E앤C)</div>
+
+  <!-- 버튼 -->
+  <div class="btn-bar">
+    <button class="btn-primary" onclick="window.print()">인 쇄</button>
+    <a href="{% url 'order_detail' order.pk %}">주문 상세</a>
+    <button onclick="window.close()">닫 기</button>
+  </div>
+
+</div>
+</body>
+</html>

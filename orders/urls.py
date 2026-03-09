@@ -26,6 +26,8 @@ urlpatterns = [
     path('orders/<int:pk>/deliver/', views.order_deliver, name='order_deliver'),
     path('orders/<int:pk>/invoice/', views.order_invoice, name='order_invoice'),
     path('orders/invoice/bulk/', views.order_invoice_bulk, name='order_invoice_bulk'),
+    path('orders/<int:pk>/quote/', views.order_quote, name='order_quote'),
+    path('orders/quote/bulk/', views.order_quote_bulk, name='order_quote_bulk'),
 
     # ── 반품 ──────────────────────────────────────────────────────────────────
     path('returns/', views.return_list, name='return_list'),

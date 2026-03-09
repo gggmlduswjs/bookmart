@@ -6,7 +6,8 @@
   주문 상세
   <a href="{% url 'order_list' %}" class="btn btn-gray btn-sm">← 목록</a>
   {% if request.user.is_admin or request.user.is_agency %}
-  <a href="{% url 'order_invoice' order.pk %}" target="_blank" class="btn btn-dark btn-sm">거래명세서 인쇄</a>
+  <a href="{% url 'order_invoice' order.pk %}" target="_blank" class="btn btn-dark btn-sm">거래명세서</a>
+  <a href="{% url 'order_quote' order.pk %}" target="_blank" class="btn btn-outline btn-sm">견적서</a>
   {% endif %}
 </div>
 
