@@ -100,7 +100,7 @@
         </thead>
         <tbody>
           {% for msg in email_messages %}
-          <tr style="{% if msg.is_processed %}opacity:0.5{% endif %}">
+          <tr style="{% if msg.is_processed %}opacity:0.5{% endif %}{% if not msg.is_read %}font-weight:bold{% endif %}">
             {% if not show_done %}
             <td class="center">
               {% if not msg.is_processed %}
@@ -191,7 +191,7 @@
         </thead>
         <tbody>
           {% for msg in sms_messages %}
-          <tr style="{% if msg.is_processed %}opacity:0.5{% endif %}">
+          <tr style="{% if msg.is_processed %}opacity:0.5{% endif %}{% if not msg.is_read %}font-weight:bold{% endif %}">
             {% if not show_done %}
             <td class="center">
               {% if not msg.is_processed %}

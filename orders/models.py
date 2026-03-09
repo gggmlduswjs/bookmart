@@ -219,9 +219,13 @@ class InboxMessage(models.Model):
         'Order', null=True, blank=True, on_delete=models.SET_NULL,
         related_name='inbox_messages', verbose_name='연결 주문'
     )
+    is_read      = models.BooleanField(default=False, verbose_name='읽음')
     # 이메일 중복 방지: account_label + IMAP UID
     imap_key     = models.CharField(max_length=100, null=True, blank=True,
                                     unique=True, verbose_name='IMAP 키')
+    # 이메일 Message-ID (답장 시 In-Reply-To 헤더에 사용)
+    message_id   = models.CharField(max_length=500, blank=True, default='',
+                                    verbose_name='Message-ID')
     created_at   = models.DateTimeField(auto_now_add=True)
 
     class Meta:

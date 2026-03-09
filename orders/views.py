@@ -990,6 +990,8 @@ def fetch_emails(request):
                 received_at=e['received_at'],
                 imap_key=e['imap_key'],
                 is_processed=auto_skip,
+                is_read=e.get('is_seen', False),
+                message_id=e.get('message_id', ''),
             )
             # 첨부파일 저장
             for att in e.get('attachments', []):
@@ -1011,6 +1013,28 @@ def fetch_emails(request):
 def inbox_process(request, pk):
     """수신 메시지를 보면서 주문 등록"""
     inbox_msg = get_object_or_404(InboxMessage, pk=pk)
+
+    # 열 때 읽음 처리
+    if not inbox_msg.is_read:
+        inbox_msg.is_read = True
+        inbox_msg.save(update_fields=['is_read'])
+        # IMAP에서도 읽음 표시
+        if inbox_msg.source == 'email' and inbox_msg.imap_key:
+            from django.conf import settings as conf
+            from .email_utils import mark_as_read_imap
+            # imap_key = "account_label:uid"
+            parts = inbox_msg.imap_key.split(':', 1)
+            if len(parts) == 2:
+                label, uid_str = parts
+                # 계정 매핑
+                account_map = {}
+                if hasattr(conf, 'NAVER_EMAIL_1_ID'):
+                    account_map['007bm'] = (conf.NAVER_EMAIL_1_ID, conf.NAVER_EMAIL_1_PW)
+                if hasattr(conf, 'NAVER_EMAIL_2_ID'):
+                    account_map['002bm'] = (conf.NAVER_EMAIL_2_ID, conf.NAVER_EMAIL_2_PW)
+                creds = account_map.get(label)
+                if creds:
+                    mark_as_read_imap(creds[0], creds[1], uid_str)
 
     # 건너뛰기
     if request.method == 'POST' and 'skip' in request.POST:
@@ -1106,6 +1130,65 @@ def inbox_process(request, pk):
         'books_json': books_json,
         'attachments': attachments,
     })
+
+
+@role_required('admin')
+def inbox_reply(request, pk):
+    """수신 이메일에 답장 발송"""
+    inbox_msg = get_object_or_404(InboxMessage, pk=pk)
+    if request.method != 'POST' or inbox_msg.source != 'email':
+        return redirect('inbox_process', pk=pk)
+
+    reply_body = request.POST.get('reply_body', '').strip()
+    if not reply_body:
+        messages.warning(request, '답장 내용을 입력하세요.')
+        return redirect('inbox_process', pk=pk)
+
+    from django.conf import settings as conf
+    from .email_utils import send_reply_email
+
+    # 발신자에서 이메일 주소 추출
+    import re as _re
+    sender = inbox_msg.sender or ''
+    match = _re.search(r'[\w.\-+]+@[\w.\-]+\.\w+', sender)
+    to_email = match.group(0) if match else sender
+
+    # 답장 제목
+    subj = inbox_msg.subject or ''
+    reply_subject = subj if subj.lower().startswith('re:') else f'Re: {subj}'
+
+    # In-Reply-To / References 헤더
+    in_reply_to = inbox_msg.message_id or None
+    references = inbox_msg.message_id or None
+
+    # 계정 매핑: account_label → (id, pw)
+    account_map = {}
+    if hasattr(conf, 'NAVER_EMAIL_1_ID'):
+        account_map['007bm'] = (conf.NAVER_EMAIL_1_ID, conf.NAVER_EMAIL_1_PW)
+    if hasattr(conf, 'NAVER_EMAIL_2_ID'):
+        account_map['002bm'] = (conf.NAVER_EMAIL_2_ID, conf.NAVER_EMAIL_2_PW)
+
+    creds = account_map.get(inbox_msg.account_label)
+    if not creds:
+        # 기본 계정 사용
+        creds = (conf.NAVER_EMAIL_1_ID, conf.NAVER_EMAIL_1_PW)
+
+    ok = send_reply_email(
+        account_id=creds[0],
+        account_pw=creds[1],
+        to_email=to_email,
+        subject=reply_subject,
+        body=reply_body,
+        in_reply_to=in_reply_to,
+        references=references,
+    )
+
+    if ok:
+        messages.success(request, f'{to_email}에 답장을 발송했습니다.')
+    else:
+        messages.error(request, '답장 발송에 실패했습니다. 로그를 확인하세요.')
+
+    return redirect('inbox_process', pk=pk)
 
 
 @role_required('admin')

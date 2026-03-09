@@ -8,9 +8,11 @@ import html
 import imaplib
 import logging
 import re
+import smtplib
 import email as email_lib
 from email.header import decode_header
-from email.utils import parsedate_to_datetime
+from email.mime.text import MIMEText
+from email.utils import formataddr, formatdate, parsedate_to_datetime
 
 logger = logging.getLogger(__name__)
 
@@ -151,15 +153,20 @@ def fetch_naver_emails(account_id, account_pw, account_label, days=60,
                     account_label, len(uid_list), len(new_uids))
 
         for uid_bytes, uid_str, imap_key in new_uids:
-            status, msg_data = mail.uid('fetch', uid_bytes, '(RFC822)')
+            status, msg_data = mail.uid('fetch', uid_bytes, '(RFC822 FLAGS)')
             if status != 'OK' or not msg_data or msg_data[0] is None:
                 continue
+
+            # FLAGS 파싱 — 응답의 첫 번째 요소에서 추출
+            flags_raw = msg_data[0][0] if isinstance(msg_data[0], tuple) else b''
+            is_seen = b'\\Seen' in flags_raw
 
             raw = msg_data[0][1]
             msg = email_lib.message_from_bytes(raw)
 
             sender = _decode_str(msg.get('From', ''))
             subject = _decode_str(msg.get('Subject', '')) or '(제목 없음)'
+            message_id = msg.get('Message-ID', '') or ''
             date_str = msg.get('Date', '')
             try:
                 received_at = parsedate_to_datetime(date_str)
@@ -179,6 +186,8 @@ def fetch_naver_emails(account_id, account_pw, account_label, days=60,
                 'content':       content,
                 'received_at':   received_at,
                 'attachments':   attachments,
+                'message_id':    message_id,
+                'is_seen':       is_seen,
             })
 
         mail.logout()
@@ -204,6 +213,57 @@ SPAM_SENDERS = [
     '국세청', 'hometax', 'kosa biz',
     '크라운출판사', '메이킹북스',
 ]
+
+
+def mark_as_read_imap(account_id, account_pw, uid_str):
+    """IMAP에서 해당 메일을 읽음(\\Seen)으로 표시"""
+    try:
+        mail = imaplib.IMAP4_SSL(NAVER_IMAP_HOST, NAVER_IMAP_PORT)
+        mail.login(account_id, account_pw)
+        mail.select('INBOX', readonly=False)
+        mail.uid('store', uid_str.encode(), '+FLAGS', '(\\Seen)')
+        mail.logout()
+        logger.info('IMAP %s: UID %s 읽음 표시 완료', account_id, uid_str)
+        return True
+    except Exception as e:
+        logger.error('IMAP 읽음 표시 오류 (%s, UID %s): %s', account_id, uid_str, e)
+        return False
+
+
+NAVER_SMTP_HOST = 'smtp.naver.com'
+NAVER_SMTP_PORT = 587
+
+
+def send_reply_email(account_id, account_pw, to_email, subject, body,
+                     in_reply_to=None, references=None):
+    """
+    네이버 SMTP로 답장 메일 발송.
+    in_reply_to / references 헤더를 설정하면 메일 스레드로 묶임.
+    """
+    from_email = f'{account_id}@naver.com'
+
+    msg = MIMEText(body, 'plain', 'utf-8')
+    msg['From'] = formataddr(('북마트', from_email))
+    msg['To'] = to_email
+    msg['Subject'] = subject
+    msg['Date'] = formatdate(localtime=True)
+
+    if in_reply_to:
+        msg['In-Reply-To'] = in_reply_to
+    if references:
+        msg['References'] = references
+
+    try:
+        server = smtplib.SMTP(NAVER_SMTP_HOST, NAVER_SMTP_PORT)
+        server.starttls()
+        server.login(account_id, account_pw)
+        server.sendmail(from_email, [to_email], msg.as_string())
+        server.quit()
+        logger.info('답장 메일 발송 완료: %s → %s', from_email, to_email)
+        return True
+    except Exception as e:
+        logger.error('답장 메일 발송 실패 (%s → %s): %s', from_email, to_email, e)
+        return False
 
 
 def is_order_related(sender, subject, content):

@@ -71,6 +71,23 @@
     </div>
     {% endif %}
 
+    {% if inbox_msg.source == 'email' %}
+    <!-- 답장 -->
+    <div style="padding:8px 12px;border-top:1px solid #eee">
+      <form method="post" action="{% url 'inbox_reply' inbox_msg.pk %}">
+        {% csrf_token %}
+        <div style="font-size:11px;font-weight:bold;color:#444;margin-bottom:4px">답장</div>
+        <textarea name="reply_body" rows="4"
+                  style="width:100%;box-sizing:border-box;padding:6px 8px;border:1px solid #bbb;font-size:12px;font-family:inherit;resize:vertical"
+                  placeholder="답장 내용을 입력하세요..."></textarea>
+        <button type="submit" class="btn btn-blue btn-sm" style="width:100%;margin-top:4px"
+                onclick="return this.form.reply_body.value.trim() ? confirm('답장을 발송하시겠습니까?') : (alert('답장 내용을 입력하세요.'), false)">
+          답장 보내기
+        </button>
+      </form>
+    </div>
+    {% endif %}
+
     <!-- 건너뛰기 -->
     <div style="padding:8px 12px;border-top:1px solid #eee">
       <form method="post">

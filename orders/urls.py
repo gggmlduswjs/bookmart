@@ -40,6 +40,7 @@ urlpatterns = [
     path('inbox/bulk-skip/', views.inbox_bulk_skip, name='inbox_bulk_skip'),
     path('inbox/fetch/', views.fetch_emails, name='fetch_emails'),
     path('inbox/<int:pk>/', views.inbox_process, name='inbox_process'),
+    path('inbox/<int:pk>/reply/', views.inbox_reply, name='inbox_reply'),
     path('inbox/attachment/<int:pk>/download/', views.attachment_download, name='attachment_download'),
     path('inbox/attachment/<int:pk>/preview/', views.attachment_preview, name='attachment_preview'),
     path('webhook/sms/', views.sms_webhook, name='sms_webhook'),
