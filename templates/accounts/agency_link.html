@@ -31,11 +31,12 @@
 <script>
 function copyLink() {
   const input = document.getElementById('link-input');
-  navigator.clipboard.writeText(input.value).then(function() {
-    const btn = document.getElementById('copy-btn');
-    btn.textContent = '복사됨!';
-    setTimeout(function() { btn.textContent = '복사'; }, 2000);
-  });
+  input.select();
+  input.setSelectionRange(0, 99999);
+  document.execCommand('copy');
+  const btn = document.getElementById('copy-btn');
+  btn.textContent = '복사됨!';
+  setTimeout(function() { btn.textContent = '복사'; }, 2000);
 }
 </script>
 {% endblock %}

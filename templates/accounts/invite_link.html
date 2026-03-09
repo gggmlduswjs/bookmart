@@ -22,8 +22,8 @@
     <span class="label">초대 링크</span>
     <input type="text" id="invite-url" value="{{ invite_url }}" readonly
       style="flex:1;padding:4px 8px;border:1px solid #bbb;font-size:12px;background:#f9f9f9;min-width:200px">
-    <button class="btn btn-orange btn-sm" style="margin-left:6px"
-      onclick="navigator.clipboard.writeText(document.getElementById('invite-url').value).then(() => { this.textContent='복사됨 ✓'; this.style.background='#2e7d32'; })">링크 복사</button>
+    <button class="btn btn-orange btn-sm" style="margin-left:6px" id="copy-link-btn"
+      onclick="copyToClipboard(document.getElementById('invite-url'), this)">링크 복사</button>
   </div>
 
   <div style="margin-top:12px;padding:10px;background:#f0f7ff;border:1px solid #bdd7f1;font-size:12px;line-height:1.6;color:#333">
@@ -32,12 +32,31 @@
     아래 링크에서 비밀번호를 설정해 주세요.<br>
     {{ invite_url }}
     <br><br>
+    <input type="text" id="msg-text" style="position:absolute;left:-9999px"
+      value="{{ teacher.name }} 선생님, 북마트 주문 계정이 생성되었습니다.&#10;아래 링크에서 비밀번호를 설정해 주세요.&#10;{{ invite_url }}">
     <button class="btn btn-gray btn-sm"
-      onclick="navigator.clipboard.writeText('{{ teacher.name }} 선생님, 북마트 주문 계정이 생성되었습니다.\n아래 링크에서 비밀번호를 설정해 주세요.\n{{ invite_url }}').then(() => { this.textContent='복사됨 ✓'; this.style.background='#2e7d32'; })">메시지 전체 복사</button>
+      onclick="copyToClipboard(document.getElementById('msg-text'), this)">메시지 전체 복사</button>
   </div>
 
   <div style="margin-top:18px">
     <a href="{% url 'teacher_list' %}" class="btn btn-orange">확인 (목록으로)</a>
   </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function copyToClipboard(input, btn) {
+  input.style.position = 'static';
+  input.select();
+  input.setSelectionRange(0, 99999);
+  document.execCommand('copy');
+  input.style.position = 'absolute';
+  input.style.left = '-9999px';
+  var orig = btn.textContent;
+  btn.textContent = '복사됨 ✓';
+  btn.style.background = '#2e7d32';
+  setTimeout(function() { btn.textContent = orig; btn.style.background = ''; }, 2000);
+}
+</script>
 {% endblock %}
