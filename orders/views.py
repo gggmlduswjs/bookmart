@@ -994,11 +994,11 @@ def inbox_list(request):
         qs = qs.filter(is_processed=False)
     email_qs = qs.filter(source='email')
     sms_qs = qs.filter(source='sms')
-    unread_email = InboxMessage.objects.filter(is_read=False, source='email').count()
-    unread_sms = InboxMessage.objects.filter(is_read=False, source='sms').count()
+    unread_email = InboxMessage.objects.filter(is_processed=False, source='email').count()
+    unread_sms = InboxMessage.objects.filter(is_processed=False, source='sms').count()
     return render(request, 'orders/inbox_list.html', {
-        'email_messages': email_qs[:200],
-        'sms_messages': sms_qs[:200],
+        'email_messages': email_qs,
+        'sms_messages': sms_qs,
         'tab': tab,
         'show_done': show_done,
         'unread_email': unread_email,
