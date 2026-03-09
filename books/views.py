@@ -95,6 +95,19 @@ def book_toggle(request, pk):
     return redirect('book_list')
 
 
+@role_required('admin')
+def book_delete(request, pk):
+    book = get_object_or_404(Book, pk=pk)
+    if request.method == 'POST':
+        name = book.name
+        try:
+            book.delete()
+            messages.success(request, f'[{name}] 교재를 삭제했습니다.')
+        except Exception:
+            messages.error(request, f'[{name}] 주문에 사용된 교재는 삭제할 수 없습니다. 비활성화를 이용하세요.')
+    return redirect('book_list')
+
+
 # ── 주문 폼용 드롭다운 (로그인만 있으면 됨) ────────────────────────────────────
 
 @login_required

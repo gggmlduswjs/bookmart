@@ -46,6 +46,11 @@
                onclick="return confirm('상태를 변경하시겠습니까?')">
               {% if book.is_active %}비활성{% else %}활성{% endif %}
             </a>
+            <form method="post" action="{% url 'book_delete' book.pk %}" style="display:inline"
+                  onsubmit="return confirm('교재를 삭제하시겠습니까?')">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-sm btn-outline" style="color:#999;border-color:#ccc">삭제</button>
+            </form>
           </td>
         </tr>
         {% empty %}
