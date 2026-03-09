@@ -267,6 +267,11 @@ class InboxAttachment(models.Model):
         return ext in ('xls', 'xlsx')
 
     @property
+    def is_image(self):
+        ext = self.filename.lower().rsplit('.', 1)[-1] if '.' in self.filename else ''
+        return ext in ('jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp')
+
+    @property
     def extension(self):
         return self.filename.lower().rsplit('.', 1)[-1] if '.' in self.filename else ''
 

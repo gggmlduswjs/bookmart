@@ -1414,9 +1414,14 @@ def inbox_reply(request, pk):
 @role_required('admin')
 def attachment_download(request, pk):
     """첨부파일 다운로드"""
+    from urllib.parse import quote
     att = get_object_or_404(InboxAttachment, pk=pk)
-    resp = HttpResponse(att.file.read(), content_type=att.content_type or 'application/octet-stream')
-    resp['Content-Disposition'] = f"attachment; filename*=UTF-8''{att.filename}"
+    att.file.open('rb')
+    data = att.file.read()
+    att.file.close()
+    resp = HttpResponse(data, content_type=att.content_type or 'application/octet-stream')
+    encoded_filename = quote(att.filename)
+    resp['Content-Disposition'] = f"attachment; filename*=UTF-8''{encoded_filename}"
     return resp
 
 
