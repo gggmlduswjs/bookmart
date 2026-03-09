@@ -408,7 +408,7 @@ def order_deliver(request, pk):
 
 # ── 거래명세서 인쇄 ────────────────────────────────────────────────────────────
 
-@role_required('admin')
+@role_required('admin', 'agency')
 def order_invoice(request, pk):
     order = get_object_or_404(Order, pk=pk)
     items = order.items.select_related('book', 'book__publisher')
@@ -908,8 +908,8 @@ def inbox_list(request):
         qs = qs.filter(is_processed=False)
     email_qs = qs.filter(source='email')
     sms_qs = qs.filter(source='sms')
-    unread_email = InboxMessage.objects.filter(is_processed=False, source='email').count()
-    unread_sms = InboxMessage.objects.filter(is_processed=False, source='sms').count()
+    unread_email = InboxMessage.objects.filter(is_read=False, source='email').count()
+    unread_sms = InboxMessage.objects.filter(is_read=False, source='sms').count()
     return render(request, 'orders/inbox_list.html', {
         'email_messages': email_qs[:200],
         'sms_messages': sms_qs[:200],
@@ -970,11 +970,21 @@ def fetch_emails(request):
     )
 
     new_count = 0
+    sync_count = 0
     for acc_id, acc_pw, label in accounts:
         if not acc_id or not acc_pw:
             continue
-        emails = fetch_naver_emails(acc_id, acc_pw, label,
-                                    existing_keys=all_existing_keys)
+        emails, read_sync = fetch_naver_emails(acc_id, acc_pw, label,
+                                               existing_keys=all_existing_keys)
+
+        # 기존 메일 읽음 상태 동기화
+        if read_sync:
+            for imap_key, is_seen in read_sync.items():
+                updated = InboxMessage.objects.filter(
+                    imap_key=imap_key, is_read=not is_seen
+                ).update(is_read=is_seen)
+                sync_count += updated
+
         if not emails:
             continue
 
@@ -1005,7 +1015,8 @@ def fetch_emails(request):
                 )
             new_count += 1
 
-    messages.success(request, f'새 메일 {new_count}건을 가져왔습니다.')
+    sync_msg = f' (읽음 상태 {sync_count}건 동기화)' if sync_count else ''
+    messages.success(request, f'새 메일 {new_count}건을 가져왔습니다.{sync_msg}')
     return redirect('inbox_list')
 
 
