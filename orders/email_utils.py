@@ -81,17 +81,49 @@ def _get_attachments(msg):
     """이메일 첨부파일 추출 — (filename, content_type, data) 리스트 반환"""
     attachments = []
     if not msg.is_multipart():
+        # 단일 파트 메일이라도 첨부일 수 있음
+        content_disposition = msg.get('Content-Disposition', '')
+        filename = msg.get_filename()
+        if filename:
+            filename = _decode_str(filename)
+        if not filename:
+            # Content-Type의 name 파라미터에서 파일명 추출
+            name_param = msg.get_param('name')
+            if name_param:
+                filename = _decode_str(str(name_param))
+        if filename:
+            payload = msg.get_payload(decode=True)
+            if payload:
+                content_type = msg.get_content_type() or 'application/octet-stream'
+                attachments.append({
+                    'filename': filename,
+                    'content_type': content_type,
+                    'data': payload,
+                })
         return attachments
 
     for part in msg.walk():
-        content_disposition = part.get('Content-Disposition', '')
-        if 'attachment' not in content_disposition and 'inline' not in content_disposition:
+        if part.get_content_maintype() == 'multipart':
             continue
 
-        # 파일명 추출
+        content_disposition = part.get('Content-Disposition', '')
+        content_type = part.get_content_type() or 'application/octet-stream'
+
+        # 파일명 추출: Content-Disposition 또는 Content-Type name 파라미터
         filename = part.get_filename()
         if filename:
             filename = _decode_str(filename)
+        if not filename:
+            name_param = part.get_param('name')
+            if name_param:
+                filename = _decode_str(str(name_param))
+
+        # 첨부 판별: Content-Disposition에 attachment/inline이 있거나, 파일명이 있는 비텍스트 파트
+        is_attachment = 'attachment' in content_disposition or 'inline' in content_disposition
+        has_file = bool(filename) and content_type not in ('text/plain', 'text/html')
+
+        if not is_attachment and not has_file:
+            continue
         if not filename:
             continue
 
@@ -99,7 +131,6 @@ def _get_attachments(msg):
         if not payload:
             continue
 
-        content_type = part.get_content_type() or 'application/octet-stream'
         attachments.append({
             'filename': filename,
             'content_type': content_type,
