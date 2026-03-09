@@ -439,6 +439,20 @@ def order_delete(request, pk):
     return redirect('order_detail', pk=pk)
 
 
+@role_required('admin')
+def order_bulk_delete(request):
+    if request.method != 'POST':
+        return redirect('order_list')
+    ids = request.POST.getlist('ids')
+    if ids:
+        qs = Order.objects.filter(pk__in=ids)
+        count = qs.count()
+        OrderItem.objects.filter(order__in=qs).delete()
+        qs.delete()
+        messages.success(request, f'{count}건의 주문을 삭제했습니다.')
+    return redirect('order_list')
+
+
 # ── 발송 처리 (총판) ───────────────────────────────────────────────────────────
 
 @role_required('admin')

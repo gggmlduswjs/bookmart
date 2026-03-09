@@ -46,6 +46,9 @@
     <input type="checkbox" id="check-all" onchange="toggleAll(this)"> 전체 선택
   </label>
   <button class="btn btn-dark btn-sm" onclick="bulkPrint()">선택 일괄 인쇄</button>
+  {% if request.user.is_admin %}
+  <button class="btn btn-outline btn-sm" style="color:#c00;border-color:#c00" onclick="bulkDelete()">선택 삭제</button>
+  {% endif %}
 </div>
 {% endif %}
 
@@ -92,6 +95,12 @@
   </table>
 </div>
 
+{% if request.user.is_admin %}
+<form id="bulkDeleteForm" method="post" action="{% url 'order_bulk_delete' %}" style="display:none">
+  {% csrf_token %}
+</form>
+{% endif %}
+
 {% if not request.user.is_teacher %}
 <script>
 function toggleAll(el) {
@@ -102,6 +111,20 @@ function bulkPrint() {
   document.querySelectorAll('.order-chk:checked').forEach(function(cb) { ids.push(cb.value); });
   if (ids.length === 0) { alert('인쇄할 주문을 선택해주세요.'); return; }
   window.open('{% url "order_invoice_bulk" %}?ids=' + ids.join(','), '_blank');
+}
+function bulkDelete() {
+  var ids = [];
+  document.querySelectorAll('.order-chk:checked').forEach(function(cb) { ids.push(cb.value); });
+  if (ids.length === 0) { alert('삭제할 주문을 선택해주세요.'); return; }
+  if (!confirm(ids.length + '건의 주문을 삭제하시겠습니까? 복구할 수 없습니다.')) return;
+  var form = document.getElementById('bulkDeleteForm');
+  form.querySelectorAll('input[name=ids]').forEach(function(el) { el.remove(); });
+  ids.forEach(function(id) {
+    var input = document.createElement('input');
+    input.type = 'hidden'; input.name = 'ids'; input.value = id;
+    form.appendChild(input);
+  });
+  form.submit();
 }
 </script>
 {% endif %}
