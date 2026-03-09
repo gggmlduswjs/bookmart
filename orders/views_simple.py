@@ -62,7 +62,9 @@ def simple_landing(request, slug):
         name = request.POST.get('name', '').strip()
         phone = request.POST.get('phone', '').strip()
         school = request.POST.get('school', '').strip()
-        address = request.POST.get('address', '').strip()
+        address_main = request.POST.get('address', '').strip()
+        address_detail = request.POST.get('address_detail', '').strip()
+        address = f'{address_main} {address_detail}'.strip() if address_main else ''
 
         if not phone:
             error = '전화번호를 입력해주세요.'
