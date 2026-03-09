@@ -21,26 +21,28 @@
       padding: 10px 40px;
       font-size: 14px;
       font-weight: bold;
-      background: #1e40af;
-      color: #fff;
-      border: none;
-      border-radius: 6px;
+      border: 2px outset #ccc;
+      background: #e8e8e8;
+      color: #000;
       cursor: pointer;
       margin: 0 4px;
     }
-    .print-bar button:hover { background: #1e3a8a; }
-    .print-bar .btn-gray { background: #64748b; }
-    .print-bar .btn-gray:hover { background: #475569; }
+    .print-bar button:hover { background: #d0d0d0; }
+    .print-bar .btn-primary {
+      background: #1e40af;
+      color: #fff;
+      border-color: #1e40af;
+    }
+    .print-bar .btn-primary:hover { background: #1e3a8a; }
 
     /* 각 명세서 반장 */
     .invoice-half {
-      height: 138mm; /* A4 반장 (297mm - 여백) / 2 */
+      height: 138mm;
       padding: 4mm 2mm;
       overflow: hidden;
       position: relative;
     }
 
-    /* 2개씩 묶어서 페이지 나누기 */
     .page-pair {
       page-break-after: always;
     }
@@ -53,60 +55,63 @@
       margin: 0;
     }
 
-    /* 제목 */
-    .invoice-title {
+    /* 헤더 */
+    .header-section {
+      border: 2px solid #000;
+      margin-bottom: 4px;
+    }
+    .header-title {
       text-align: center;
-      font-size: 18px;
+      font-size: 16px;
       font-weight: bold;
       letter-spacing: 8px;
-      border: 2px solid #000;
-      padding: 5px 0;
-      margin-bottom: 6px;
+      padding: 4px 0;
+      border-bottom: 2px solid #000;
+      background: #fffff0;
     }
-    .invoice-title small {
+    .header-title small {
       display: block;
-      font-size: 9px;
+      font-size: 8px;
       letter-spacing: 0;
       color: #666;
       font-weight: normal;
-      margin-top: 1px;
     }
 
-    /* 상단 정보 */
-    .info-row {
+    .header-info {
       display: flex;
-      gap: 8px;
-      margin-bottom: 6px;
+      background: #fffff0;
     }
-    .info-box {
-      flex: 1;
-      border: 1px solid #000;
+    .header-info .left-col { flex: 1; }
+    .header-info .right-col {
+      flex: 0 0 170px;
+      border-left: 2px solid #000;
     }
-    .info-box table {
+
+    .info-tbl {
       width: 100%;
       border-collapse: collapse;
     }
-    .info-box th {
-      background: #f0f0f0;
+    .info-tbl th {
+      background: #f5f5dc;
       padding: 2px 4px;
       text-align: center;
       border: 1px solid #999;
       font-size: 9px;
-      width: 50px;
+      font-weight: bold;
       white-space: nowrap;
+      width: 48px;
     }
-    .info-box td {
+    .info-tbl td {
       padding: 2px 4px;
       border: 1px solid #999;
       font-size: 10px;
+      background: #fff;
     }
-    .info-box .header-th {
-      background: #e8720c;
-      color: #fff;
-      font-size: 10px;
+    .info-tbl .val-bold { font-weight: bold; }
+    .info-tbl .val-amount {
       font-weight: bold;
-      text-align: center;
-      width: 36px;
+      text-align: right;
+      font-family: 'Consolas', monospace;
     }
 
     /* 품목 테이블 */
@@ -116,12 +121,13 @@
       margin-bottom: 4px;
     }
     .items-table th {
-      background: #334155;
+      background: #c00;
       color: #fff;
       padding: 3px 4px;
       text-align: center;
-      border: 1px solid #1e293b;
+      border: 1px solid #900;
       font-size: 9px;
+      font-weight: bold;
       white-space: nowrap;
     }
     .items-table td {
@@ -129,38 +135,43 @@
       border: 1px solid #ccc;
       font-size: 9px;
     }
-    .items-table tr:nth-child(even) td { background: #fafafa; }
-    .items-table .right { text-align: right; }
-    .items-table .center { text-align: center; }
+    .items-table .r { text-align: right; font-family: 'Consolas', monospace; }
+    .items-table .c { text-align: center; }
 
     /* 합계 */
-    .total-row {
+    .total-section {
       display: flex;
-      gap: 0;
       border: 2px solid #000;
-      margin-bottom: 4px;
     }
     .total-cell {
       flex: 1;
       display: flex;
-      align-items: center;
+      align-items: stretch;
+      border-right: 2px solid #000;
     }
-    .total-cell .label {
-      background: #e8720c;
-      color: #fff;
+    .total-cell:last-child { border-right: none; }
+    .total-cell .t-label {
+      padding: 4px 6px;
       font-weight: bold;
       font-size: 11px;
-      padding: 4px 8px;
       white-space: nowrap;
+      display: flex;
+      align-items: center;
     }
-    .total-cell .value {
+    .total-cell .t-value {
       flex: 1;
       text-align: right;
       font-size: 12px;
       font-weight: bold;
-      padding: 4px 8px;
+      padding: 4px 6px;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      font-family: 'Consolas', monospace;
     }
-    .total-cell + .total-cell { border-left: 2px solid #000; }
+    .total-cell.sales .t-label { background: #c00; color: #ff0; }
+    .total-cell.refund .t-label { background: #060; color: #fff; }
+    .total-cell.collect .t-label { background: #006; color: #fff; }
 
     @media print {
       .print-bar { display: none; }
@@ -181,8 +192,8 @@
 <body>
 
 <div class="print-bar">
-  <button onclick="window.print()">인쇄 ({{ orders_data|length }}건)</button>
-  <button class="btn-gray" onclick="window.close()">닫기</button>
+  <button class="btn-primary" onclick="window.print()">인쇄 ({{ orders_data|length }}건)</button>
+  <button onclick="window.close()">닫기</button>
 </div>
 
 {% for data in orders_data %}
@@ -196,38 +207,42 @@
 {% endif %}
 
 <div class="invoice-half">
-  <div class="invoice-title">
-    거 래 명 세 서
-    <small>(공급자 보관용)</small>
-  </div>
-
-  <div class="info-row">
-    <div class="info-box">
-      <table>
-        <tr>
-          <th class="header-th" rowspan="3" style="writing-mode:vertical-lr;letter-spacing:3px;">공급받는자</th>
-          <th>거래처</th>
-          <td colspan="3"><strong>{{ data.order.delivery.name }}</strong></td>
-        </tr>
-        <tr>
-          <th>선생님</th>
-          <td>{{ data.order.teacher.name }}</td>
-          <th>연락처</th>
-          <td>{{ data.order.teacher.phone }}</td>
-        </tr>
-        <tr>
-          <th>주 소</th>
-          <td colspan="3">{{ data.order.delivery.address }}</td>
-        </tr>
-      </table>
+  <div class="header-section">
+    <div class="header-title">
+      매 출 전 표
+      <small>(공급자 보관용)</small>
     </div>
-
-    <div class="info-box" style="flex:0 0 180px;">
-      <table>
-        <tr><th>발행일</th><td>{{ data.order.ordered_at|date:"Y-m-d" }}</td></tr>
-        <tr><th>발행번호</th><td style="font-size:9px"><strong>{{ data.order.order_no }}</strong></td></tr>
-        <tr><th>상 태</th><td>{{ data.order.get_status_display }}</td></tr>
-      </table>
+    <div class="header-info">
+      <div class="left-col">
+        <table class="info-tbl">
+          <tr>
+            <th>발행일</th>
+            <td>{{ data.order.ordered_at|date:"Y-m-d" }}</td>
+            <th>발행번호</th>
+            <td class="val-bold" style="font-size:9px">{{ data.order.order_no }}</td>
+          </tr>
+          <tr>
+            <th>거래처</th>
+            <td colspan="3">
+              <strong>{{ data.order.delivery.name }}</strong>
+              <span style="color:#666;margin-left:4px;font-size:9px">{{ data.order.teacher.name }}</span>
+            </td>
+          </tr>
+          <tr>
+            <th>단 가</th>
+            <td class="c">{{ data.items|length }}</td>
+            <th>합 계</th>
+            <td class="val-amount">&#8361;{{ data.total_amount|floatformat:0 }}</td>
+          </tr>
+        </table>
+      </div>
+      <div class="right-col">
+        <table class="info-tbl">
+          <tr><th>상 태</th><td class="val-bold">{{ data.order.get_status_display }}</td></tr>
+          <tr><th>업 체</th><td>{{ data.order.agency.name }}</td></tr>
+          <tr><th>운송장</th><td>{{ data.order.tracking_no|default:"—" }}</td></tr>
+        </table>
+      </div>
     </div>
   </div>
 
@@ -236,48 +251,48 @@
       <tr>
         <th style="width:22px">NO</th>
         <th>교재명</th>
-        <th style="width:65px">출판사</th>
-        <th style="width:55px">정가</th>
-        <th style="width:35px">수량</th>
-        <th style="width:40px">공급률</th>
-        <th style="width:55px">단가</th>
-        <th style="width:65px">금액</th>
+        <th style="width:60px">출판사</th>
+        <th style="width:50px">정가</th>
+        <th style="width:32px">수량</th>
+        <th style="width:38px">공급률</th>
+        <th style="width:50px">단가</th>
+        <th style="width:60px">금액</th>
       </tr>
     </thead>
     <tbody>
       {% for item in data.items %}
       <tr>
-        <td class="center">{{ forloop.counter }}</td>
-        <td>{{ item.book.name }}</td>
-        <td class="center" style="font-size:8px">{{ item.book.publisher.name }}</td>
-        <td class="right">{{ item.list_price|floatformat:0 }}</td>
-        <td class="center">{{ item.quantity }}</td>
-        <td class="center">{{ item.supply_rate }}%</td>
-        <td class="right">{{ item.unit_price|floatformat:0 }}</td>
-        <td class="right" style="font-weight:bold">{{ item.amount|floatformat:0 }}</td>
+        <td class="c">{{ forloop.counter }}</td>
+        <td style="max-width:160px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">{{ item.book.name }}</td>
+        <td class="c" style="font-size:8px">{{ item.book.publisher.name }}</td>
+        <td class="r">{{ item.list_price|floatformat:0 }}</td>
+        <td class="c">{{ item.quantity }}</td>
+        <td class="c">{{ item.supply_rate }}%</td>
+        <td class="r">{{ item.unit_price|floatformat:0 }}</td>
+        <td class="r" style="font-weight:bold">{{ item.amount|floatformat:0 }}</td>
       </tr>
       {% endfor %}
       {% for i in data.empty_rows %}
       <tr>
-        <td class="center" style="color:#ccc">&nbsp;</td>
+        <td class="c" style="color:#ccc">&nbsp;</td>
         <td>&nbsp;</td><td></td><td></td><td></td><td></td><td></td><td></td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
 
-  <div class="total-row">
-    <div class="total-cell">
-      <span class="label">매출액</span>
-      <span class="value">&#8361;{{ data.total_amount|floatformat:0 }}</span>
+  <div class="total-section">
+    <div class="total-cell sales">
+      <span class="t-label">매출액:</span>
+      <span class="t-value">&#8361;{{ data.total_amount|floatformat:0 }}</span>
     </div>
-    <div class="total-cell">
-      <span class="label">수 량</span>
-      <span class="value">{{ data.total_qty }}권</span>
+    <div class="total-cell refund">
+      <span class="t-label">반품액:</span>
+      <span class="t-value">&#8361;0</span>
     </div>
-    <div class="total-cell">
-      <span class="label">품 목</span>
-      <span class="value">{{ data.items|length }}건</span>
+    <div class="total-cell collect">
+      <span class="t-label">수금액:</span>
+      <span class="t-value">&#8361;0</span>
     </div>
   </div>
 </div>
