@@ -95,7 +95,13 @@ def agency_edit(request, pk):
     if request.method == 'POST':
         agency_user.name = request.POST.get('name', agency_user.name).strip()
         agency_user.phone = request.POST.get('phone', agency_user.phone).strip()
-        agency_user.save(update_fields=['name', 'phone'])
+        new_pw = request.POST.get('new_password', '').strip()
+        update_fields = ['name', 'phone']
+        if new_pw:
+            agency_user.set_password(new_pw)
+            agency_user.must_change_password = True
+            update_fields.extend(['password', 'must_change_password'])
+        agency_user.save(update_fields=update_fields)
 
         info.rep_name = request.POST.get('rep_name', '').strip()
         info.biz_no = request.POST.get('biz_no', '').strip()
