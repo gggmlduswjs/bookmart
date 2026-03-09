@@ -37,6 +37,16 @@
   }
   .inbox-panel { display:none; }
   .inbox-panel.active { display:block; }
+  tr.unread { background:#eff6ff !important; }
+  tr.unread td { font-weight:600; }
+  tr.read { background:#f9f9f9; }
+  tr.read td { color:#999; font-weight:400; }
+  .read-dot {
+    display:inline-block;
+    width:8px; height:8px;
+    border-radius:50%;
+    background:#3b82f6;
+  }
 </style>
 {% endblock %}
 
@@ -90,6 +100,7 @@
         <thead>
           <tr>
             {% if not show_done %}<th style="width:36px"><input type="checkbox" onchange="toggleAll(this,'email')"></th>{% endif %}
+            <th style="width:28px"></th>
             <th style="width:90px">계정</th>
             <th>발신자</th>
             <th>제목 / 내용 미리보기</th>
@@ -100,7 +111,7 @@
         </thead>
         <tbody>
           {% for msg in email_messages %}
-          <tr style="{% if msg.is_processed %}opacity:0.5{% endif %}{% if not msg.is_read %}font-weight:bold{% endif %}">
+          <tr class="{% if not msg.is_read %}unread{% elif msg.is_read and not msg.is_processed %}read{% endif %}" style="{% if msg.is_processed %}opacity:0.5{% endif %}">
             {% if not show_done %}
             <td class="center">
               {% if not msg.is_processed %}
@@ -108,6 +119,7 @@
               {% endif %}
             </td>
             {% endif %}
+            <td class="center">{% if not msg.is_read %}<span class="read-dot"></span>{% endif %}</td>
             <td class="center" style="font-size:11px;color:#666">{{ msg.account_label|default:"-" }}</td>
             <td style="font-size:11px;max-width:120px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">
               {{ msg.sender }}
@@ -142,7 +154,7 @@
           </tr>
           {% empty %}
           <tr>
-            <td colspan="{% if show_done %}6{% else %}7{% endif %}" class="center" style="padding:30px;color:#888">
+            <td colspan="{% if show_done %}7{% else %}8{% endif %}" class="center" style="padding:30px;color:#888">
               {% if show_done %}메일이 없습니다.{% else %}미처리 메일이 없습니다.{% endif %}
             </td>
           </tr>
@@ -182,6 +194,7 @@
         <thead>
           <tr>
             {% if not show_done %}<th style="width:36px"><input type="checkbox" onchange="toggleAll(this,'sms')"></th>{% endif %}
+            <th style="width:28px"></th>
             <th style="width:130px">발신번호</th>
             <th>내용</th>
             <th style="width:130px">수신 시각</th>
@@ -191,7 +204,7 @@
         </thead>
         <tbody>
           {% for msg in sms_messages %}
-          <tr style="{% if msg.is_processed %}opacity:0.5{% endif %}{% if not msg.is_read %}font-weight:bold{% endif %}">
+          <tr class="{% if not msg.is_read %}unread{% elif msg.is_read and not msg.is_processed %}read{% endif %}" style="{% if msg.is_processed %}opacity:0.5{% endif %}">
             {% if not show_done %}
             <td class="center">
               {% if not msg.is_processed %}
@@ -199,6 +212,7 @@
               {% endif %}
             </td>
             {% endif %}
+            <td class="center">{% if not msg.is_read %}<span class="read-dot"></span>{% endif %}</td>
             <td style="font-size:12px;font-weight:bold">{{ msg.sender }}</td>
             <td>
               <div style="font-size:12px;white-space:pre-wrap">{{ msg.content }}</div>
@@ -222,7 +236,7 @@
           </tr>
           {% empty %}
           <tr>
-            <td colspan="{% if show_done %}5{% else %}6{% endif %}" class="center" style="padding:30px;color:#888">
+            <td colspan="{% if show_done %}6{% else %}7{% endif %}" class="center" style="padding:30px;color:#888">
               {% if show_done %}문자가 없습니다.{% else %}미처리 문자가 없습니다.{% endif %}
             </td>
           </tr>
