@@ -900,16 +900,24 @@ def export_sales(request):
 @role_required('admin')
 def inbox_list(request):
     show_done = request.GET.get('done', '')
+    tab = request.GET.get('tab', 'email')  # email or sms
     qs = InboxMessage.objects.annotate(
         attachment_count=Count('attachments')
     ).select_related('order')
     if not show_done:
         qs = qs.filter(is_processed=False)
-    unread_count = InboxMessage.objects.filter(is_processed=False).count()
+    email_qs = qs.filter(source='email')
+    sms_qs = qs.filter(source='sms')
+    unread_email = InboxMessage.objects.filter(is_processed=False, source='email').count()
+    unread_sms = InboxMessage.objects.filter(is_processed=False, source='sms').count()
     return render(request, 'orders/inbox_list.html', {
-        'inbox_messages': qs[:200],
+        'email_messages': email_qs[:200],
+        'sms_messages': sms_qs[:200],
+        'tab': tab,
         'show_done': show_done,
-        'unread_count': unread_count,
+        'unread_email': unread_email,
+        'unread_sms': unread_sms,
+        'unread_count': unread_email + unread_sms,
     })
 
 
@@ -920,12 +928,14 @@ def inbox_bulk_skip(request):
         return redirect('inbox_list')
 
     action = request.POST.get('action', '')
+    tab = request.POST.get('tab', 'email')
     if action == 'skip_all':
-        # 미처리 전체 건너뛰기
-        updated = InboxMessage.objects.filter(is_processed=False).update(is_processed=True)
-        messages.success(request, f'미처리 메시지 {updated}건을 모두 건너뛰었습니다.')
+        updated = InboxMessage.objects.filter(is_processed=False, source='email').update(is_processed=True)
+        messages.success(request, f'미처리 메일 {updated}건을 모두 건너뛰었습니다.')
+    elif action == 'skip_all_sms':
+        updated = InboxMessage.objects.filter(is_processed=False, source='sms').update(is_processed=True)
+        messages.success(request, f'미처리 문자 {updated}건을 모두 건너뛰었습니다.')
     else:
-        # 선택 건너뛰기
         msg_ids = request.POST.getlist('msg_ids')
         if msg_ids:
             updated = InboxMessage.objects.filter(
@@ -935,7 +945,7 @@ def inbox_bulk_skip(request):
         else:
             messages.warning(request, '선택된 메시지가 없습니다.')
 
-    return redirect('inbox_list')
+    return redirect(f'/inbox/?tab={tab}')
 
 
 @role_required('admin')
