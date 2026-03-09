@@ -299,6 +299,8 @@ def order_create_admin(request):
 
     books = Book.objects.filter(is_active=True).select_related('publisher')
     series_list = sorted(set(b.series for b in books if b.series))
+    if any(not b.series for b in books):
+        series_list.append('기타')
     books_json = json.dumps([{
         'id': b.id,
         'series': b.series or '기타',
@@ -407,6 +409,132 @@ def order_create_admin(request):
         'past_region': past_region,
         'now_str': now.strftime('%H:%M'),
     })
+
+
+# ── 엑셀 → 주문 항목 파싱 API ─────────────────────────────────────────────────
+
+@role_required('admin')
+def parse_order_excel(request):
+    """엑셀 파일을 파싱하여 교재명·수량을 매칭한 JSON 반환"""
+    from openpyxl import load_workbook
+
+    if request.method != 'POST' or not request.FILES.get('file'):
+        return HttpResponse(json.dumps({'error': '파일이 없습니다.'}),
+                            content_type='application/json', status=400)
+
+    file = request.FILES['file']
+    if not file.name.endswith(('.xlsx', '.xls')):
+        return HttpResponse(json.dumps({'error': '.xlsx 파일만 지원합니다.'}),
+                            content_type='application/json', status=400)
+
+    try:
+        wb = load_workbook(file, read_only=True)
+        ws = wb.active
+
+        # DB 교재 목록 로드
+        books = Book.objects.filter(is_active=True).select_related('publisher')
+        book_map = {}  # name -> book info
+        for b in books:
+            book_map[b.name.strip()] = {
+                'id': b.id,
+                'series': b.series or '기타',
+                'name': b.name,
+                'publisher': b.publisher.name,
+                'unit_price': math.floor(b.list_price * float(b.publisher.supply_rate) / 100),
+            }
+
+        # 헤더 탐색: 교재명/수량 컬럼 찾기
+        header_row = -1
+        col_name = -1
+        col_qty = -1
+        all_rows = list(ws.iter_rows(values_only=True))
+
+        for i, row in enumerate(all_rows):
+            cells = [str(c or '').strip().replace(' ', '') for c in row]
+            for j, cell in enumerate(cells):
+                if cell in ('교재명', '교재명', '도서명', '교재'):
+                    col_name = j
+                if cell in ('수량', '부수', '권수', '주문수량'):
+                    col_qty = j
+            if col_name >= 0:
+                header_row = i
+                break
+
+        matched = []
+        unmatched = []
+
+        if header_row >= 0 and col_name >= 0:
+            # 헤더 기반 파싱
+            for row in all_rows[header_row + 1:]:
+                cells = list(row)
+                if col_name >= len(cells):
+                    continue
+                name = str(cells[col_name] or '').strip()
+                if not name:
+                    continue
+                qty = 1
+                if col_qty >= 0 and col_qty < len(cells):
+                    try:
+                        qty = int(cells[col_qty])
+                    except (TypeError, ValueError):
+                        qty = 1
+                if qty <= 0:
+                    continue
+
+                info = book_map.get(name)
+                if info:
+                    matched.append({**info, 'qty': qty})
+                else:
+                    # 부분 매칭 시도
+                    found = None
+                    for bname, binfo in book_map.items():
+                        if name in bname or bname in name:
+                            found = binfo
+                            break
+                    if found:
+                        matched.append({**found, 'qty': qty})
+                    else:
+                        unmatched.append({'name': name, 'qty': qty})
+        else:
+            # 헤더 없음 — 각 행에서 교재명+수량 추측
+            for row in all_rows:
+                cells = [str(c or '').strip() for c in row if c is not None]
+                name_candidate = None
+                qty_candidate = 1
+                for cell in cells:
+                    try:
+                        v = int(cell)
+                        if 0 < v < 10000:
+                            qty_candidate = v
+                    except (ValueError, TypeError):
+                        if len(cell) >= 2 and cell not in ('', 'NO.', 'NO'):
+                            name_candidate = cell
+                if name_candidate:
+                    info = book_map.get(name_candidate)
+                    if info:
+                        matched.append({**info, 'qty': qty_candidate})
+                    else:
+                        found = None
+                        for bname, binfo in book_map.items():
+                            if name_candidate in bname or bname in name_candidate:
+                                found = binfo
+                                break
+                        if found:
+                            matched.append({**found, 'qty': qty_candidate})
+                        else:
+                            unmatched.append({'name': name_candidate, 'qty': qty_candidate})
+
+        wb.close()
+        return HttpResponse(
+            json.dumps({'matched': matched, 'unmatched': unmatched}, ensure_ascii=False),
+            content_type='application/json',
+        )
+
+    except Exception as e:
+        return HttpResponse(
+            json.dumps({'error': f'파일 처리 오류: {str(e)}'}, ensure_ascii=False),
+            content_type='application/json', status=400,
+        )
 
 
 # ── 주문 취소 (선생님) ─────────────────────────────────────────────────────────
