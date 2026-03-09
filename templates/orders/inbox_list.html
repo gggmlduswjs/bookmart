@@ -89,10 +89,10 @@
     {% if not show_done and email_messages %}
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
       <button type="submit" name="action" value="skip_selected" class="btn btn-outline btn-sm"
-              onclick="return confirmSelected('email')">선택 건너뛰기</button>
+              onclick="return confirmSelected('email')">선택 처리완료</button>
       <button type="submit" name="action" value="skip_all" class="btn btn-outline btn-sm"
               style="color:#c00;border-color:#c00"
-              onclick="return confirm('미처리 메일을 모두 건너뛰시겠습니까?')">전체 건너뛰기</button>
+              onclick="return confirm('미처리 메일을 모두 처리완료하시겠습니까?')">전체 처리완료</button>
     </div>
     {% endif %}
 
@@ -150,7 +150,12 @@
               {% endif %}
             </td>
             <td class="center">
+              {% if msg.is_processed %}
               <a href="{% url 'inbox_process' msg.pk %}" class="btn btn-outline btn-sm">보기</a>
+              {% else %}
+              <button type="button" class="btn btn-orange btn-sm"
+                      onclick="singleSkip('{% url 'inbox_single_skip' msg.pk %}')">처리</button>
+              {% endif %}
             </td>
           </tr>
           {% empty %}
@@ -183,10 +188,10 @@
     {% if not show_done and sms_messages %}
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
       <button type="submit" name="action" value="skip_selected" class="btn btn-outline btn-sm"
-              onclick="return confirmSelected('sms')">선택 건너뛰기</button>
+              onclick="return confirmSelected('sms')">선택 처리완료</button>
       <button type="submit" name="action" value="skip_all_sms" class="btn btn-outline btn-sm"
               style="color:#c00;border-color:#c00"
-              onclick="return confirm('미처리 문자를 모두 건너뛰시겠습니까?')">전체 건너뛰기</button>
+              onclick="return confirm('미처리 문자를 모두 처리완료하시겠습니까?')">전체 처리완료</button>
     </div>
     {% endif %}
 
@@ -232,7 +237,12 @@
               {% endif %}
             </td>
             <td class="center">
+              {% if msg.is_processed %}
               <a href="{% url 'inbox_process' msg.pk %}" class="btn btn-outline btn-sm">보기</a>
+              {% else %}
+              <button type="button" class="btn btn-orange btn-sm"
+                      onclick="singleSkip('{% url 'inbox_single_skip' msg.pk %}')">처리</button>
+              {% endif %}
             </td>
           </tr>
           {% empty %}
@@ -248,7 +258,17 @@
   </form>
 </div>
 
+<form id="singleSkipForm" method="post" style="display:none">
+  {% csrf_token %}
+</form>
+
 <script>
+function singleSkip(url) {
+  var form = document.getElementById('singleSkipForm');
+  form.action = url;
+  form.submit();
+}
+
 function toggleAll(master, type) {
   document.querySelectorAll('.msg-check-' + type).forEach(function(cb) {
     cb.checked = master.checked;
@@ -258,10 +278,10 @@ function toggleAll(master, type) {
 function confirmSelected(type) {
   var checked = document.querySelectorAll('.msg-check-' + type + ':checked');
   if (checked.length === 0) {
-    alert('건너뛸 메시지를 선택해 주세요.');
+    alert('처리완료할 메시지를 선택해 주세요.');
     return false;
   }
-  return confirm(checked.length + '건을 건너뛰시겠습니까?');
+  return confirm(checked.length + '건을 처리완료하시겠습니까?');
 }
 </script>
 {% endblock %}

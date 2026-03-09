@@ -1008,6 +1008,20 @@ def inbox_list(request):
 
 
 @role_required('admin')
+def inbox_single_skip(request, pk):
+    """단건 처리완료 (is_processed=True)"""
+    if request.method != 'POST':
+        return redirect('inbox_list')
+    msg = get_object_or_404(InboxMessage, pk=pk)
+    tab = 'sms' if msg.source == 'sms' else 'email'
+    if not msg.is_processed:
+        msg.is_processed = True
+        msg.save(update_fields=['is_processed'])
+        messages.success(request, '처리완료했습니다.')
+    return redirect(f'/inbox/?tab={tab}')
+
+
+@role_required('admin')
 def inbox_bulk_skip(request):
     """선택한 수신 메시지를 일괄 건너뛰기 (is_processed=True)"""
     if request.method != 'POST':
