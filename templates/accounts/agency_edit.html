@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+{% block title %}업체 정보 수정{% endblock %}
+
+{% block content %}
+<div class="page-title">업체 정보 수정</div>
+
+<div class="content-box" style="max-width:600px">
+  <form method="post">
+    {% csrf_token %}
+
+    <div class="form-group">
+      <label class="form-label">아이디</label>
+      <input type="text" class="form-control" value="{{ agency_user.login_id }}" disabled>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">업체명 *</label>
+      <input type="text" name="name" class="form-control" value="{{ agency_user.name }}" required>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">연락처</label>
+      <input type="text" name="phone" class="form-control" value="{{ agency_user.phone }}">
+    </div>
+
+    <hr style="margin:20px 0">
+
+    <div class="form-group">
+      <label class="form-label">대표자명</label>
+      <input type="text" name="rep_name" class="form-control" value="{{ info.rep_name }}">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">사업자등록번호</label>
+      <input type="text" name="biz_no" class="form-control" value="{{ info.biz_no }}">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">팩스</label>
+      <input type="text" name="fax" class="form-control" value="{{ info.fax }}">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">우편번호</label>
+      <input type="text" name="postal_code" class="form-control" value="{{ info.postal_code }}">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">주소</label>
+      <input type="text" name="address" class="form-control" value="{{ info.address }}">
+    </div>
+
+    <div style="display:flex;gap:8px;margin-top:20px">
+      <button type="submit" class="btn btn-orange">저장</button>
+      <a href="{% url 'agency_list' %}" class="btn btn-outline">취소</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

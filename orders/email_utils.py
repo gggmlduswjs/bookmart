@@ -123,6 +123,7 @@ def fetch_naver_emails(account_id, account_pw, account_label, days=60,
         existing_keys = set()
 
     results = []
+    results_sync = {}
     try:
         mail = imaplib.IMAP4_SSL(NAVER_IMAP_HOST, NAVER_IMAP_PORT)
         mail.login(account_id, account_pw)
@@ -133,21 +134,38 @@ def fetch_naver_emails(account_id, account_pw, account_label, days=60,
         status, data = mail.uid('search', None, f'SINCE {since_date}')
         if status != 'OK' or not data[0]:
             mail.logout()
-            return results
+            return results, results_sync
 
         uid_list = data[0].split()
 
-        # 이미 DB에 있는 UID는 건너뛰기 (RFC822 다운로드 전에 필터링)
+        # 기존/신규 UID 분리
         new_uids = []
+        existing_uids = []
         for uid_bytes in uid_list:
             uid_str = uid_bytes.decode()
             imap_key = f'{account_label}:{uid_str}'
-            if imap_key not in existing_keys:
+            if imap_key in existing_keys:
+                existing_uids.append((uid_bytes, uid_str, imap_key))
+            else:
                 new_uids.append((uid_bytes, uid_str, imap_key))
+
+        # 기존 메일 읽음 상태 동기화 (FLAGS만 가져옴)
+        if existing_uids:
+            sync_read = {}
+            for uid_bytes, uid_str, imap_key in existing_uids:
+                status2, flag_data = mail.uid('fetch', uid_bytes, '(FLAGS)')
+                if status2 == 'OK' and flag_data and flag_data[0]:
+                    flags_raw = flag_data[0] if isinstance(flag_data[0], bytes) else (
+                        flag_data[0][0] if isinstance(flag_data[0], tuple) else b''
+                    )
+                    sync_read[imap_key] = b'\\Seen' in flags_raw
+            results_sync = sync_read  # 별도 키로 전달
+        else:
+            results_sync = {}
 
         if not new_uids:
             mail.logout()
-            return results
+            return results, results_sync
 
         logger.info('IMAP %s: %d건 중 %d건 새 메일 다운로드',
                     account_label, len(uid_list), len(new_uids))
@@ -196,7 +214,7 @@ def fetch_naver_emails(account_id, account_pw, account_label, days=60,
     except Exception as e:
         logger.error('IMAP 수신 오류 (%s): %s', account_label, e)
 
-    return results
+    return results, results_sync
 
 
 # ── 스팸 필터링 ──────────────────────────────────────────────────────────────

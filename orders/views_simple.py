@@ -71,74 +71,101 @@ def simple_landing(request, slug):
         return redirect('simple_order', slug=slug)
 
     error = None
+    active_tab = 'new'
 
     if request.method == 'POST':
-        name = request.POST.get('name', '').strip()
-        phone = request.POST.get('phone', '').strip()
-        school = request.POST.get('school', '').strip()
-        address_main = request.POST.get('address', '').strip()
-        address_detail = request.POST.get('address_detail', '').strip()
-        address = f'{address_main} {address_detail}'.strip() if address_main else ''
+        mode = request.POST.get('mode', 'new')
 
-        if not phone:
-            error = '전화번호를 입력해주세요.'
-        elif not name:
-            error = '이름을 입력해주세요.'
-        elif not school:
-            error = '학교명을 입력해주세요.'
-        elif not address:
-            error = '배송주소를 입력해주세요.'
-        else:
-            # 전화번호로 기존 유저 검색 (같은 업체 소속)
-            existing = User.objects.filter(
-                phone=phone, role='teacher', agency=agency, is_active=True
-            ).first()
+        if mode == 'lookup':
+            # ── 주문내역 확인 모드: 이름+전화번호만으로 세션 복구 ──
+            active_tab = 'lookup'
+            lookup_name = request.POST.get('lookup_name', '').strip()
+            lookup_phone = request.POST.get('lookup_phone', '').strip()
 
-            if existing:
-                teacher = existing
+            if not lookup_name or not lookup_phone:
+                error = '이름과 전화번호를 모두 입력해주세요.'
             else:
-                # 신규 유저 생성
-                login_id = f's_{phone}_{agency.pk}'
-                # login_id 중복 방지
-                if User.objects.filter(login_id=login_id).exists():
-                    # 이미 존재하면 해당 유저 사용
-                    teacher = User.objects.get(login_id=login_id)
+                teacher = User.objects.filter(
+                    phone=lookup_phone, name=lookup_name,
+                    role='teacher', agency=agency, is_active=True
+                ).first()
+
+                if not teacher:
+                    error = '일치하는 주문 정보를 찾을 수 없습니다. 이름과 전화번호를 확인해주세요.'
                 else:
-                    teacher = User(
-                        login_id=login_id,
-                        role='teacher',
-                        name=name,
-                        phone=phone,
+                    request.session['simple_teacher_id'] = teacher.pk
+                    request.session['simple_agency_code'] = str(agency.agency_code)
+                    return redirect('simple_order_list', slug=slug)
+
+        else:
+            # ── 신규 주문 모드 ──
+            name = request.POST.get('name', '').strip()
+            phone = request.POST.get('phone', '').strip()
+            school = request.POST.get('school', '').strip()
+            address_main = request.POST.get('address', '').strip()
+            address_detail = request.POST.get('address_detail', '').strip()
+            address = f'{address_main} {address_detail}'.strip() if address_main else ''
+
+            if not phone:
+                error = '전화번호를 입력해주세요.'
+            elif not name:
+                error = '이름을 입력해주세요.'
+            elif not school:
+                error = '학교명을 입력해주세요.'
+            elif not address:
+                error = '배송주소를 입력해주세요.'
+            else:
+                # 전화번호로 기존 유저 검색 (같은 업체 소속)
+                existing = User.objects.filter(
+                    phone=phone, role='teacher', agency=agency, is_active=True
+                ).first()
+
+                if existing:
+                    teacher = existing
+                else:
+                    # 신규 유저 생성
+                    login_id = f's_{phone}_{agency.pk}'
+                    # login_id 중복 방지
+                    if User.objects.filter(login_id=login_id).exists():
+                        # 이미 존재하면 해당 유저 사용
+                        teacher = User.objects.get(login_id=login_id)
+                    else:
+                        teacher = User(
+                            login_id=login_id,
+                            role='teacher',
+                            name=name,
+                            phone=phone,
+                            agency=agency,
+                            must_change_password=False,
+                        )
+                        teacher.set_unusable_password()
+                        teacher.save()
+                        LinkAccessLog.objects.create(
+                            agency=agency, teacher=teacher,
+                            ip_address=request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR', '')).split(',')[0].strip(),
+                            user_agent=request.META.get('HTTP_USER_AGENT', '')[:500],
+                            action='register',
+                        )
+
+                    # 배송지(학교) 생성 또는 매칭
+                    delivery, _ = DeliveryAddress.objects.get_or_create(
                         agency=agency,
-                        must_change_password=False,
+                        name=school,
+                        defaults={'address': address, 'phone': phone},
                     )
-                    teacher.set_unusable_password()
-                    teacher.save()
-                    LinkAccessLog.objects.create(
-                        agency=agency, teacher=teacher,
-                        ip_address=request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR', '')).split(',')[0].strip(),
-                        user_agent=request.META.get('HTTP_USER_AGENT', '')[:500],
-                        action='register',
-                    )
+                    teacher.delivery_address = delivery
+                    teacher.save(update_fields=['delivery_address'])
 
-                # 배송지(학교) 생성 또는 매칭
-                delivery, _ = DeliveryAddress.objects.get_or_create(
-                    agency=agency,
-                    name=school,
-                    defaults={'address': address, 'phone': phone},
-                )
-                teacher.delivery_address = delivery
-                teacher.save(update_fields=['delivery_address'])
-
-            # 세션에 저장
-            request.session['simple_teacher_id'] = teacher.pk
-            request.session['simple_agency_code'] = str(agency.agency_code)
-            return redirect('simple_order', slug=slug)
+                # 세션에 저장
+                request.session['simple_teacher_id'] = teacher.pk
+                request.session['simple_agency_code'] = str(agency.agency_code)
+                return redirect('simple_order', slug=slug)
 
     return render(request, 'simple/landing.html', {
         'agency': agency,
         'error': error,
         'slug': slug,
+        'active_tab': active_tab,
     })
 
 

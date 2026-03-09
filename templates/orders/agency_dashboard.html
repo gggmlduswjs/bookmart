@@ -1,0 +1,257 @@
+{% extends "base.html" %}
+{% block title %}대시보드 - {{ request.user.name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+  .dash-cards {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .dash-card {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 18px 16px;
+    text-align: center;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+    transition: box-shadow 0.15s;
+  }
+  .dash-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+  .dash-card .card-label { font-size: 14px; color: #64748b; margin-bottom: 6px; }
+  .dash-card .card-value { font-size: 32px; font-weight: 700; color: #1e40af; }
+  .dash-card .card-value.blue { color: #2563eb; }
+  .dash-card .card-value.green { color: #059669; }
+  .dash-card .card-value.orange { color: #ea580c; }
+  .dash-card .card-sub { font-size: 12px; color: #94a3b8; margin-top: 4px; }
+
+  .dash-mid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .dash-section {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+  }
+  .dash-section-title {
+    background: #334155;
+    color: #f1f5f9;
+    padding: 10px 16px;
+    font-size: 14px;
+    font-weight: 600;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .dash-section-title a { color: #94a3b8; font-size: 12px; text-decoration: none; }
+  .dash-section-title a:hover { color: #fff; }
+  .dash-section-body { padding: 10px 12px; }
+  .dash-section-body ul { list-style: none; padding: 0; margin: 0; }
+  .dash-section-body li {
+    padding: 8px 0;
+    font-size: 14px;
+    border-bottom: 1px solid #f0f0f0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .dash-section-body li:last-child { border-bottom: none; }
+  .dash-section-body li a { color: #1155cc; }
+  .dash-section-body .empty { color: #94a3b8; font-size: 14px; padding: 8px 0; }
+
+  .school-table { width: 100%; border-collapse: collapse; }
+  .school-table th {
+    background: #f8fafc;
+    padding: 8px 10px;
+    font-size: 12px;
+    color: #64748b;
+    text-align: left;
+    border-bottom: 1px solid #e2e8f0;
+  }
+  .school-table td {
+    padding: 8px 10px;
+    font-size: 13px;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  .school-table tr:last-child td { border-bottom: none; }
+
+  .dash-full {
+    margin-bottom: 16px;
+  }
+
+  .dash-buttons {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .dash-buttons .btn { padding: 12px 28px; font-size: 14px; font-weight: 600; }
+
+  @media (max-width: 768px) {
+    .dash-cards { grid-template-columns: 1fr 1fr; }
+    .dash-mid { grid-template-columns: 1fr; }
+    .dash-buttons { flex-wrap: wrap; }
+    .dash-buttons .btn { flex: 1; text-align: center; min-width: 100px; }
+  }
+  @media (max-width: 480px) {
+    .dash-cards { grid-template-columns: 1fr; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-title">
+  대시보드
+  <span class="subtitle">{{ request.user.name }}</span>
+</div>
+
+<!-- 상단: 4개 요약 카드 -->
+<div class="dash-cards">
+  <div class="dash-card">
+    <div class="card-label">관리 학교</div>
+    <div class="card-value">{{ total_schools }}</div>
+  </div>
+  <div class="dash-card">
+    <div class="card-label">오늘 주문</div>
+    <div class="card-value blue">{{ today_orders }}</div>
+  </div>
+  <div class="dash-card">
+    <div class="card-label">접수 대기</div>
+    <div class="card-value orange">{{ pending_orders }}</div>
+  </div>
+  <div class="dash-card">
+    <div class="card-label">이번 달 주문</div>
+    <div class="card-value green">{{ month_amount|floatformat:0 }}</div>
+    <div class="card-sub">원</div>
+  </div>
+</div>
+
+<!-- 중단: 2컬럼 -->
+<div class="dash-mid">
+  <!-- 왼쪽: 최근 주문 -->
+  <div class="dash-section">
+    <div class="dash-section-title">
+      최근 주문
+      <a href="{% url 'order_list' %}">전체보기 &rarr;</a>
+    </div>
+    <div class="dash-section-body">
+      <ul>
+        {% for order in recent_orders %}
+        <li>
+          <div>
+            <a href="{% url 'order_detail' order.pk %}">
+              {{ order.delivery.name|truncatechars:12 }}
+              <span style="color:#888;font-size:12px">/ {{ order.teacher.name }}</span>
+            </a>
+            <div style="font-size:11px;color:#999;margin-top:2px">{{ order.order_no }}</div>
+          </div>
+          <div style="text-align:right">
+            {% if order.status == 'pending' %}<span class="badge badge-blue">접수</span>
+            {% elif order.status == 'shipping' %}<span class="badge badge-orange">발송중</span>
+            {% elif order.status == 'delivered' %}<span class="badge badge-green">발송완료</span>
+            {% elif order.status == 'cancelled' %}<span class="badge badge-gray">취소</span>
+            {% endif %}
+            <div style="font-size:11px;color:#999;margin-top:2px">{{ order.ordered_at|date:"m/d H:i" }}</div>
+          </div>
+        </li>
+        {% empty %}
+        <li class="empty">주문 내역이 없습니다.</li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+
+  <!-- 오른쪽: 반품 + 발송중 -->
+  <div class="dash-section">
+    <div class="dash-section-title">
+      반품 현황
+      <a href="{% url 'return_list' %}">전체보기 &rarr;</a>
+    </div>
+    <div class="dash-section-body">
+      <ul>
+        {% for ret in pending_returns %}
+        <li>
+          <a href="{% url 'return_detail' ret.pk %}">
+            {{ ret.delivery.name|truncatechars:12 }}
+            <span style="color:#888;font-size:12px">/ {{ ret.teacher.name }}</span>
+          </a>
+          <div style="text-align:right">
+            <span class="badge badge-orange">요청</span>
+            <div style="font-size:11px;color:#999;margin-top:2px">{{ ret.requested_at|date:"m/d H:i" }}</div>
+          </div>
+        </li>
+        {% empty %}
+        <li class="empty">대기 중인 반품이 없습니다.</li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- 학교별 현황 -->
+<div class="dash-full">
+  <div class="dash-section">
+    <div class="dash-section-title">
+      학교별 현황
+      <a href="{% url 'delivery_list' %}">학교관리 &rarr;</a>
+    </div>
+    <div class="dash-section-body" style="padding:0">
+      <table class="school-table">
+        <thead>
+          <tr>
+            <th>학교</th>
+            <th class="center">선생님</th>
+            <th class="center">접수</th>
+            <th class="center">발송중</th>
+            <th>최근 주문</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in school_stats %}
+          <tr>
+            <td><strong>{{ s.school.name }}</strong></td>
+            <td class="center">{{ s.teacher_count }}명</td>
+            <td class="center">
+              {% if s.pending %}
+                <span class="badge badge-blue">{{ s.pending }}</span>
+              {% else %}
+                <span style="color:#ccc">-</span>
+              {% endif %}
+            </td>
+            <td class="center">
+              {% if s.shipping %}
+                <span class="badge badge-orange">{{ s.shipping }}</span>
+              {% else %}
+                <span style="color:#ccc">-</span>
+              {% endif %}
+            </td>
+            <td style="font-size:12px;color:#666">
+              {% if s.last_order %}
+                {{ s.last_order.ordered_at|date:"m/d" }} — {{ s.last_order.teacher.name }}
+              {% else %}
+                <span style="color:#ccc">주문 없음</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="5" class="center" style="padding:16px;color:#888">등록된 학교가 없습니다.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- 하단: 빠른 버튼 -->
+<div class="dash-buttons">
+  <a href="{% url 'order_list' %}" class="btn btn-orange">주문현황</a>
+  <a href="{% url 'teacher_list' %}" class="btn btn-dark">선생님관리</a>
+  <a href="{% url 'agency_link' %}" class="btn btn-outline">간편주문링크</a>
+  <a href="{% url 'ledger' %}" class="btn btn-outline">거래내역</a>
+</div>
+{% endblock %}
