@@ -85,8 +85,12 @@
           {% endif %}
         </td>
         <td style="font-size:11px">{{ order.ordered_at|date:"Y-m-d H:i" }}</td>
-        <td class="center">
+        <td class="center" style="white-space:nowrap">
           <a href="{% url 'order_detail' order.pk %}" class="btn btn-sm btn-outline">상세</a>
+          {% if not request.user.is_teacher %}
+          <a href="{% url 'order_invoice' order.pk %}" target="_blank" class="btn btn-sm btn-dark" style="padding:1px 5px;font-size:10px">명세서</a>
+          <a href="{% url 'order_quote' order.pk %}" target="_blank" class="btn btn-sm btn-outline" style="padding:1px 5px;font-size:10px">견적서</a>
+          {% endif %}
         </td>
       </tr>
       {% empty %}
