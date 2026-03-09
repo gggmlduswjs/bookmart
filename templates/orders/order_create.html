@@ -106,7 +106,7 @@ const BOOKS = {{ books_json|safe }};
 function orderForm() {
   return {
     rows: [{ series: '', book_id: '', qty: 1, unit_price: 0 }],
-    getBooks(series) { return series ? BOOKS.filter(b => b.series === series) : []; },
+    getBooks(series) { return series ? BOOKS.filter(b => b.series === series) : BOOKS; },
     updatePrice(row) { const b = BOOKS.find(b => b.id == row.book_id); row.unit_price = b ? b.unit_price : 0; },
     rowAmount(row) { return (row.book_id && row.qty) ? row.unit_price * row.qty : 0; },
     total() { return this.rows.reduce((s, r) => s + this.rowAmount(r), 0); },

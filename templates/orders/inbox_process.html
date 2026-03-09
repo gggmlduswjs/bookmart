@@ -142,10 +142,11 @@
               <tr>
                 <td>
                   <select x-model="row.series" @change="row.book_id='';row.unit_price=0">
-                    <option value="">시리즈</option>
+                    <option value="">전체</option>
                     {% for s in series_list %}
                     <option value="{{ s }}">{{ s }}</option>
                     {% endfor %}
+                    <option value="기타">기타</option>
                   </select>
                 </td>
                 <td>
@@ -211,7 +212,7 @@ function inboxOrderForm() {
       const t = ALL_TEACHERS.find(t => String(t.id) === String(this.selectedTeacher));
       this.deliveryName = t ? t.delivery_name : '';
     },
-    getBooks(series) { return series ? BOOKS.filter(b => b.series === series) : []; },
+    getBooks(series) { return series ? BOOKS.filter(b => b.series === series) : BOOKS; },
     updatePrice(row) { const b = BOOKS.find(b => b.id == row.book_id); row.unit_price = b ? b.unit_price : 0; },
     rowAmount(row) { return (row.book_id && row.qty) ? row.unit_price * row.qty : 0; },
     total() { return this.rows.reduce((s, r) => s + this.rowAmount(r), 0); },
