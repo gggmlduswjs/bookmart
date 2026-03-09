@@ -27,7 +27,21 @@
   }
   .order-row-wrap select { width: 100%; }
   .order-row-wrap input[type=number] { width: 60px; text-align: center; }
-  select:disabled { background: #f0f0f0; color: #999; }
+  /* 자동완성 */
+  .ac-wrap { position: relative; display: inline-block; }
+  .ac-wrap input[type=text] { width: 200px; padding: 4px 8px; border: 1px solid #bbb; font-size: 12px; font-family: inherit; }
+  .ac-list {
+    position: absolute; top: 100%; left: 0; right: 0; z-index: 100;
+    background: #fff; border: 1px solid #ccc; border-top: none;
+    max-height: 200px; overflow-y: auto; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  }
+  .ac-list div { padding: 6px 10px; font-size: 12px; cursor: pointer; }
+  .ac-list div:hover, .ac-list div.active { background: #e8f0fe; }
+  .ac-list div .sub { color: #888; font-size: 11px; }
+  .new-fields { margin-top: 8px; padding: 8px; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 6px; }
+  .new-fields .form-row { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+  .new-fields label { font-size: 11px; color: #666; width: 55px; flex-shrink: 0; }
+  .new-fields input { flex: 1; padding: 3px 6px; border: 1px solid #bbb; font-size: 12px; }
 </style>
 {% endblock %}
 
@@ -57,7 +71,7 @@
 
     {% if attachments %}
     <div style="padding:8px 12px;border-top:1px solid #eee;background:#f9f9f9">
-      <div style="font-size:11px;font-weight:bold;color:#444;margin-bottom:4px">📎 첨부파일</div>
+      <div style="font-size:11px;font-weight:bold;color:#444;margin-bottom:4px">첨부파일</div>
       {% for att in attachments %}
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;font-size:11px">
         <a href="{% url 'attachment_download' att.pk %}" class="btn btn-outline btn-sm" style="padding:2px 8px;font-size:10px">다운로드</a>
@@ -88,60 +102,100 @@
     </div>
     {% endif %}
 
-    <!-- 건너뛰기 -->
-    <div style="padding:8px 12px;border-top:1px solid #eee">
-      <form method="post">
-        {% csrf_token %}
-        <button type="submit" name="skip" value="1" class="btn btn-gray btn-sm" style="width:100%"
-                onclick="return confirm('이 메시지를 처리 완료로 표시하고 건너뛰시겠습니까?')">
-          건너뛰기 (주문 없음)
-        </button>
-      </form>
-    </div>
   </div>
 
   <!-- 오른쪽: 주문 입력 폼 -->
   <div style="flex:1">
     <form method="post" x-data="inboxOrderForm()">
       {% csrf_token %}
+      <input type="hidden" name="agency_id" :value="agencyId">
+      <input type="hidden" name="teacher_id" :value="teacherId">
+      <input type="hidden" name="new_teacher_name" :value="newTeacherName">
+      <input type="hidden" name="new_teacher_phone" :value="newTeacherPhone">
+      <input type="hidden" name="delivery_school" :value="deliverySchool">
+      <input type="hidden" name="delivery_address" :value="deliveryAddr">
+      <input type="hidden" name="delivery_phone" :value="deliveryPhone">
 
       <div class="content-box" style="padding:12px 14px;margin-bottom:10px">
         <table class="form-table">
           <tr>
             <th>업체</th>
             <td>
-              <select x-model="selectedAgency" @change="selectedTeacher='';deliveryName=''"
-                      style="width:200px;padding:3px 6px;border:1px solid #bbb;font-size:12px">
-                <option value="">-- 업체 선택 --</option>
-                {% for a in agencies %}
-                <option value="{{ a.pk }}">{{ a.name }}</option>
-                {% endfor %}
-              </select>
+              <div class="ac-wrap">
+                <input type="text" x-model="agencyQuery" @input="filterAgencies" @focus="showAgencyList=true"
+                       @keydown.arrow-down.prevent="acDown('agency')" @keydown.arrow-up.prevent="acUp('agency')"
+                       @keydown.enter.prevent="acSelect('agency')" @keydown.escape="showAgencyList=false"
+                       placeholder="업체명 입력..." autocomplete="off">
+                <div class="ac-list" x-show="showAgencyList && filteredAgencies.length" @click.outside="showAgencyList=false">
+                  <template x-for="(a, i) in filteredAgencies" :key="a.id">
+                    <div @click="selectAgency(a)" :class="{'active': i === acIdx.agency}" x-text="a.name"></div>
+                  </template>
+                </div>
+              </div>
             </td>
           </tr>
           <tr>
             <th>선생님</th>
             <td>
-              <select x-model="selectedTeacher" @change="updateDelivery" :disabled="!selectedAgency"
-                      style="width:200px;padding:3px 6px;border:1px solid #bbb;font-size:12px">
-                <option value="">-- 선생님 선택 --</option>
-                <template x-for="t in filteredTeachers" :key="t.id">
-                  <option :value="t.id" x-text="t.name + ' (' + t.delivery_name + ')'"></option>
-                </template>
-              </select>
-              <input type="hidden" name="teacher_id" :value="selectedTeacher">
-            </td>
-          </tr>
-          <tr>
-            <th>배송지</th>
-            <td>
-              <span x-show="deliveryName" x-text="deliveryName" style="font-weight:bold"></span>
-              <span x-show="!deliveryName" style="color:#aaa">선생님 선택 시 자동 표시</span>
+              <div class="ac-wrap">
+                <input type="text" x-model="teacherQuery" @input="filterTeachers" @focus="showTeacherList=true"
+                       @keydown.arrow-down.prevent="acDown('teacher')" @keydown.arrow-up.prevent="acUp('teacher')"
+                       @keydown.enter.prevent="acSelect('teacher')" @keydown.escape="showTeacherList=false"
+                       placeholder="선생님 이름 입력..." :disabled="!agencyId" autocomplete="off">
+                <div class="ac-list" x-show="showTeacherList && filteredTeacherList.length" @click.outside="showTeacherList=false">
+                  <template x-for="(t, i) in filteredTeacherList" :key="t.id">
+                    <div @click="selectTeacher(t)" :class="{'active': i === acIdx.teacher}">
+                      <span x-text="t.name"></span>
+                      <span class="sub" x-text="t.delivery_name ? ' — ' + t.delivery_name : ''"></span>
+                    </div>
+                  </template>
+                </div>
+              </div>
+              <template x-if="agencyId && !teacherId && teacherQuery.length >= 1">
+                <span style="font-size:11px;color:#2563eb;margin-left:6px;cursor:pointer" @click="isNewTeacher=true">+ 신규 등록</span>
+              </template>
             </td>
           </tr>
         </table>
+
+        <!-- 신규 선생님 -->
+        <div class="new-fields" x-show="isNewTeacher">
+          <div style="font-size:11px;font-weight:bold;color:#334155;margin-bottom:6px">신규 선생님</div>
+          <div class="form-row">
+            <label>이름 *</label>
+            <input type="text" x-model="newTeacherName" placeholder="홍길동">
+          </div>
+          <div class="form-row">
+            <label>전화번호</label>
+            <input type="tel" x-model="newTeacherPhone" placeholder="010-1234-5678">
+          </div>
+        </div>
+
+        <!-- 배송지 -->
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid #eee">
+          <table class="form-table">
+            <tr>
+              <th>학교명</th>
+              <td><input type="text" x-model="deliverySchool" style="width:200px;padding:4px 8px;border:1px solid #bbb;font-size:12px" placeholder="OO초등학교"></td>
+            </tr>
+            <tr>
+              <th>주소</th>
+              <td>
+                <div style="display:flex;gap:6px;align-items:center">
+                  <input type="text" x-model="deliveryAddr" style="width:280px;padding:4px 8px;border:1px solid #bbb;font-size:12px" placeholder="주소">
+                  <button type="button" class="btn btn-outline btn-sm" onclick="openPostcode()">주소 검색</button>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th>전화</th>
+              <td><input type="tel" x-model="deliveryPhone" style="width:140px;padding:4px 8px;border:1px solid #bbb;font-size:12px" placeholder="전화번호"></td>
+            </tr>
+          </table>
+        </div>
       </div>
 
+      <!-- 교재 선택 -->
       <div class="order-row-wrap">
         <table class="data-table">
           <thead>
@@ -202,8 +256,9 @@
         <input type="text" name="memo" style="flex:1;padding:4px 8px;border:1px solid #bbb;font-size:12px" placeholder="특이사항">
       </div>
 
-      <div style="margin-top:10px">
+      <div style="margin-top:10px;display:flex;gap:8px">
         <button type="button" class="btn btn-orange" @click="submitOrder" style="padding:6px 28px">주문 등록</button>
+        <button type="button" class="btn btn-gray" @click="markProcessed" style="padding:6px 28px">처리 완료</button>
       </div>
     </form>
   </div>
@@ -211,23 +266,83 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
 <script>
 const BOOKS = {{ books_json|safe }};
 const ALL_TEACHERS = {{ teachers_json|safe }};
+const ALL_AGENCIES = {{ agencies_json|safe }};
+
+function openPostcode() {
+  new daum.Postcode({
+    oncomplete: function(data) {
+      const comp = Alpine.$data(document.querySelector('[x-data="inboxOrderForm()"]'));
+      comp.deliveryAddr = data.address;
+    }
+  }).open();
+}
 
 function inboxOrderForm() {
   return {
-    selectedAgency: '',
-    selectedTeacher: '',
-    deliveryName: '',
+    agencyId: '', agencyQuery: '',
+    showAgencyList: false, filteredAgencies: [],
+    teacherId: '', teacherQuery: '',
+    showTeacherList: false, filteredTeacherList: [],
+    isNewTeacher: false, newTeacherName: '', newTeacherPhone: '',
+    deliverySchool: '', deliveryAddr: '', deliveryPhone: '',
+    acIdx: { agency: -1, teacher: -1 },
     rows: [{ series: '', book_id: '', qty: 1, unit_price: 0 }],
 
-    get filteredTeachers() {
-      return ALL_TEACHERS.filter(t => String(t.agency_id) === String(this.selectedAgency));
+    filterAgencies() {
+      this.agencyId = '';
+      this.teacherId = '';
+      this.teacherQuery = '';
+      this.clearDelivery();
+      const q = this.agencyQuery.toLowerCase();
+      this.filteredAgencies = q ? ALL_AGENCIES.filter(a => a.name.toLowerCase().includes(q)) : ALL_AGENCIES;
+      this.showAgencyList = true;
+      this.acIdx.agency = -1;
     },
-    updateDelivery() {
-      const t = ALL_TEACHERS.find(t => String(t.id) === String(this.selectedTeacher));
-      this.deliveryName = t ? t.delivery_name : '';
+    selectAgency(a) {
+      this.agencyId = a.id;
+      this.agencyQuery = a.name;
+      this.showAgencyList = false;
+      this.teacherId = '';
+      this.teacherQuery = '';
+      this.clearDelivery();
+    },
+    filterTeachers() {
+      this.teacherId = '';
+      this.isNewTeacher = false;
+      const q = this.teacherQuery.toLowerCase();
+      const byAgency = ALL_TEACHERS.filter(t => String(t.agency_id) === String(this.agencyId));
+      this.filteredTeacherList = q ? byAgency.filter(t => t.name.toLowerCase().includes(q) || (t.phone && t.phone.includes(q))) : byAgency;
+      this.showTeacherList = true;
+      this.acIdx.teacher = -1;
+    },
+    selectTeacher(t) {
+      this.teacherId = t.id;
+      this.teacherQuery = t.name;
+      this.showTeacherList = false;
+      this.isNewTeacher = false;
+      this.deliverySchool = t.delivery_name || '';
+      this.deliveryAddr = t.delivery_address || '';
+      this.deliveryPhone = t.delivery_phone || '';
+    },
+    clearDelivery() {
+      this.deliverySchool = '';
+      this.deliveryAddr = '';
+      this.deliveryPhone = '';
+    },
+    acDown(type) {
+      const list = type === 'agency' ? this.filteredAgencies : this.filteredTeacherList;
+      if (this.acIdx[type] < list.length - 1) this.acIdx[type]++;
+    },
+    acUp(type) { if (this.acIdx[type] > 0) this.acIdx[type]--; },
+    acSelect(type) {
+      const list = type === 'agency' ? this.filteredAgencies : this.filteredTeacherList;
+      if (this.acIdx[type] >= 0 && this.acIdx[type] < list.length) {
+        type === 'agency' ? this.selectAgency(list[this.acIdx[type]]) : this.selectTeacher(list[this.acIdx[type]]);
+      }
     },
     getBooks(series) { return series ? BOOKS.filter(b => b.series === series) : BOOKS; },
     updatePrice(row) { const b = BOOKS.find(b => b.id == row.book_id); row.unit_price = b ? b.unit_price : 0; },
@@ -235,9 +350,20 @@ function inboxOrderForm() {
     total() { return this.rows.reduce((s, r) => s + this.rowAmount(r), 0); },
     addRow() { this.rows.push({ series: '', book_id: '', qty: 1, unit_price: 0 }); },
     submitOrder() {
-      if (!this.selectedTeacher) { alert('선생님을 선택하세요.'); return; }
+      if (!this.agencyId) { alert('업체를 선택하세요.'); return; }
+      if (!this.teacherId && !this.newTeacherName) { alert('선생님을 선택하거나 신규 등록하세요.'); return; }
+      if (!this.deliverySchool) { alert('학교명을 입력하세요.'); return; }
       if (!this.rows.some(r => r.book_id && r.qty > 0)) { alert('교재를 선택하세요.'); return; }
       this.$el.closest('form').submit();
+    },
+    markProcessed() {
+      if (!confirm('이 메시지를 처리 완료로 표시하시겠습니까?')) return;
+      // hidden input으로 skip 플래그 추가 후 제출
+      const form = this.$el.closest('form');
+      const input = document.createElement('input');
+      input.type = 'hidden'; input.name = 'skip'; input.value = '1';
+      form.appendChild(input);
+      form.submit();
     },
   }
 }

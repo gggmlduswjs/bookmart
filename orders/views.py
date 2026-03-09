@@ -268,6 +268,9 @@ def order_detail(request, pk):
 def order_create_admin(request):
     """총판이 전화 주문을 받아 대신 입력하는 뷰"""
     agencies = User.objects.filter(role='agency', is_active=True).order_by('name')
+    agencies_json = json.dumps([{
+        'id': a.pk, 'name': a.name,
+    } for a in agencies], ensure_ascii=False)
 
     teachers = (
         User.objects
@@ -278,8 +281,12 @@ def order_create_admin(request):
     teachers_json = json.dumps([{
         'id': t.pk,
         'name': t.name,
+        'phone': t.phone or '',
         'agency_id': t.agency_id,
-        'delivery_name': t.delivery_address.name if t.delivery_address else '(배송지 없음)',
+        'delivery_id': t.delivery_address_id,
+        'delivery_name': t.delivery_address.name if t.delivery_address else '',
+        'delivery_address': t.delivery_address.address if t.delivery_address else '',
+        'delivery_phone': t.delivery_address.phone if t.delivery_address else '',
         'has_delivery': bool(t.delivery_address),
     } for t in teachers], ensure_ascii=False)
 
@@ -301,17 +308,60 @@ def order_create_admin(request):
     } for b in books], ensure_ascii=False)
 
     if request.method == 'POST':
+        agency_id = request.POST.get('agency_id', '').strip()
         teacher_id = request.POST.get('teacher_id', '').strip()
+        new_teacher_name = request.POST.get('new_teacher_name', '').strip()
+        new_teacher_phone = request.POST.get('new_teacher_phone', '').strip()
+        delivery_school = request.POST.get('delivery_school', '').strip()
+        delivery_address = request.POST.get('delivery_address', '').strip()
+        delivery_phone = request.POST.get('delivery_phone', '').strip()
+
+        # 업체 확인
         try:
-            teacher = User.objects.select_related('agency', 'delivery_address').get(
-                pk=teacher_id, role='teacher', is_active=True
-            )
+            agency = User.objects.get(pk=agency_id, role='agency', is_active=True)
         except (User.DoesNotExist, ValueError):
-            messages.error(request, '선생님을 선택해 주세요.')
+            messages.error(request, '업체를 선택해 주세요.')
             return redirect('order_create_admin')
 
-        if not teacher.delivery_address:
-            messages.error(request, f'{teacher.name} 선생님에게 배송지가 지정되어 있지 않습니다.')
+        # 선생님: 기존 선택 또는 신규 생성
+        if teacher_id:
+            try:
+                teacher = User.objects.select_related('delivery_address').get(
+                    pk=teacher_id, role='teacher', is_active=True
+                )
+            except (User.DoesNotExist, ValueError):
+                messages.error(request, '선생님을 선택해 주세요.')
+                return redirect('order_create_admin')
+        elif new_teacher_name:
+            login_id = f'a_{new_teacher_phone or "nophone"}_{agency.pk}'
+            if User.objects.filter(login_id=login_id).exists():
+                teacher = User.objects.get(login_id=login_id)
+            else:
+                teacher = User(
+                    login_id=login_id, role='teacher',
+                    name=new_teacher_name, phone=new_teacher_phone,
+                    agency=agency, must_change_password=False,
+                )
+                teacher.set_unusable_password()
+                teacher.save()
+        else:
+            messages.error(request, '선생님을 선택하거나 새로 입력해 주세요.')
+            return redirect('order_create_admin')
+
+        # 배송지: 입력된 학교명이 있으면 생성/매칭
+        if delivery_school:
+            delivery, created = DeliveryAddress.objects.get_or_create(
+                agency=agency, name=delivery_school,
+                defaults={'address': delivery_address, 'phone': delivery_phone},
+            )
+            if not created and delivery_address:
+                delivery.address = delivery_address
+                delivery.phone = delivery_phone
+                delivery.save(update_fields=['address', 'phone'])
+            teacher.delivery_address = delivery
+            teacher.save(update_fields=['delivery_address'])
+        elif not teacher.delivery_address:
+            messages.error(request, '배송지를 입력해 주세요.')
             return redirect('order_create_admin')
 
         items = []
@@ -333,7 +383,7 @@ def order_create_admin(request):
         else:
             order = Order.objects.create(
                 order_no=Order.generate_order_no(),
-                agency=teacher.agency,
+                agency=agency,
                 teacher=teacher,
                 delivery=teacher.delivery_address,
                 memo=request.POST.get('memo', ''),
@@ -349,6 +399,7 @@ def order_create_admin(request):
 
     return render(request, 'orders/order_create_admin.html', {
         'agencies': agencies,
+        'agencies_json': agencies_json,
         'teachers_json': teachers_json,
         'series_list': series_list,
         'books_json': books_json,
@@ -1082,14 +1133,18 @@ def inbox_process(request, pk):
                 if creds:
                     mark_as_read_imap(creds[0], creds[1], uid_str)
 
-    # 건너뛰기
+    # 처리 완료 (주문 없이)
     if request.method == 'POST' and 'skip' in request.POST:
         inbox_msg.is_processed = True
         inbox_msg.save(update_fields=['is_processed'])
-        messages.info(request, '건너뛰었습니다.')
+        messages.info(request, '처리 완료되었습니다.')
         return redirect('inbox_list')
 
     agencies = User.objects.filter(role='agency', is_active=True).order_by('name')
+    agencies_json = json.dumps([{
+        'id': a.pk, 'name': a.name,
+    } for a in agencies], ensure_ascii=False)
+
     teachers = (
         User.objects.filter(role='teacher', is_active=True)
         .select_related('agency', 'delivery_address')
@@ -1098,8 +1153,12 @@ def inbox_process(request, pk):
     teachers_json = json.dumps([{
         'id': t.pk,
         'name': t.name,
+        'phone': t.phone or '',
         'agency_id': t.agency_id,
-        'delivery_name': t.delivery_address.name if t.delivery_address else '(배송지 없음)',
+        'delivery_id': t.delivery_address_id,
+        'delivery_name': t.delivery_address.name if t.delivery_address else '',
+        'delivery_address': t.delivery_address.address if t.delivery_address else '',
+        'delivery_phone': t.delivery_address.phone if t.delivery_address else '',
         'has_delivery': bool(t.delivery_address),
     } for t in teachers], ensure_ascii=False)
 
@@ -1113,18 +1172,61 @@ def inbox_process(request, pk):
         'unit_price': math.floor(b.list_price * float(b.publisher.supply_rate) / 100),
     } for b in books], ensure_ascii=False)
 
-    if request.method == 'POST':
+    if request.method == 'POST' and 'skip' not in request.POST:
+        agency_id = request.POST.get('agency_id', '').strip()
         teacher_id = request.POST.get('teacher_id', '').strip()
+        new_teacher_name = request.POST.get('new_teacher_name', '').strip()
+        new_teacher_phone = request.POST.get('new_teacher_phone', '').strip()
+        delivery_school = request.POST.get('delivery_school', '').strip()
+        delivery_address_val = request.POST.get('delivery_address', '').strip()
+        delivery_phone = request.POST.get('delivery_phone', '').strip()
+
+        # 업체 확인
         try:
-            teacher = User.objects.select_related('agency', 'delivery_address').get(
-                pk=teacher_id, role='teacher', is_active=True
-            )
+            agency = User.objects.get(pk=agency_id, role='agency', is_active=True)
         except (User.DoesNotExist, ValueError):
-            messages.error(request, '선생님을 선택해 주세요.')
+            messages.error(request, '업체를 선택해 주세요.')
             return redirect('inbox_process', pk=pk)
 
-        if not teacher.delivery_address:
-            messages.error(request, f'{teacher.name} 선생님에게 배송지가 지정되어 있지 않습니다.')
+        # 선생님: 기존 선택 또는 신규 생성
+        if teacher_id:
+            try:
+                teacher = User.objects.select_related('delivery_address').get(
+                    pk=teacher_id, role='teacher', is_active=True
+                )
+            except (User.DoesNotExist, ValueError):
+                messages.error(request, '선생님을 선택해 주세요.')
+                return redirect('inbox_process', pk=pk)
+        elif new_teacher_name:
+            login_id = f'a_{new_teacher_phone or "nophone"}_{agency.pk}'
+            if User.objects.filter(login_id=login_id).exists():
+                teacher = User.objects.get(login_id=login_id)
+            else:
+                teacher = User(
+                    login_id=login_id, role='teacher',
+                    name=new_teacher_name, phone=new_teacher_phone,
+                    agency=agency, must_change_password=False,
+                )
+                teacher.set_unusable_password()
+                teacher.save()
+        else:
+            messages.error(request, '선생님을 선택하거나 새로 입력해 주세요.')
+            return redirect('inbox_process', pk=pk)
+
+        # 배송지
+        if delivery_school:
+            delivery, created = DeliveryAddress.objects.get_or_create(
+                agency=agency, name=delivery_school,
+                defaults={'address': delivery_address_val, 'phone': delivery_phone},
+            )
+            if not created and delivery_address_val:
+                delivery.address = delivery_address_val
+                delivery.phone = delivery_phone
+                delivery.save(update_fields=['address', 'phone'])
+            teacher.delivery_address = delivery
+            teacher.save(update_fields=['delivery_address'])
+        elif not teacher.delivery_address:
+            messages.error(request, '배송지를 입력해 주세요.')
             return redirect('inbox_process', pk=pk)
 
         items = []
@@ -1146,7 +1248,7 @@ def inbox_process(request, pk):
         else:
             order = Order.objects.create(
                 order_no=Order.generate_order_no(),
-                agency=teacher.agency,
+                agency=agency,
                 teacher=teacher,
                 delivery=teacher.delivery_address,
                 memo=request.POST.get('memo', ''),
@@ -1162,7 +1264,6 @@ def inbox_process(request, pk):
             inbox_msg.order = order
             inbox_msg.save(update_fields=['is_processed', 'order'])
 
-            sms_ok = send_ship_notification(order) if False else False  # 발송 시점에 SMS 발송
             messages.success(request, f'주문 등록 완료. 주문번호: {order.order_no}')
             return redirect('inbox_list')
 
@@ -1171,6 +1272,7 @@ def inbox_process(request, pk):
     return render(request, 'orders/inbox_process.html', {
         'inbox_msg': inbox_msg,
         'agencies': agencies,
+        'agencies_json': agencies_json,
         'teachers_json': teachers_json,
         'series_list': series_list,
         'books_json': books_json,
