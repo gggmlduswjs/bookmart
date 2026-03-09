@@ -149,17 +149,31 @@ def fetch_naver_emails(account_id, account_pw, account_label, days=60,
             else:
                 new_uids.append((uid_bytes, uid_str, imap_key))
 
-        # 기존 메일 읽음 상태 동기화 (FLAGS만 가져옴)
+        # 기존 메일 읽음 상태 동기화 (일괄 FLAGS 조회)
         if existing_uids:
             sync_read = {}
-            for uid_bytes, uid_str, imap_key in existing_uids:
-                status2, flag_data = mail.uid('fetch', uid_bytes, '(FLAGS)')
-                if status2 == 'OK' and flag_data and flag_data[0]:
-                    flags_raw = flag_data[0] if isinstance(flag_data[0], bytes) else (
-                        flag_data[0][0] if isinstance(flag_data[0], tuple) else b''
-                    )
-                    sync_read[imap_key] = b'\\Seen' in flags_raw
-            results_sync = sync_read  # 별도 키로 전달
+            # UID 목록을 쉼표로 묶어 한 번에 조회
+            uid_map = {uid_bytes: (uid_str, imap_key) for uid_bytes, uid_str, imap_key in existing_uids}
+            uid_set = b','.join(ub for ub, _, _ in existing_uids)
+            try:
+                status2, flag_data = mail.uid('fetch', uid_set, '(FLAGS)')
+                if status2 == 'OK' and flag_data:
+                    for item in flag_data:
+                        if item is None:
+                            continue
+                        raw = item[0] if isinstance(item, tuple) else item
+                        if not isinstance(raw, bytes):
+                            continue
+                        # UID 추출: ... UID 123 ...
+                        uid_match = re.search(rb'UID\s+(\d+)', raw)
+                        if not uid_match:
+                            continue
+                        uid_found = uid_match.group(1)
+                        imap_key_found = f'{account_label}:{uid_found.decode()}'
+                        sync_read[imap_key_found] = b'\\Seen' in raw
+            except Exception as e:
+                logger.warning('IMAP 일괄 FLAGS 조회 실패 (%s): %s', account_label, e)
+            results_sync = sync_read
         else:
             results_sync = {}
 
