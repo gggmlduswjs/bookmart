@@ -57,17 +57,12 @@
       <tr>
         <th>업체</th>
         <td>
-          <div class="ac-wrap">
-            <input type="text" x-model="agencyQuery" @input="filterAgencies" @focus="showAgencyList=true"
-                   @keydown.arrow-down.prevent="acDown('agency')" @keydown.arrow-up.prevent="acUp('agency')"
-                   @keydown.enter.prevent="acSelect('agency')" @keydown.escape="showAgencyList=false"
-                   placeholder="업체명 입력..." autocomplete="off">
-            <div class="ac-list" x-show="showAgencyList && filteredAgencies.length" @click.outside="showAgencyList=false">
-              <template x-for="(a, i) in filteredAgencies" :key="a.id">
-                <div @click="selectAgency(a)" :class="{'active': i === acIdx.agency}" x-text="a.name"></div>
-              </template>
-            </div>
-          </div>
+          <select x-model="agencyId" @change="onAgencyChange" style="width:240px;padding:4px 6px;border:1px solid #bbb;font-size:12px">
+            <option value="">-- 업체 선택 --</option>
+            <template x-for="a in ALL_AGENCIES" :key="a.id">
+              <option :value="a.id" x-text="a.name"></option>
+            </template>
+          </select>
         </td>
       </tr>
       <tr>
@@ -220,8 +215,8 @@ function openPostcode() {
 function adminOrderForm() {
   return {
     // 업체
-    agencyId: '', agencyQuery: '',
-    showAgencyList: false, filteredAgencies: [],
+    agencyId: '',
+    ALL_AGENCIES: ALL_AGENCIES,
     // 선생님
     teacherId: '', teacherQuery: '',
     showTeacherList: false, filteredTeacherList: [],
@@ -233,22 +228,10 @@ function adminOrderForm() {
     // 교재
     rows: [{ series: '', book_id: '', qty: 1, unit_price: 0 }],
 
-    filterAgencies() {
-      this.agencyId = '';
+    onAgencyChange() {
       this.teacherId = '';
       this.teacherQuery = '';
-      this.clearDelivery();
-      const q = this.agencyQuery.toLowerCase();
-      this.filteredAgencies = q ? ALL_AGENCIES.filter(a => a.name.toLowerCase().includes(q)) : ALL_AGENCIES;
-      this.showAgencyList = true;
-      this.acIdx.agency = -1;
-    },
-    selectAgency(a) {
-      this.agencyId = a.id;
-      this.agencyQuery = a.name;
-      this.showAgencyList = false;
-      this.teacherId = '';
-      this.teacherQuery = '';
+      this.isNewTeacher = false;
       this.clearDelivery();
     },
     filterTeachers() {
