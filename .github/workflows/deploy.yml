@@ -1,0 +1,23 @@
+name: Deploy to Server
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          password: ${{ secrets.SERVER_PASSWORD }}
+          script: |
+            cd /home/bookmart/bookmart
+            git pull origin main
+            source venv/bin/activate
+            python manage.py migrate --noinput
+            python manage.py collectstatic --noinput
+            sudo systemctl restart bookmart
