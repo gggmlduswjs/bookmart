@@ -102,7 +102,7 @@
         <td class="center" style="white-space:nowrap">
           <a href="{% url 'agency_edit' agency.pk %}" class="btn btn-outline btn-sm">수정</a>
           <button class="btn btn-sm btn-blue"
-            onclick="openMsgModal('{{ agency.name }}', '{{ agency.login_id }}', '{{ site_url }}/orders/s/{{ agency.agency_code }}/', {{ agency.pk }}, '{{ agency.plain_password }}')">문자양식</button>
+            onclick="openMsgModal('{{ agency.name }}', '{{ agency.login_id }}', '{{ site_url }}/s/{{ agency.agency_code }}/', {{ agency.pk }}, '{{ agency.plain_password }}')">문자양식</button>
           <a href="{% url 'agency_toggle' agency.pk %}"
              class="btn btn-sm {% if agency.is_active %}btn-red{% else %}btn-outline{% endif %}"
              onclick="return confirm('{% if agency.is_active %}비활성화{% else %}활성화{% endif %}하시겠습니까?')">
