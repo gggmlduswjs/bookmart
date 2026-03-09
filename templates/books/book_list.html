@@ -8,6 +8,13 @@
   <a href="{% url 'publisher_list' %}" class="btn btn-gray btn-sm">출판사 관리</a>
 </div>
 
+<div style="margin-bottom:8px;display:flex;align-items:center;gap:8px">
+  <label style="font-size:13px;color:#64748b;cursor:pointer">
+    <input type="checkbox" id="check-all" onchange="toggleAll(this)"> 전체 선택
+  </label>
+  <button class="btn btn-outline btn-sm" style="color:#c00;border-color:#c00" onclick="bulkDelete()">선택 삭제</button>
+</div>
+
 {% for publisher in publishers %}
 <div style="margin-bottom:14px">
   <div style="background:#555;color:#fff;padding:6px 12px;font-size:12px;font-weight:bold;display:flex;align-items:center;gap:12px">
@@ -19,6 +26,7 @@
     <table class="data-table">
       <thead>
         <tr>
+          <th style="width:30px"></th>
           <th>시리즈</th><th>교재명</th>
           <th class="right" style="width:80px">정가</th>
           <th class="right" style="width:80px">공급가</th>
@@ -30,6 +38,7 @@
       <tbody>
         {% for book in publisher.books.all %}
         <tr {% if not book.is_active %}style="color:#aaa"{% endif %}>
+          <td class="center"><input type="checkbox" class="book-chk" value="{{ book.pk }}"></td>
           <td>{{ book.series }}</td>
           <td>{{ book.name }}</td>
           <td class="right">{{ book.list_price|floatformat:0 }}원</td>
@@ -46,15 +55,10 @@
                onclick="return confirm('상태를 변경하시겠습니까?')">
               {% if book.is_active %}비활성{% else %}활성{% endif %}
             </a>
-            <form method="post" action="{% url 'book_delete' book.pk %}" style="display:inline"
-                  onsubmit="return confirm('교재를 삭제하시겠습니까?')">
-              {% csrf_token %}
-              <button type="submit" class="btn btn-sm btn-outline" style="color:#999;border-color:#ccc">삭제</button>
-            </form>
           </td>
         </tr>
         {% empty %}
-        <tr><td colspan="7" class="center" style="padding:10px;color:#888">등록된 교재가 없습니다.</td></tr>
+        <tr><td colspan="8" class="center" style="padding:10px;color:#888">등록된 교재가 없습니다.</td></tr>
         {% endfor %}
       </tbody>
     </table>
@@ -63,4 +67,28 @@
 {% empty %}
 <div class="msg-box msg-info">등록된 출판사가 없습니다. 먼저 출판사를 등록하세요.</div>
 {% endfor %}
+
+<form id="bulkDeleteForm" method="post" action="{% url 'book_bulk_delete' %}" style="display:none">
+  {% csrf_token %}
+</form>
+
+<script>
+function toggleAll(el) {
+  document.querySelectorAll('.book-chk').forEach(function(cb) { cb.checked = el.checked; });
+}
+function bulkDelete() {
+  var ids = [];
+  document.querySelectorAll('.book-chk:checked').forEach(function(cb) { ids.push(cb.value); });
+  if (ids.length === 0) { alert('삭제할 교재를 선택해주세요.'); return; }
+  if (!confirm(ids.length + '건의 교재를 삭제하시겠습니까? 주문에 사용된 교재는 삭제되지 않습니다.')) return;
+  var form = document.getElementById('bulkDeleteForm');
+  form.querySelectorAll('input[name=ids]').forEach(function(el) { el.remove(); });
+  ids.forEach(function(id) {
+    var input = document.createElement('input');
+    input.type = 'hidden'; input.name = 'ids'; input.value = id;
+    form.appendChild(input);
+  });
+  form.submit();
+}
+</script>
 {% endblock %}

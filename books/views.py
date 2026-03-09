@@ -108,6 +108,27 @@ def book_delete(request, pk):
     return redirect('book_list')
 
 
+@role_required('admin')
+def book_bulk_delete(request):
+    if request.method != 'POST':
+        return redirect('book_list')
+    ids = request.POST.getlist('ids')
+    if ids:
+        deleted = 0
+        skipped = 0
+        for book in Book.objects.filter(pk__in=ids):
+            try:
+                book.delete()
+                deleted += 1
+            except Exception:
+                skipped += 1
+        if deleted:
+            messages.success(request, f'{deleted}건의 교재를 삭제했습니다.')
+        if skipped:
+            messages.warning(request, f'{skipped}건은 주문에 사용되어 삭제할 수 없습니다.')
+    return redirect('book_list')
+
+
 # ── 주문 폼용 드롭다운 (로그인만 있으면 됨) ────────────────────────────────────
 
 @login_required
