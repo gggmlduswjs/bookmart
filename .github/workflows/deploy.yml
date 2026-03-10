@@ -22,6 +22,8 @@ jobs:
             python manage.py migrate --noinput
             python manage.py collectstatic --noinput
             python manage.py db_check
+            echo "=== DATABASE_URL ==="
+            echo $DATABASE_URL | sed 's/:[^:@]*@/:***@/'
             sudo systemctl restart bookmart
             # 5분마다 메일 자동 수신 cron 등록 (sh 호환: source 대신 . 사용)
             CRON_CMD="cd /home/bookmart/bookmart && . venv/bin/activate && python manage.py fetch_emails >> /home/bookmart/fetch_emails.log 2>&1"
