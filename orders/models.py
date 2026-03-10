@@ -1,7 +1,7 @@
 import math
 from decimal import Decimal
 from django.conf import settings
-from django.db import models
+from django.db import models, IntegrityError
 from django.utils import timezone
 
 
@@ -18,6 +18,8 @@ class DeliveryAddress(models.Model):
     fax = models.CharField(max_length=20, blank=True, verbose_name='팩스')
     address = models.CharField(max_length=255, blank=True, verbose_name='주소')
     is_active = models.BooleanField(default=True, verbose_name='활성')
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True, null=True)
 
     class Meta:
         db_table = 'delivery_addresses'
@@ -88,10 +90,15 @@ class Order(models.Model):
 
     @classmethod
     def generate_order_no(cls):
-        now = timezone.now()
-        prefix = now.strftime('%Y%m%d%H%M%S')
-        last = cls.objects.filter(order_no__startswith=prefix).count()
-        return f'{prefix}{last + 1:03d}'
+        for _ in range(5):
+            now = timezone.now()
+            prefix = now.strftime('%Y%m%d%H%M%S')
+            last = cls.objects.filter(order_no__startswith=prefix).count()
+            order_no = f'{prefix}{last + 1:03d}'
+            if not cls.objects.filter(order_no=order_no).exists():
+                return order_no
+        # fallback: 밀리초 포함
+        return timezone.now().strftime('%Y%m%d%H%M%S%f')[:20]
 
 
 class OrderItem(models.Model):
@@ -151,12 +158,7 @@ class OrderItem(models.Model):
 class Shipment(models.Model):
     class Carrier(models.TextChoices):
         HANJIN   = 'hanjin',   '한진택배'
-        CJ       = 'cj',       'CJ대한통운'
-        LOTTE    = 'lotte',    '롯데택배'
-        LOGEN    = 'logen',    '로젠택배'
-        POST     = 'post',     '우체국택배'
         DIRECT   = 'direct',   '직접배송'
-        OTHER    = 'other',    '기타'
 
     order = models.ForeignKey(
         Order, on_delete=models.CASCADE, related_name='shipments', verbose_name='주문'
@@ -186,14 +188,9 @@ class Shipment(models.Model):
 
     @property
     def tracking_url(self):
-        urls = {
-            'hanjin': f'https://www.hanjin.co.kr/kor/CMS/DeliveryMgr/WaybillSch.do?mCode=MN038&wblnumList={self.tracking_no}',
-            'cj': f'https://www.cjlogistics.com/ko/tool/parcel/tracking?gnbInvcNo={self.tracking_no}',
-            'lotte': f'https://www.lotteglogis.com/home/reservation/tracking/link498?InvNo={self.tracking_no}',
-            'logen': f'https://www.ilogen.com/web/personal/trace/{self.tracking_no}',
-            'post': f'https://service.epost.go.kr/trace.RetrieveDomRi498.postal?sid1={self.tracking_no}',
-        }
-        return urls.get(self.carrier, '')
+        if self.carrier == 'hanjin' and self.tracking_no:
+            return f'https://www.hanjin.co.kr/kor/CMS/DeliveryMgr/WaybillSch.do?mCode=MN038&wblnumList={self.tracking_no}'
+        return ''
 
 
 class Return(models.Model):
@@ -251,8 +248,9 @@ class ReturnItem(models.Model):
     )
     book = models.ForeignKey(
         'books.Book', on_delete=models.PROTECT, related_name='return_items',
-        verbose_name='교재'
+        verbose_name='교재', null=True, blank=True
     )
+    custom_book_name = models.CharField(max_length=255, blank=True, default='', verbose_name='커스텀 교재명')
     requested_qty = models.IntegerField(verbose_name='요청수량')
     confirmed_qty = models.IntegerField(null=True, blank=True, verbose_name='확정수량')
     list_price = models.IntegerField(verbose_name='정가(스냅샷)')
@@ -267,17 +265,26 @@ class ReturnItem(models.Model):
         verbose_name = '반품 상세'
         verbose_name_plural = '반품 상세'
 
+    @property
+    def display_name(self):
+        return self.book.name if self.book else self.custom_book_name
+
     def save(self, *args, **kwargs):
-        self.list_price = self.book.list_price
-        self.supply_rate = self.book.publisher.supply_rate
-        self.unit_price = math.floor(self.list_price * float(self.supply_rate) / 100)
+        if self.book:
+            self.list_price = self.book.list_price
+            self.supply_rate = self.book.publisher.supply_rate
+            self.unit_price = math.floor(self.list_price * float(self.supply_rate) / 100)
+        else:
+            self.list_price = self.unit_price
+            self.supply_rate = Decimal('100.00')
         self.requested_amount = self.unit_price * self.requested_qty
         if self.confirmed_qty is not None:
             self.confirmed_amount = self.unit_price * self.confirmed_qty
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return f'{self.book.name} 반품 × {self.requested_qty}'
+        name = self.book.name if self.book else self.custom_book_name
+        return f'{name} 반품 × {self.requested_qty}'
 
 
 class InboxMessage(models.Model):
@@ -358,6 +365,10 @@ class Payment(models.Model):
         settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
         related_name='payments', limit_choices_to={'role': 'agency'},
         verbose_name='업체'
+    )
+    order = models.ForeignKey(
+        Order, null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='payments', verbose_name='연결 주문'
     )
     amount = models.IntegerField(verbose_name='입금액')
     paid_at = models.DateField(verbose_name='입금일')

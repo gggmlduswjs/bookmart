@@ -30,6 +30,7 @@ class Book(models.Model):
     is_active = models.BooleanField(default=True, verbose_name='주문 가능')
     sort_order = models.IntegerField(default=0, verbose_name='정렬순서')
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True, null=True)
 
     class Meta:
         db_table = 'books'
