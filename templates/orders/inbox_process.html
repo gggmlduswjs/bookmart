@@ -169,7 +169,7 @@
           </div>
           <div class="form-row">
             <label>전화번호</label>
-            <input type="tel" x-model="newTeacherPhone" placeholder="010-1234-5678">
+            <input type="tel" x-model="newTeacherPhone" @input="newTeacherPhone = formatPhone(newTeacherPhone)" placeholder="010-1234-5678">
           </div>
         </div>
 
@@ -191,7 +191,7 @@
             </tr>
             <tr>
               <th>전화</th>
-              <td><input type="tel" x-model="deliveryPhone" style="width:140px;padding:4px 8px;border:1px solid #bbb;font-size:12px" placeholder="전화번호"></td>
+              <td><input type="tel" x-model="deliveryPhone" @input="deliveryPhone = formatPhone(deliveryPhone)" style="width:140px;padding:4px 8px;border:1px solid #bbb;font-size:12px" placeholder="010-1234-5678"></td>
             </tr>
           </table>
         </div>
@@ -353,6 +353,12 @@ function inboxOrderForm() {
       this.deliverySchool = t.delivery_name || '';
       this.deliveryAddr = t.delivery_address || '';
       this.deliveryPhone = t.delivery_phone || '';
+    },
+    formatPhone(val) {
+      const nums = val.replace(/\D/g, '').slice(0, 11);
+      if (nums.length <= 3) return nums;
+      if (nums.length <= 7) return nums.slice(0, 3) + '-' + nums.slice(3);
+      return nums.slice(0, 3) + '-' + nums.slice(3, 7) + '-' + nums.slice(7);
     },
     clearDelivery() {
       this.deliverySchool = '';

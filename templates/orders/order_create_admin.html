@@ -98,7 +98,7 @@
       </div>
       <div class="form-row">
         <label>전화번호</label>
-        <input type="tel" x-model="newTeacherPhone" placeholder="010-1234-5678">
+        <input type="tel" x-model="newTeacherPhone" @input="newTeacherPhone = formatPhone(newTeacherPhone)" placeholder="010-1234-5678">
       </div>
     </div>
 
@@ -123,7 +123,7 @@
         <tr>
           <th>전화</th>
           <td>
-            <input type="tel" x-model="deliveryPhone" style="width:160px;padding:4px 8px;border:1px solid #bbb;font-size:12px" placeholder="전화번호">
+            <input type="tel" x-model="deliveryPhone" @input="deliveryPhone = formatPhone(deliveryPhone)" style="width:160px;padding:4px 8px;border:1px solid #bbb;font-size:12px" placeholder="010-1234-5678">
           </td>
         </tr>
       </table>
@@ -311,6 +311,12 @@ function adminOrderForm() {
     updatePrice(row) { const b = BOOKS.find(b => b.id == row.book_id); row.unit_price = b ? b.unit_price : 0; },
     rowAmount(row) { return ((row.book_id || row.is_custom) && row.qty) ? row.unit_price * row.qty : 0; },
     total() { return this.rows.reduce((s, r) => s + this.rowAmount(r), 0); },
+    formatPhone(val) {
+      const nums = val.replace(/\D/g, '').slice(0, 11);
+      if (nums.length <= 3) return nums;
+      if (nums.length <= 7) return nums.slice(0, 3) + '-' + nums.slice(3);
+      return nums.slice(0, 3) + '-' + nums.slice(3, 7) + '-' + nums.slice(7);
+    },
     addRow() { this.rows.push({ series: '', book_id: '', qty: 1, unit_price: 0, is_custom: false }); },
     addCustomRow() { this.rows.push({ is_custom: true, custom_name: '', qty: 1, unit_price: 0 }); },
     async uploadExcel(e) {
