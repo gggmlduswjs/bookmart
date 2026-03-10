@@ -362,19 +362,10 @@ function adminOrderForm() {
         this.rows = this.rows.filter(r => r.book_id || (r.is_custom && r.custom_name));
         const sampleItems = [];
         if (data.matched && data.matched.length) {
-          const pendingRows = [];
           for (const m of data.matched) {
             if (m.is_sample) { sampleItems.push(m.name); continue; }
-            const row = { series: '', book_id: '', qty: m.qty, unit_price: m.unit_price, is_custom: false };
-            this.rows.push(row);
-            pendingRows.push({ row, id: String(m.id), series: m.series });
+            this.rows.push({ series: m.series || '', book_id: String(m.id), qty: m.qty, unit_price: m.unit_price, is_custom: false });
           }
-          this.$nextTick(() => {
-            for (const p of pendingRows) {
-              p.row.book_id = p.id;
-              p.row.series = p.series;
-            }
-          });
         }
         if (data.unmatched && data.unmatched.length) {
           this.excelUnmatched = data.unmatched.filter(u => !u.is_sample);
