@@ -328,27 +328,55 @@ function adminOrderForm() {
         const res = await fetch('{% url "parse_order_excel" %}', { method: 'POST', body: fd });
         const data = await res.json();
         if (data.error) { alert(data.error); return; }
+        // 메타데이터 자동 입력
+        if (data.meta) {
+          const m = data.meta;
+          if (m.school && !this.deliverySchool) this.deliverySchool = m.school;
+          if (m.address && !this.deliveryAddr) this.deliveryAddr = m.address;
+          if (m.phone && !this.deliveryPhone) this.deliveryPhone = m.phone;
+          if (m.teacher && !this.teacherQuery) {
+            this.teacherQuery = m.teacher;
+            this.filterTeachers();
+          }
+          if (m.agency && !this.agencyId) {
+            const found = ALL_AGENCIES.find(a => a.name.includes(m.agency) || m.agency.includes(a.name));
+            if (found) { this.agencyId = String(found.id); this.onAgencyChange(); }
+          }
+        }
         // 기존 빈 행 제거
         this.rows = this.rows.filter(r => r.book_id || (r.is_custom && r.custom_name));
+        const sampleItems = [];
         if (data.matched && data.matched.length) {
           for (const m of data.matched) {
+            if (m.is_sample) { sampleItems.push(m.name); continue; }
             this.rows.push({ series: m.series, book_id: String(m.id), qty: m.qty, unit_price: m.unit_price, is_custom: false });
           }
         }
         if (data.unmatched && data.unmatched.length) {
-          this.excelUnmatched = data.unmatched;
+          this.excelUnmatched = data.unmatched.filter(u => !u.is_sample);
           for (const u of data.unmatched) {
+            if (u.is_sample) { sampleItems.push(u.name); continue; }
             this.rows.push({ is_custom: true, custom_name: u.name, qty: u.qty, unit_price: 0 });
           }
         }
         if (!this.rows.length) this.rows.push({ series: '', book_id: '', qty: 1, unit_price: 0, is_custom: false });
-        const mc = data.matched?.length || 0;
-        const uc = data.unmatched?.length || 0;
+        const mc = data.matched?.filter(x => !x.is_sample).length || 0;
+        const uc = data.unmatched?.filter(x => !x.is_sample).length || 0;
+        let msg = '';
         if (mc || uc) {
-          alert(`${mc}건 매칭 완료` + (uc ? `, ${uc}건 직접입력 추가 (단가를 입력하세요)` : ''));
+          msg = `${mc}건 매칭 완료` + (uc ? `, ${uc}건 직접입력 추가` : '');
         } else {
-          alert('매칭된 교재가 없습니다.');
+          msg = '매칭된 교재가 없습니다.';
         }
+        if (sampleItems.length) msg += `\n\n샘플교재: ${sampleItems.join(', ')}`;
+        if (data.meta) {
+          const parts = [];
+          if (data.meta.school) parts.push(`학교: ${data.meta.school}`);
+          if (data.meta.teacher) parts.push(`선생님: ${data.meta.teacher}`);
+          if (data.meta.address) parts.push(`주소: ${data.meta.address}`);
+          if (parts.length) msg += `\n\n자동입력: ${parts.join(', ')}`;
+        }
+        alert(msg);
       } catch (err) { alert('업로드 실패: ' + err.message); }
       finally { this.excelLoading = false; e.target.value = ''; }
     },

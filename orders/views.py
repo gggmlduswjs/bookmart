@@ -531,6 +531,7 @@ def parse_order_excel(request):
                             content_type='application/json', status=400)
 
     try:
+        import re
         wb = load_workbook(file, read_only=True, data_only=True)
         ws = wb.active
 
@@ -548,20 +549,16 @@ def parse_order_excel(request):
 
         def clean_book_name(name):
             """출판사 접두사 제거: '마린) 교재명' → '교재명'"""
-            import re
             name = re.sub(r'^[^)]+\)\s*', '', name)
             return name.strip()
 
         def try_match(name):
             """교재명 매칭: 원본 → 접두사제거 → 부분매칭 순서"""
-            # 1. 정확히 일치
             if name in book_map:
                 return book_map[name]
-            # 2. 출판사 접두사 제거 후 일치
             cleaned = clean_book_name(name)
             if cleaned != name and cleaned in book_map:
                 return book_map[cleaned]
-            # 3. 부분 매칭 (원본/접두사제거 모두)
             for bname, binfo in book_map.items():
                 if name in bname or bname in name:
                     return binfo
@@ -569,18 +566,103 @@ def parse_order_excel(request):
                     return binfo
             return None
 
+        def is_skip_row(text):
+            """교재가 아닌 메타데이터 행인지 판별"""
+            t = text.strip()
+            if not t:
+                return True
+            # 출판사, 주소, 연락처, 샘플 등 메타데이터
+            if re.match(r'^[●•◆■□▶▷※★☆\-\*]?\s*(출판사|샘플|합계)', t):
+                return True
+            if re.match(r'출판사\s*[:：]', t):
+                return True
+            if re.match(r'(주소|연락처|전화|핸드폰|휴대폰|팩스|이메일|메일|E-?mail)\s*[:：]', t, re.IGNORECASE):
+                return True
+            # 전화번호만 있는 행
+            if re.match(r'^[\d\-\s\(\)]+$', t):
+                return True
+            # NO., 번호, 비고 등 헤더 잔해
+            if t in ('NO.', 'NO', '비고', '합계', '총합계', '소계'):
+                return True
+            return False
+
+        def parse_qty(val):
+            """수량 파싱: 13, '1권', '13부' 등 처리"""
+            if val is None:
+                return None
+            s = str(val).strip()
+            m = re.match(r'^(\d+)\s*(권|부|개|세트)?$', s)
+            if m:
+                v = int(m.group(1))
+                return v if 0 < v < 10000 else None
+            try:
+                v = int(float(s))
+                return v if 0 < v < 10000 else None
+            except (ValueError, TypeError):
+                return None
+
+        def extract_metadata(all_rows):
+            """엑셀에서 업체/학교/선생님/주소/전화 정보 추출"""
+            meta = {}
+            for row in all_rows:
+                cells = [str(c or '').strip() for c in row]
+                line = ' '.join(c for c in cells if c).strip()
+                if not line:
+                    continue
+                # 주소
+                m = re.match(r'(주소)\s*[:：]\s*(.+)', line)
+                if m and not meta.get('address'):
+                    meta['address'] = m.group(2).strip()
+                    continue
+                # 연락처/전화
+                m = re.match(r'(연락처|전화|핸드폰|휴대폰)\s*[:：]\s*(.+)', line)
+                if m and not meta.get('phone'):
+                    phone = re.sub(r'[^\d\-]', '', m.group(2))
+                    if phone:
+                        meta['phone'] = phone
+                    continue
+                # 업체 / 학교 / 선생님 패턴 (슬래시 구분)
+                if '/' in line and not meta.get('teacher'):
+                    parts = [p.strip() for p in line.split('/')]
+                    if 2 <= len(parts) <= 4:
+                        all_short = all(len(p) <= 20 for p in parts)
+                        no_keywords = not any(k in line for k in ['주소', '출판사', '연락처', '전화'])
+                        if all_short and no_keywords:
+                            if len(parts) >= 3:
+                                meta['agency'] = parts[0]
+                                meta['school'] = parts[1]
+                                meta['teacher'] = parts[2]
+                            elif len(parts) == 2:
+                                meta['school'] = parts[0]
+                                meta['teacher'] = parts[1]
+                # 학교명이 포함된 행 (XX초, XX중, XX고)
+                if not meta.get('school'):
+                    m2 = re.search(r'(\S*(?:초등학교|초|중학교|중|고등학교|고)\S*)', line)
+                    if m2 and '출판사' not in line:
+                        meta['school'] = m2.group(1)
+                # 전화번호 패턴 (별도 라벨 없이)
+                if not meta.get('phone'):
+                    m3 = re.search(r'(01[016789][\-\s]?\d{3,4}[\-\s]?\d{4})', line)
+                    if m3 and '출판사' not in line:
+                        meta['phone'] = re.sub(r'[^\d\-]', '', m3.group(1))
+            return meta
+
+        # 전체 행 수집
+        all_rows = list(ws.iter_rows(values_only=True))
+
+        # 메타데이터 추출
+        meta = extract_metadata(all_rows)
+
         # 헤더 탐색: 교재명/수량 컬럼 찾기
         header_row = -1
         col_name = -1
         col_qty = -1
         name_keywords = ('교재명', '도서명', '교재')
         qty_keywords = ('수량', '부수', '권수', '주문수량', '신청수량')
-        all_rows = list(ws.iter_rows(values_only=True))
 
         for i, row in enumerate(all_rows):
             cells = [str(c or '').strip().replace(' ', '') for c in row]
             for j, cell in enumerate(cells):
-                # 줄바꿈 제거 후 키워드 매칭 (예: '주문수량\n(3/8)')
                 cell_clean = cell.split('\n')[0].strip()
                 if col_name < 0 and cell_clean in name_keywords:
                     col_name = j
@@ -603,14 +685,13 @@ def parse_order_excel(request):
                 if col_name >= len(cells):
                     continue
                 name = str(cells[col_name] or '').strip()
-                if not name:
+                if not name or is_skip_row(name):
                     continue
                 qty = 1
                 if col_qty >= 0 and col_qty < len(cells):
-                    try:
-                        qty = int(cells[col_qty])
-                    except (TypeError, ValueError):
-                        qty = 1
+                    q = parse_qty(cells[col_qty])
+                    if q:
+                        qty = q
                 if qty <= 0:
                     continue
 
@@ -621,28 +702,38 @@ def parse_order_excel(request):
                     unmatched.append({'name': name, 'qty': qty})
         else:
             # 헤더 없음 — 각 행에서 교재명+수량 추측
+            in_sample_section = False
             for row in all_rows:
                 cells = [str(c or '').strip() for c in row if c is not None]
+                line = ' '.join(c for c in cells if c)
+
+                # 샘플교재 섹션 감지 → 이후 행은 샘플로 처리
+                if re.search(r'샘플\s*(교재|신청)', line):
+                    in_sample_section = True
+                    continue
+
                 name_candidate = None
                 qty_candidate = 1
                 for cell in cells:
-                    try:
-                        v = int(cell)
-                        if 0 < v < 10000:
-                            qty_candidate = v
-                    except (ValueError, TypeError):
-                        if len(cell) >= 2 and cell not in ('', 'NO.', 'NO'):
-                            name_candidate = cell
+                    q = parse_qty(cell)
+                    if q is not None and cell != name_candidate:
+                        qty_candidate = q
+                    elif len(cell) >= 2 and cell not in ('', 'NO.', 'NO') and not is_skip_row(cell):
+                        name_candidate = cell
+
                 if name_candidate:
                     info = try_match(name_candidate)
                     if info:
-                        matched.append({**info, 'qty': qty_candidate})
+                        matched.append({**info, 'qty': qty_candidate, 'is_sample': in_sample_section})
                     else:
-                        unmatched.append({'name': name_candidate, 'qty': qty_candidate})
+                        unmatched.append({'name': name_candidate, 'qty': qty_candidate, 'is_sample': in_sample_section})
 
         wb.close()
+        result = {'matched': matched, 'unmatched': unmatched}
+        if meta:
+            result['meta'] = meta
         return HttpResponse(
-            json.dumps({'matched': matched, 'unmatched': unmatched}, ensure_ascii=False),
+            json.dumps(result, ensure_ascii=False),
             content_type='application/json',
         )
 
