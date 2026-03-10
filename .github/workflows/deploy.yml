@@ -25,3 +25,10 @@ jobs:
             # 5분마다 메일 자동 수신 cron 등록
             CRON_CMD="cd /home/bookmart/bookmart && source venv/bin/activate && python manage.py fetch_emails >> /home/bookmart/fetch_emails.log 2>&1"
             (crontab -l 2>/dev/null | grep -v 'fetch_emails' ; echo "*/5 * * * * $CRON_CMD") | crontab -
+            # 디버그: cron 상태 + 최근 로그 확인
+            echo "=== crontab ==="
+            crontab -l
+            echo "=== fetch_emails.log (최근 20줄) ==="
+            tail -20 /home/bookmart/fetch_emails.log 2>/dev/null || echo "(로그 파일 없음)"
+            echo "=== 수동 실행 테스트 ==="
+            cd /home/bookmart/bookmart && source venv/bin/activate && python manage.py fetch_emails 2>&1 || echo "fetch_emails 실행 실패"
