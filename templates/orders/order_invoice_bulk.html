@@ -2,189 +2,140 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <title>거래명세서 일괄 인쇄</title>
+  <title>거래명세서 인쇄</title>
   <style>
-    @page { size: A4; margin: 5mm 10mm; }
+    :root {
+      /* ── 반장 크기 (A4의 절반) ── */
+      --half-h: 148.5mm;
+      /* ── 헤더 좌측 (거래처 정보) ── */
+      --date-x: 38mm;  --date-y: 6.5mm;
+      --no-x: 38mm;    --no-y: 12.5mm;
+      --client-x: 6mm; --client-y: 25mm;
+      --client-phone-x: 6mm; --client-phone-y: 32mm;
+      --client-addr-x: 50mm; --client-addr-y: 32mm;
+      --total-x: 25mm; --total-y: 44mm;
+      --code-x: 73mm;  --code-y: 44mm;
+      --page-x: 85mm;  --page-y: 44mm;
+      /* ── 헤더 우측 (공급자=북마트 고정) ── */
+      --reg-x: 128mm;  --reg-y: 6.5mm;
+      --biz-x: 115mm;  --biz-y: 14mm;
+      --owner-x: 172mm; --owner-y: 14mm;
+      --addr-x: 115mm; --addr-y: 22mm;
+      --tel-x: 118mm;  --tel-y: 34mm;
+      --fax-x: 160mm;  --fax-y: 34mm;
+      /* ── 품목 테이블 ── */
+      --items-y: 51mm;
+      --row-h: 5.6mm;
+      --col-no: 11mm;
+      --col-pub: 33mm;
+      --col-name: 62mm;
+      --col-qty: 117mm;
+      --col-price: 136mm;
+      --col-unit: 155mm;
+      --col-amt: 178mm;
+      --col-pct: 196mm;
+      /* ── 하단 합계 ── */
+      --sum-qty-x: 28mm;  --sum-y: 127.5mm;
+      --sum-cnt-x: 95mm;
+      --sum-amt-x: 178mm;
+      --memo-x: 88mm; --memo-y: 133mm;
+      /* ── 배송요청지/연락처 (비고 옆 활용) ── */
+      --delv-x: 6mm; --delv-y: 133mm;
+    }
+
+    @page { size: A4; margin: 0; }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       font-family: 'Malgun Gothic', '맑은 고딕', sans-serif;
-      font-size: 11px;
+      font-size: 10px;
       color: #000;
-      background: #fff;
     }
 
     .print-bar {
-      text-align: center;
-      padding: 12px;
+      text-align: center; padding: 14px; background: #f1f5f9;
     }
     .print-bar button {
-      padding: 10px 40px;
-      font-size: 14px;
-      font-weight: bold;
-      border: 2px outset #ccc;
-      background: #e8e8e8;
-      color: #000;
-      cursor: pointer;
-      margin: 0 4px;
+      padding: 10px 36px; font-size: 14px; font-weight: bold;
+      border: 1px solid #ccc; background: #fff; cursor: pointer; margin: 0 4px;
+      border-radius: 4px;
     }
-    .print-bar button:hover { background: #d0d0d0; }
-    .print-bar .btn-primary {
-      background: #1e40af;
-      color: #fff;
-      border-color: #1e40af;
-    }
-    .print-bar .btn-primary:hover { background: #1e3a8a; }
+    .print-bar .btn-primary { background: #1e40af; color: #fff; border-color: #1e40af; }
 
-    /* 각 명세서 반장 */
-    .invoice-half {
-      height: 138mm;
-      padding: 4mm 2mm;
-      overflow: hidden;
-      position: relative;
-    }
-
+    /* 페이지 쌍 (A4 1장 = 상하 2장) */
     .page-pair {
+      width: 210mm; height: 297mm;
+      position: relative;
       page-break-after: always;
+      overflow: hidden;
     }
-    .page-pair:last-child {
-      page-break-after: auto;
+    .page-pair:last-child { page-break-after: auto; }
+
+    /* 반장 컨테이너 */
+    .inv-half {
+      width: 210mm;
+      height: var(--half-h);
+      position: relative;
+      overflow: hidden;
     }
 
-    .invoice-divider {
-      border-top: 1px dashed #999;
-      margin: 0;
-    }
-
-    /* 헤더 */
-    .header-section {
-      border: 2px solid #000;
-      margin-bottom: 4px;
-    }
-    .header-title {
-      text-align: center;
-      font-size: 16px;
-      font-weight: bold;
-      letter-spacing: 8px;
-      padding: 4px 0;
-      border-bottom: 2px solid #000;
-      background: #fffff0;
-    }
-    .header-title small {
-      display: block;
-      font-size: 8px;
-      letter-spacing: 0;
-      color: #666;
-      font-weight: normal;
-    }
-
-    .header-info {
-      display: flex;
-      background: #fffff0;
-    }
-    .header-info .left-col { flex: 1; }
-    .header-info .right-col {
-      flex: 0 0 170px;
-      border-left: 2px solid #000;
-    }
-
-    .info-tbl {
-      width: 100%;
-      border-collapse: collapse;
-    }
-    .info-tbl th {
-      background: #f5f5dc;
-      padding: 2px 4px;
-      text-align: center;
-      border: 1px solid #999;
-      font-size: 9px;
-      font-weight: bold;
-      white-space: nowrap;
-      width: 48px;
-    }
-    .info-tbl td {
-      padding: 2px 4px;
-      border: 1px solid #999;
-      font-size: 10px;
-      background: #fff;
-    }
-    .info-tbl .val-bold { font-weight: bold; }
-    .info-tbl .val-amount {
-      font-weight: bold;
-      text-align: right;
-      font-family: 'Consolas', monospace;
-    }
-
-    /* 품목 테이블 */
-    .items-table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-bottom: 4px;
-    }
-    .items-table th {
-      background: #c00;
-      color: #fff;
-      padding: 3px 4px;
-      text-align: center;
-      border: 1px solid #900;
-      font-size: 9px;
-      font-weight: bold;
+    /* 텍스트 배치 공통 */
+    .inv-half span, .inv-half .item-row span {
+      position: absolute;
       white-space: nowrap;
     }
-    .items-table td {
-      padding: 2px 4px;
-      border: 1px solid #ccc;
-      font-size: 9px;
-    }
-    .items-table .r { text-align: right; font-family: 'Consolas', monospace; }
-    .items-table .c { text-align: center; }
 
-    /* 합계 */
-    .total-section {
-      display: flex;
-      border: 2px solid #000;
+    /* ── 헤더 텍스트 ── */
+    .v-date   { left: var(--date-x); top: var(--date-y); font-size: 10px; }
+    .v-no     { left: var(--no-x);   top: var(--no-y);   font-size: 10px; font-weight: bold; }
+    .v-client { left: var(--client-x); top: var(--client-y); font-size: 13px; font-weight: bold; }
+    .v-cphone { left: var(--client-phone-x); top: var(--client-phone-y); font-size: 10px; }
+    .v-caddr  { left: var(--client-addr-x);  top: var(--client-addr-y);  font-size: 9px; }
+    .v-total  { left: var(--total-x); top: var(--total-y); font-size: 13px; font-weight: bold; }
+    .v-code   { left: var(--code-x);  top: var(--code-y);  font-size: 9px; }
+    .v-page   { left: var(--page-x);  top: var(--page-y);  font-size: 9px; }
+
+    /* 공급자 (북마트 고정) */
+    .v-reg    { left: var(--reg-x);   top: var(--reg-y);   font-size: 11px; font-weight: bold; }
+    .v-biz    { left: var(--biz-x);   top: var(--biz-y);   font-size: 11px; }
+    .v-owner  { left: var(--owner-x); top: var(--owner-y); font-size: 11px; }
+    .v-addr   { left: var(--addr-x);  top: var(--addr-y);  font-size: 9px; }
+    .v-tel    { left: var(--tel-x);   top: var(--tel-y);   font-size: 10px; }
+    .v-fax    { left: var(--fax-x);   top: var(--fax-y);   font-size: 10px; }
+
+    /* ── 품목 행 ── */
+    .item-row {
+      position: absolute;
+      left: 0; right: 0;
+      height: var(--row-h);
     }
-    .total-cell {
-      flex: 1;
-      display: flex;
-      align-items: stretch;
-      border-right: 2px solid #000;
-    }
-    .total-cell:last-child { border-right: none; }
-    .total-cell .t-label {
-      padding: 4px 6px;
-      font-weight: bold;
-      font-size: 11px;
-      white-space: nowrap;
-      display: flex;
-      align-items: center;
-    }
-    .total-cell .t-value {
-      flex: 1;
-      text-align: right;
-      font-size: 12px;
-      font-weight: bold;
-      padding: 4px 6px;
-      display: flex;
-      align-items: center;
-      justify-content: flex-end;
-      font-family: 'Consolas', monospace;
-    }
-    .total-cell.sales .t-label { background: #c00; color: #ff0; }
-    .total-cell.refund .t-label { background: #060; color: #fff; }
-    .total-cell.collect .t-label { background: #006; color: #fff; }
+    .item-row .i-no   { left: var(--col-no);    font-size: 9px; }
+    .item-row .i-pub  { left: var(--col-pub);   font-size: 8px; }
+    .item-row .i-name { left: var(--col-name);  font-size: 9px; max-width: 52mm; overflow: hidden; text-overflow: ellipsis; }
+    .item-row .i-qty  { left: var(--col-qty);   font-size: 9px; text-align: center; }
+    .item-row .i-price{ left: var(--col-price); font-size: 9px; text-align: right; }
+    .item-row .i-unit { left: var(--col-unit);  font-size: 9px; text-align: right; }
+    .item-row .i-amt  { left: var(--col-amt);   font-size: 9px; text-align: right; font-weight: bold; }
+    .item-row .i-pct  { left: var(--col-pct);   font-size: 8px; }
+
+    /* ── 하단 합계 ── */
+    .v-sum-qty { left: var(--sum-qty-x); top: var(--sum-y); font-size: 10px; font-weight: bold; }
+    .v-sum-cnt { left: var(--sum-cnt-x); top: var(--sum-y); font-size: 10px; }
+    .v-sum-amt { left: var(--sum-amt-x); top: var(--sum-y); font-size: 11px; font-weight: bold; }
+    .v-memo    { left: var(--memo-x);    top: var(--memo-y); font-size: 9px; max-width: 100mm; overflow: hidden; text-overflow: ellipsis; }
+
+    /* 배송요청지/연락처 (비고 줄 왼쪽) */
+    .v-delv { left: var(--delv-x); top: var(--delv-y); font-size: 8px; max-width: 78mm; overflow: hidden; text-overflow: ellipsis; }
 
     @media print {
       .print-bar { display: none; }
-      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      body { -webkit-print-color-adjust: exact; }
     }
-
     @media screen {
+      body { background: #e0e0e0; }
       .page-pair {
-        border: 1px solid #ddd;
-        margin-bottom: 20px;
-        max-width: 210mm;
-        margin-left: auto;
-        margin-right: auto;
+        background: #fff;
+        margin: 10px auto;
+        box-shadow: 0 2px 8px rgba(0,0,0,.2);
       }
     }
   </style>
@@ -202,99 +153,47 @@
 <div class="page-pair">
 {% endif %}
 
-{% if forloop.counter|divisibleby:2 %}
-<div class="invoice-divider"></div>
-{% endif %}
+<div class="inv-half">
+  <!-- 헤더 좌측: 거래처 -->
+  <span class="v-date">{{ data.order.ordered_at|date:"Y-m-d" }}</span>
+  <span class="v-no">{{ data.order.order_no }}</span>
+  <span class="v-client">{{ data.order.delivery.name }}  {{ data.order.teacher.name }}</span>
+  <span class="v-cphone">{{ data.order.delivery.phone|default:data.order.teacher.phone|default:"" }}</span>
+  <span class="v-caddr">{{ data.order.delivery.address|default:"" }}</span>
+  <span class="v-total">{{ data.total_amount|floatformat:0 }}</span>
+  <span class="v-code">({{ data.order.agency.name }})</span>
+  <span class="v-page">{{ forloop.counter }}/{{ orders_data|length }}</span>
 
-<div class="invoice-half">
-  <div class="header-section">
-    <div class="header-title">
-      매 출 전 표
-      <small>(공급자 보관용)</small>
-    </div>
-    <div class="header-info">
-      <div class="left-col">
-        <table class="info-tbl">
-          <tr>
-            <th>발행일</th>
-            <td>{{ data.order.ordered_at|date:"Y-m-d" }}</td>
-            <th>발행번호</th>
-            <td class="val-bold" style="font-size:9px">{{ data.order.order_no }}</td>
-          </tr>
-          <tr>
-            <th>거래처</th>
-            <td colspan="3">
-              <strong>{{ data.order.delivery.name }}</strong>
-              <span style="color:#666;margin-left:4px;font-size:9px">{{ data.order.teacher.name }}</span>
-            </td>
-          </tr>
-          <tr>
-            <th>단 가</th>
-            <td class="c">{{ data.items|length }}</td>
-            <th>합 계</th>
-            <td class="val-amount">&#8361;{{ data.total_amount|floatformat:0 }}</td>
-          </tr>
-        </table>
-      </div>
-      <div class="right-col">
-        <table class="info-tbl">
-          <tr><th>상 태</th><td class="val-bold">{{ data.order.get_status_display }}</td></tr>
-          <tr><th>업 체</th><td>{{ data.order.agency.name }}</td></tr>
-          <tr><th>운송장</th><td>{{ data.order.tracking_no|default:"—" }}</td></tr>
-        </table>
-      </div>
-    </div>
+  <!-- 헤더 우측: 공급자 (북마트 고정) -->
+  <span class="v-reg">108-91-20797</span>
+  <span class="v-biz">북마트e&c</span>
+  <span class="v-owner">전우득</span>
+  <span class="v-addr">고양시 일산동구 일산로 207 지층</span>
+  <span class="v-tel">02-833-0864</span>
+  <span class="v-fax">031-917-0866</span>
+
+  <!-- 품목 -->
+  {% for item in data.items %}
+  <div class="item-row" style="top: calc(var(--items-y) + var(--row-h) * {{ forloop.counter0 }})">
+    <span class="i-no">{{ forloop.counter }}</span>
+    <span class="i-pub">{{ item.display_publisher }}</span>
+    <span class="i-name">{{ item.display_name }}</span>
+    <span class="i-qty">{{ item.quantity }}</span>
+    <span class="i-price">{{ item.list_price|floatformat:0 }}</span>
+    <span class="i-unit">{{ item.unit_price|floatformat:0 }}</span>
+    <span class="i-amt">{{ item.amount|floatformat:0 }}</span>
+    <span class="i-pct">{{ item.supply_rate|floatformat:0 }}</span>
   </div>
+  {% endfor %}
 
-  <table class="items-table">
-    <thead>
-      <tr>
-        <th style="width:22px">NO</th>
-        <th>교재명</th>
-        <th style="width:60px">출판사</th>
-        <th style="width:50px">정가</th>
-        <th style="width:32px">수량</th>
-        <th style="width:38px">공급률</th>
-        <th style="width:50px">단가</th>
-        <th style="width:60px">금액</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for item in data.items %}
-      <tr>
-        <td class="c">{{ forloop.counter }}</td>
-        <td style="max-width:160px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">{{ item.display_name }}</td>
-        <td class="c" style="font-size:8px">{{ item.display_publisher }}</td>
-        <td class="r">{{ item.list_price|floatformat:0 }}</td>
-        <td class="c">{{ item.quantity }}</td>
-        <td class="c">{{ item.supply_rate }}%</td>
-        <td class="r">{{ item.unit_price|floatformat:0 }}</td>
-        <td class="r" style="font-weight:bold">{{ item.amount|floatformat:0 }}</td>
-      </tr>
-      {% endfor %}
-      {% for i in data.empty_rows %}
-      <tr>
-        <td class="c" style="color:#ccc">&nbsp;</td>
-        <td>&nbsp;</td><td></td><td></td><td></td><td></td><td></td><td></td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+  <!-- 하단 합계 -->
+  <span class="v-sum-qty">{{ data.total_qty }}</span>
+  <span class="v-sum-cnt">{{ data.total_qty }}</span>
+  <span class="v-sum-amt">&#8361;{{ data.total_amount|floatformat:0 }}</span>
 
-  <div class="total-section">
-    <div class="total-cell sales">
-      <span class="t-label">매출액:</span>
-      <span class="t-value">&#8361;{{ data.total_amount|floatformat:0 }}</span>
-    </div>
-    <div class="total-cell refund">
-      <span class="t-label">반품액:</span>
-      <span class="t-value">&#8361;0</span>
-    </div>
-    <div class="total-cell collect">
-      <span class="t-label">수금액:</span>
-      <span class="t-value">&#8361;0</span>
-    </div>
-  </div>
+  <!-- 배송요청지/연락처 + 비고 -->
+  <span class="v-delv">{{ data.order.delivery.address|default:"" }}  {{ data.order.delivery.phone|default:data.order.teacher.phone|default:"" }}</span>
+  <span class="v-memo">{{ data.order.memo|default:"" }}</span>
 </div>
 
 {% if forloop.last %}</div>{% endif %}
