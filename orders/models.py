@@ -43,6 +43,10 @@ class Order(models.Model):
         INBOX   = 'inbox',   '수신함'
         ADMIN   = 'admin',   '관리자'
 
+    class Carrier(models.TextChoices):
+        HANJIN = 'hanjin', '한진택배'
+        DIRECT = 'direct', '직접배송'
+
     order_no = models.CharField(max_length=30, unique=True, verbose_name='주문번호')
     agency = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
@@ -67,6 +71,10 @@ class Order(models.Model):
         verbose_name='주문 경로'
     )
     memo = models.TextField(blank=True, verbose_name='메모')
+    carrier = models.CharField(
+        max_length=10, choices=Carrier.choices, blank=True, default='',
+        verbose_name='배송방법'
+    )
     tracking_no = models.CharField(max_length=50, blank=True, verbose_name='운송장번호')
     ordered_at = models.DateTimeField(default=timezone.now, verbose_name='주문일시')
     created_at = models.DateTimeField(auto_now_add=True)

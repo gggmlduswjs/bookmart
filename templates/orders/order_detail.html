@@ -35,12 +35,18 @@
         </td>
       </tr>
       <tr><th>주문일시</th><td style="font-size:11px">{{ order.ordered_at|date:"Y-m-d H:i" }}</td></tr>
-      {% if order.tracking_no %}
+      {% if order.carrier %}
       <tr>
-        <th>운송장</th>
+        <th>배송방법</th>
         <td>
-          <a href="https://www.hanjin.co.kr/kor/CMS/DeliveryMgr/WaybillSch.do?mCode=MN038&wblnumList={{ order.tracking_no }}" target="_blank" style="font-weight:bold">{{ order.tracking_no }}</a>
-          <span style="color:#888;font-size:11px"> 한진택배</span>
+          {% if order.carrier == 'hanjin' %}
+            한진택배
+            {% if order.tracking_no %}
+              — <a href="https://www.hanjin.co.kr/kor/CMS/DeliveryMgr/WaybillSch.do?mCode=MN038&wblnumList={{ order.tracking_no }}" target="_blank" style="font-weight:bold">{{ order.tracking_no }}</a>
+            {% endif %}
+          {% elif order.carrier == 'direct' %}
+            직접배송
+          {% endif %}
         </td>
       </tr>
       {% endif %}
@@ -63,15 +69,23 @@
 
     <!-- 총판 상태 변경 버튼 -->
     {% if can_ship %}
-    <div style="padding:10px;border-top:1px solid #eee">
+    <div style="padding:10px;border-top:1px solid #eee" x-data="{carrier:'hanjin'}">
       <form method="post" action="{% url 'order_ship' order.pk %}">
         {% csrf_token %}
-        <div style="margin-bottom:6px">
-          <input type="text" name="tracking_no" placeholder="운송장번호 (선택)" maxlength="50"
+        <div style="margin-bottom:6px;display:flex;gap:10px;font-size:12px">
+          <label style="cursor:pointer">
+            <input type="radio" name="carrier" value="hanjin" x-model="carrier"> 한진택배
+          </label>
+          <label style="cursor:pointer">
+            <input type="radio" name="carrier" value="direct" x-model="carrier"> 직접배송
+          </label>
+        </div>
+        <div style="margin-bottom:6px" x-show="carrier==='hanjin'">
+          <input type="text" name="tracking_no" placeholder="운송장번호" maxlength="50"
                  style="width:100%;padding:4px 6px;border:1px solid #bbb;font-size:12px;box-sizing:border-box">
         </div>
         <button type="submit" class="btn btn-orange" style="width:100%"
-                onclick="return confirm('발송 처리하시겠습니까?\\n운송장번호를 입력하면 선생님께 문자가 자동 발송됩니다.')">발송 처리 →</button>
+                onclick="return confirm('발송 처리하시겠습니까?\\n선생님께 문자가 자동 발송됩니다.')">발송 처리 →</button>
       </form>
     </div>
     {% endif %}

@@ -101,9 +101,13 @@
   </div>
   {% endif %}
 
-  {% if order.tracking_no %}
+  {% if order.carrier == 'direct' %}
   <div class="tracking-info">
-    운송장번호: <strong>{{ order.tracking_no }}</strong>
+    직접배송
+  </div>
+  {% elif order.tracking_no %}
+  <div class="tracking-info">
+    운송장번호: <strong>{{ order.tracking_no }}</strong> (한진택배)
   </div>
   {% endif %}
 </div>

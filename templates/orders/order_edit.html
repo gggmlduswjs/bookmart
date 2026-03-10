@@ -73,10 +73,18 @@
           </td>
         </tr>
         <tr>
-          <th>운송장</th>
-          <td>
-            <input type="text" name="tracking_no" value="{{ order.tracking_no }}"
-                   style="width:200px;padding:4px 8px;border:1px solid #bbb;font-size:12px" placeholder="운송장번호">
+          <th>배송방법</th>
+          <td x-data="{carrier:'{{ order.carrier|default:'hanjin' }}'}">
+            <div style="display:flex;gap:10px;align-items:center">
+              <label style="font-size:12px;cursor:pointer">
+                <input type="radio" name="carrier" value="hanjin" x-model="carrier"> 한진택배
+              </label>
+              <label style="font-size:12px;cursor:pointer">
+                <input type="radio" name="carrier" value="direct" x-model="carrier"> 직접배송
+              </label>
+              <input x-show="carrier==='hanjin'" type="text" name="tracking_no" value="{{ order.tracking_no }}"
+                     style="width:160px;padding:4px 8px;border:1px solid #bbb;font-size:12px" placeholder="운송장번호">
+            </div>
           </td>
         </tr>
       </table>

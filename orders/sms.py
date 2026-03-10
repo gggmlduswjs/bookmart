@@ -58,11 +58,16 @@ def send_ship_notification(order) -> bool:
     teacher = order.teacher
     receiver = teacher.phone or teacher.mobile  # 등록된 번호 사용
 
-    tracking_part = f'\n운송장: {order.tracking_no}(한진택배)' if order.tracking_no else ''
+    if order.carrier == 'hanjin' and order.tracking_no:
+        delivery_part = f'\n운송장: {order.tracking_no}(한진택배)'
+    elif order.carrier == 'direct':
+        delivery_part = '\n(직접배송)'
+    else:
+        delivery_part = ''
     message = (
         f'[북마트] {teacher.name} 선생님\n'
         f'{order.delivery.name} 교재 발송됐습니다.'
-        f'{tracking_part}'
+        f'{delivery_part}'
     )
     return send_sms(receiver, message)
 

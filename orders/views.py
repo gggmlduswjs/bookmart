@@ -300,8 +300,9 @@ def order_edit(request, pk):
         # 메모 업데이트
         order.memo = request.POST.get('memo', '')
         # 운송장 업데이트
-        order.tracking_no = request.POST.get('tracking_no', '').strip()
-        order.save(update_fields=['memo', 'tracking_no'])
+        order.carrier = request.POST.get('carrier', '').strip()
+        order.tracking_no = request.POST.get('tracking_no', '').strip() if order.carrier == 'hanjin' else ''
+        order.save(update_fields=['memo', 'carrier', 'tracking_no'])
 
         # 배송지 업데이트
         delivery = order.delivery
@@ -985,9 +986,11 @@ def order_bulk_delete(request):
 def order_ship(request, pk):
     order = get_object_or_404(Order, pk=pk, status=Order.Status.PENDING)
     if request.method == 'POST':
-        order.tracking_no = request.POST.get('tracking_no', '').strip()
+        carrier = request.POST.get('carrier', 'hanjin')
+        order.carrier = carrier
+        order.tracking_no = request.POST.get('tracking_no', '').strip() if carrier == 'hanjin' else ''
         order.status = Order.Status.SHIPPING
-        order.save(update_fields=['status', 'tracking_no'])
+        order.save(update_fields=['status', 'carrier', 'tracking_no'])
 
         # 문자 발송
         sms_ok = send_ship_notification(order)
@@ -1027,10 +1030,12 @@ def delivery_manage(request):
                 orders = Order.objects.filter(pk__in=ids, status=Order.Status.PENDING)
                 count = 0
                 for order in orders:
-                    tracking = request.POST.get(f'tracking_{order.pk}', '').strip()
+                    carrier = request.POST.get(f'carrier_{order.pk}', 'hanjin')
+                    tracking = request.POST.get(f'tracking_{order.pk}', '').strip() if carrier == 'hanjin' else ''
+                    order.carrier = carrier
                     order.tracking_no = tracking
                     order.status = Order.Status.SHIPPING
-                    order.save(update_fields=['status', 'tracking_no'])
+                    order.save(update_fields=['status', 'carrier', 'tracking_no'])
                     send_ship_notification(order)
                     count += 1
                 messages.success(request, f'{count}건 발송 처리 완료.')
