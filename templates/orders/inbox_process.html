@@ -197,6 +197,23 @@
         </div>
       </div>
 
+      <!-- 엑셀 업로드 -->
+      <div class="content-box" style="padding:12px 14px;margin-bottom:10px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <label style="font-size:12px;font-weight:bold;color:#334155;white-space:nowrap">엑셀 일괄 등록</label>
+          <input type="file" accept=".xlsx,.xls" @change="uploadExcel($event)" style="font-size:12px">
+          <span x-show="excelLoading" style="font-size:11px;color:#888">파싱 중...</span>
+        </div>
+        <template x-if="excelUnmatched.length > 0">
+          <div style="margin-top:8px;padding:6px 10px;background:#fff3cd;border:1px solid #ffc107;font-size:11px;color:#856404">
+            <strong>매칭 실패:</strong>
+            <template x-for="u in excelUnmatched" :key="u.name">
+              <span x-text="u.name + '(' + u.qty + '권) '" style="margin-right:6px"></span>
+            </template>
+          </div>
+        </template>
+      </div>
+
       <!-- 교재 선택 -->
       <div class="order-row-wrap">
         <table class="data-table">
@@ -292,6 +309,7 @@ function inboxOrderForm() {
     isNewTeacher: false, newTeacherName: '', newTeacherPhone: '',
     deliverySchool: '', deliveryAddr: '', deliveryPhone: '',
     acIdx: { agency: -1, teacher: -1 },
+    excelLoading: false, excelUnmatched: [],
     rows: [{ series: '', book_id: '', qty: 1, unit_price: 0 }],
 
     onAgencyChange() {
@@ -339,6 +357,36 @@ function inboxOrderForm() {
     rowAmount(row) { return (row.book_id && row.qty) ? row.unit_price * row.qty : 0; },
     total() { return this.rows.reduce((s, r) => s + this.rowAmount(r), 0); },
     addRow() { this.rows.push({ series: '', book_id: '', qty: 1, unit_price: 0 }); },
+    async uploadExcel(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      this.excelLoading = true;
+      this.excelUnmatched = [];
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+      try {
+        const res = await fetch('{% url "parse_order_excel" %}', { method: 'POST', body: fd });
+        const data = await res.json();
+        if (data.error) { alert(data.error); return; }
+        if (data.matched && data.matched.length) {
+          this.rows = this.rows.filter(r => r.book_id);
+          for (const m of data.matched) {
+            this.rows.push({ series: m.series, book_id: String(m.id), qty: m.qty, unit_price: m.unit_price });
+          }
+          if (!this.rows.length) this.rows.push({ series: '', book_id: '', qty: 1, unit_price: 0 });
+        }
+        if (data.unmatched && data.unmatched.length) {
+          this.excelUnmatched = data.unmatched;
+        }
+        if (data.matched && data.matched.length) {
+          alert(`${data.matched.length}건 매칭 완료` + (data.unmatched?.length ? `, ${data.unmatched.length}건 매칭 실패` : ''));
+        } else {
+          alert('매칭된 교재가 없습니다.');
+        }
+      } catch (err) { alert('업로드 실패: ' + err.message); }
+      finally { this.excelLoading = false; e.target.value = ''; }
+    },
     submitOrder() {
       if (!this.agencyId) { alert('업체를 선택하세요.'); return; }
       if (!this.teacherId && !this.newTeacherName) { alert('선생님을 선택하거나 신규 등록하세요.'); return; }
