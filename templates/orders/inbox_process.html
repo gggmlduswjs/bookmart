@@ -420,10 +420,16 @@ function inboxOrderForm() {
         this.rows = this.rows.filter(r => r.book_id || (r.is_custom && r.custom_name));
         const sampleItems = [];
         if (data.matched && data.matched.length) {
+          const pendingIds = [];
           for (const m of data.matched) {
             if (m.is_sample) { sampleItems.push(m.name); continue; }
-            this.rows.push({ series: m.series, book_id: String(m.id), qty: m.qty, unit_price: m.unit_price, is_custom: false });
+            const row = { series: '', book_id: '', qty: m.qty, unit_price: m.unit_price, is_custom: false };
+            this.rows.push(row);
+            pendingIds.push({ row, id: String(m.id) });
           }
+          this.$nextTick(() => {
+            for (const p of pendingIds) p.row.book_id = p.id;
+          });
         }
         if (data.unmatched && data.unmatched.length) {
           this.excelUnmatched = data.unmatched.filter(u => !u.is_sample);
