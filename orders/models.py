@@ -36,6 +36,12 @@ class Order(models.Model):
         DELIVERED = 'delivered', '발송완료'
         CANCELLED = 'cancelled', '취소'
 
+    class Source(models.TextChoices):
+        SIMPLE  = 'simple',  '간편주문'
+        TEACHER = 'teacher', '선생님'
+        INBOX   = 'inbox',   '수신함'
+        ADMIN   = 'admin',   '관리자'
+
     order_no = models.CharField(max_length=30, unique=True, verbose_name='주문번호')
     agency = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
@@ -54,6 +60,10 @@ class Order(models.Model):
     status = models.CharField(
         max_length=10, choices=Status.choices, default=Status.PENDING,
         verbose_name='상태'
+    )
+    source = models.CharField(
+        max_length=10, choices=Source.choices, default=Source.ADMIN,
+        verbose_name='주문 경로'
     )
     memo = models.TextField(blank=True, verbose_name='메모')
     tracking_no = models.CharField(max_length=50, blank=True, verbose_name='운송장번호')

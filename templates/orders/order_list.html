@@ -29,6 +29,17 @@
   </select>
   {% endif %}
 
+  {% if request.user.is_admin %}
+  <label>경로</label>
+  <select name="source">
+    <option value="">전체</option>
+    <option value="simple" {% if filters.source == 'simple' %}selected{% endif %}>간편주문</option>
+    <option value="teacher" {% if filters.source == 'teacher' %}selected{% endif %}>선생님</option>
+    <option value="inbox" {% if filters.source == 'inbox' %}selected{% endif %}>수신함</option>
+    <option value="admin" {% if filters.source == 'admin' %}selected{% endif %}>관리자</option>
+  </select>
+  {% endif %}
+
   <label>시작일</label>
   <input type="date" name="date_from" value="{{ filters.date_from }}">
 
@@ -62,6 +73,7 @@
         {% if not request.user.is_teacher %}<th>선생님</th>{% endif %}
         <th>배송지</th>
         {% if request.user.is_admin %}<th>업체</th>{% endif %}
+        {% if request.user.is_admin %}<th>경로</th>{% endif %}
         <th>상태</th>
         <th>주문일시</th>
         <th style="width:50px"></th>
@@ -77,6 +89,15 @@
         {% if not request.user.is_teacher %}<td>{{ order.teacher.name }}</td>{% endif %}
         <td>{{ order.delivery.name }}</td>
         {% if request.user.is_admin %}<td>{{ order.agency.name }}</td>{% endif %}
+        {% if request.user.is_admin %}
+        <td class="center" style="font-size:11px">
+          {% if order.source == 'simple' %}<span class="badge badge-green">간편주문</span>
+          {% elif order.source == 'teacher' %}<span class="badge badge-blue">선생님</span>
+          {% elif order.source == 'inbox' %}<span class="badge badge-orange">수신함</span>
+          {% else %}<span class="badge badge-gray">관리자</span>
+          {% endif %}
+        </td>
+        {% endif %}
         <td class="center">
           {% if order.status == 'pending' %}<span class="badge badge-blue">접수</span>
           {% elif order.status == 'shipping' %}<span class="badge badge-orange">발송중</span>
@@ -94,7 +115,7 @@
         </td>
       </tr>
       {% empty %}
-      <tr><td colspan="8" class="center" style="padding:20px;color:#888">주문 내역이 없습니다.</td></tr>
+      <tr><td colspan="9" class="center" style="padding:20px;color:#888">주문 내역이 없습니다.</td></tr>
       {% endfor %}
     </tbody>
   </table>

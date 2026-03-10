@@ -134,6 +134,7 @@ def order_list(request):
     date_from = request.GET.get('date_from', '')
     date_to = request.GET.get('date_to', '')
     delivery_id = request.GET.get('delivery', '')
+    source = request.GET.get('source', '')
 
     if status:
         qs = qs.filter(status=status)
@@ -143,6 +144,8 @@ def order_list(request):
         qs = qs.filter(ordered_at__date__lte=date_to)
     if delivery_id:
         qs = qs.filter(delivery_id=delivery_id)
+    if source:
+        qs = qs.filter(source=source)
 
     # 마감 시간 기준: 11:20 시내, 13:50 지방
     now = timezone.localtime()
@@ -160,6 +163,7 @@ def order_list(request):
         'filters': {
             'status': status, 'date_from': date_from,
             'date_to': date_to, 'delivery': delivery_id,
+            'source': source,
         },
         'past_city': past_city,
         'past_region': past_region,
@@ -217,6 +221,7 @@ def order_create(request):
                 teacher=user,
                 delivery=delivery,
                 memo=request.POST.get('memo', ''),
+                source=Order.Source.TEACHER,
             )
             for book_id, qty in items:
                 try:
@@ -399,6 +404,7 @@ def order_create_admin(request):
                 teacher=teacher,
                 delivery=teacher.delivery_address,
                 memo=request.POST.get('memo', ''),
+                source=Order.Source.ADMIN,
             )
             for item in items:
                 if 'book_id' in item:
@@ -1795,6 +1801,7 @@ def inbox_process(request, pk):
                 teacher=teacher,
                 delivery=teacher.delivery_address,
                 memo=request.POST.get('memo', ''),
+                source=Order.Source.INBOX,
             )
             for item in items:
                 if 'book_id' in item:
@@ -2117,6 +2124,7 @@ def sms_desk(request):
                 teacher=teacher,
                 delivery=teacher.delivery_address,
                 memo=request.POST.get('memo', ''),
+                source=Order.Source.ADMIN,
             )
             for item in items:
                 if 'book_id' in item:

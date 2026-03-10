@@ -216,6 +216,7 @@ def simple_order(request, slug):
                 teacher=teacher,
                 delivery=delivery,
                 memo=request.POST.get('memo', ''),
+                source=Order.Source.SIMPLE,
             )
             for book_id, qty in items:
                 try:
