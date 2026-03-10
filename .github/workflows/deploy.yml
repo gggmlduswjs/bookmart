@@ -21,10 +21,6 @@ jobs:
             source venv/bin/activate
             python manage.py migrate --noinput
             python manage.py collectstatic --noinput
-            python manage.py db_check
-            echo "=== DB CONFIG ==="
-            grep -i 'DATABASE_URL\|DB_ENGINE\|DB_NAME\|DB_HOST' /home/bookmart/bookmart/.env 2>/dev/null | sed 's/\(PASSWORD\|PWD\)=.*/\1=***/' || echo "no .env or no DB vars"
-            python -c "import django; django.setup(); from django.conf import settings; db=settings.DATABASES['default']; print(f'ENGINE: {db[\"ENGINE\"]}'); print(f'NAME: {db[\"NAME\"]}'); print(f'HOST: {db.get(\"HOST\",\"N/A\")}')" 2>/dev/null || true
             sudo systemctl restart bookmart
             # 5분마다 메일 자동 수신 cron 등록 (sh 호환: source 대신 . 사용)
             CRON_CMD="cd /home/bookmart/bookmart && . venv/bin/activate && python manage.py fetch_emails >> /home/bookmart/fetch_emails.log 2>&1"
