@@ -293,6 +293,39 @@ def mark_as_read_imap(account_id, account_pw, uid_str):
         return False
 
 
+def delete_email_imap(account_id, account_pw, uid_str):
+    """IMAP에서 해당 메일을 삭제"""
+    try:
+        mail = imaplib.IMAP4_SSL(NAVER_IMAP_HOST, NAVER_IMAP_PORT)
+        mail.login(account_id, account_pw)
+        mail.select('INBOX', readonly=False)
+        mail.uid('store', uid_str.encode(), '+FLAGS', '(\\Deleted)')
+        mail.expunge()
+        mail.logout()
+        logger.info('IMAP %s: UID %s 삭제 완료', account_id, uid_str)
+        return True
+    except Exception as e:
+        logger.error('IMAP 삭제 오류 (%s, UID %s): %s', account_id, uid_str, e)
+        return False
+
+
+def delete_emails_imap(account_id, account_pw, uid_list):
+    """IMAP에서 여러 메일을 한 번에 삭제"""
+    if not uid_list:
+        return
+    try:
+        mail = imaplib.IMAP4_SSL(NAVER_IMAP_HOST, NAVER_IMAP_PORT)
+        mail.login(account_id, account_pw)
+        mail.select('INBOX', readonly=False)
+        for uid_str in uid_list:
+            mail.uid('store', uid_str.encode(), '+FLAGS', '(\\Deleted)')
+        mail.expunge()
+        mail.logout()
+        logger.info('IMAP %s: %d건 삭제 완료', account_id, len(uid_list))
+    except Exception as e:
+        logger.error('IMAP 일괄 삭제 오류 (%s): %s', account_id, e)
+
+
 NAVER_SMTP_HOST = 'smtp.naver.com'
 NAVER_SMTP_PORT = 587
 
