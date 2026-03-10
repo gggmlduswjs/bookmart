@@ -9,6 +9,9 @@
   <a href="{% url 'order_invoice' order.pk %}" target="_blank" class="btn btn-dark btn-sm">거래명세서</a>
   <a href="{% url 'order_quote' order.pk %}" target="_blank" class="btn btn-outline btn-sm">견적서</a>
   {% endif %}
+  {% if request.user.is_admin %}
+  <a href="{% url 'order_edit' order.pk %}" class="btn btn-blue btn-sm">수정</a>
+  {% endif %}
 </div>
 
 <div style="display:flex;gap:12px;align-items:flex-start">

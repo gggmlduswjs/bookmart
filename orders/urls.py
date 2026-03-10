@@ -21,6 +21,7 @@ urlpatterns = [
     path('orders/admin-create/', views.order_create_admin, name='order_create_admin'),
     path('orders/parse-excel/', views.parse_order_excel, name='parse_order_excel'),
     path('orders/<int:pk>/', views.order_detail, name='order_detail'),
+    path('orders/<int:pk>/edit/', views.order_edit, name='order_edit'),
     path('orders/<int:pk>/cancel/', views.order_cancel, name='order_cancel'),
     path('orders/<int:pk>/delete/', views.order_delete, name='order_delete'),
     path('orders/bulk-delete/', views.order_bulk_delete, name='order_bulk_delete'),

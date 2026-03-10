@@ -267,6 +267,115 @@ def order_detail(request, pk):
     })
 
 
+# ── 주문 수정 ──────────────────────────────────────────────────────────────────
+
+@role_required('admin')
+def order_edit(request, pk):
+    order = get_object_or_404(Order, pk=pk)
+    items = list(order.items.select_related('book', 'book__publisher'))
+
+    books = Book.objects.filter(is_active=True).select_related('publisher')
+    series_list = sorted(set(b.series for b in books if b.series))
+    if any(not b.series for b in books):
+        series_list.append('기타')
+    books_json = json.dumps([{
+        'id': b.id,
+        'series': b.series or '기타',
+        'name': b.name,
+        'publisher': b.publisher.name,
+        'unit_price': math.floor(b.list_price * float(b.publisher.supply_rate) / 100),
+    } for b in books], ensure_ascii=False)
+
+    # 기존 아이템을 JS 초기 데이터로
+    existing_rows = json.dumps([{
+        'series': item.book.series or '기타' if item.book else '',
+        'book_id': str(item.book_id) if item.book_id else '',
+        'qty': item.quantity,
+        'unit_price': item.unit_price,
+        'is_custom': not item.book_id,
+        'custom_name': item.custom_book_name or '',
+    } for item in items], ensure_ascii=False)
+
+    if request.method == 'POST':
+        # 메모 업데이트
+        order.memo = request.POST.get('memo', '')
+        # 운송장 업데이트
+        order.tracking_no = request.POST.get('tracking_no', '').strip()
+        order.save(update_fields=['memo', 'tracking_no'])
+
+        # 배송지 업데이트
+        delivery = order.delivery
+        new_school = request.POST.get('delivery_school', '').strip()
+        new_addr = request.POST.get('delivery_address', '').strip()
+        new_phone = request.POST.get('delivery_phone', '').strip()
+        if new_school and new_school != delivery.name:
+            delivery, _ = DeliveryAddress.objects.get_or_create(
+                agency=order.agency, name=new_school,
+                defaults={'address': new_addr, 'phone': new_phone},
+            )
+            order.delivery = delivery
+            order.save(update_fields=['delivery'])
+        if new_addr:
+            delivery.address = new_addr
+            delivery.save(update_fields=['address'])
+        if new_phone:
+            delivery.phone = new_phone
+            delivery.save(update_fields=['phone'])
+
+        # 아이템 파싱
+        new_items = []
+        i = 0
+        while f'book_{i}' in request.POST or f'custom_name_{i}' in request.POST:
+            book_id = request.POST.get(f'book_{i}', '').strip()
+            custom_name = request.POST.get(f'custom_name_{i}', '').strip()
+            custom_price = request.POST.get(f'custom_price_{i}', '').strip()
+            qty_str = request.POST.get(f'qty_{i}', '').strip()
+            if book_id and qty_str:
+                try:
+                    qty = int(qty_str)
+                    if qty > 0:
+                        new_items.append({'book_id': int(book_id), 'qty': qty})
+                except (ValueError, TypeError):
+                    pass
+            elif custom_name and qty_str:
+                try:
+                    qty = int(qty_str)
+                    price = int(custom_price) if custom_price else 0
+                    if qty > 0:
+                        new_items.append({'custom_name': custom_name, 'custom_price': price, 'qty': qty})
+                except (ValueError, TypeError):
+                    pass
+            i += 1
+
+        if not new_items:
+            messages.error(request, '주문 품목이 1건 이상 있어야 합니다.')
+        else:
+            # 기존 아이템 삭제 후 재생성
+            order.items.all().delete()
+            for item in new_items:
+                if 'book_id' in item:
+                    try:
+                        book = Book.objects.get(id=item['book_id'], is_active=True)
+                        OrderItem(order=order, book=book, quantity=item['qty']).save()
+                    except Book.DoesNotExist:
+                        pass
+                else:
+                    OrderItem(
+                        order=order, custom_book_name=item['custom_name'],
+                        unit_price=item['custom_price'], quantity=item['qty'],
+                    ).save()
+            messages.success(request, '주문이 수정되었습니다.')
+            return redirect('order_detail', pk=order.pk)
+
+    return render(request, 'orders/order_edit.html', {
+        'order': order,
+        'items': items,
+        'series_list': series_list,
+        'books_json': books_json,
+        'existing_rows': existing_rows,
+    })
+
+
 # ── 총판 대리 주문 ─────────────────────────────────────────────────────────────
 
 @role_required('admin')

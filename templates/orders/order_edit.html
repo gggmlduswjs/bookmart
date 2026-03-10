@@ -1,0 +1,200 @@
+{% extends 'base.html' %}
+{% block title %}주문 수정 — {{ order.order_no }}{% endblock %}
+
+{% block extra_css %}
+<style>
+  .order-row-wrap select, .order-row-wrap input[type=number] {
+    padding: 3px 5px; border: 1px solid #bbb;
+    font-size: 12px; font-family: inherit; height: 26px;
+  }
+  .order-row-wrap select { width: 100%; }
+  .order-row-wrap input[type=number] { width: 60px; text-align: center; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-title">
+  주문 수정
+  <span class="subtitle">{{ order.order_no }}</span>
+  <a href="{% url 'order_detail' order.pk %}" class="btn btn-gray btn-sm">← 상세</a>
+</div>
+
+<form method="post" x-data="editOrderForm()">
+  {% csrf_token %}
+
+  <!-- 주문 정보 -->
+  <div class="content-box" style="padding:12px 14px;margin-bottom:10px">
+    <table class="form-table">
+      <tr>
+        <th style="width:80px">주문번호</th>
+        <td>{{ order.order_no }}</td>
+      </tr>
+      <tr>
+        <th>업체</th>
+        <td>{{ order.agency.name }}</td>
+      </tr>
+      <tr>
+        <th>선생님</th>
+        <td>{{ order.teacher.name }}</td>
+      </tr>
+      <tr>
+        <th>상태</th>
+        <td>
+          {% if order.status == 'pending' %}<span class="badge badge-blue">접수</span>
+          {% elif order.status == 'shipping' %}<span class="badge badge-orange">발송중</span>
+          {% elif order.status == 'delivered' %}<span class="badge badge-green">발송완료</span>
+          {% elif order.status == 'cancelled' %}<span class="badge badge-gray">취소</span>
+          {% endif %}
+        </td>
+      </tr>
+    </table>
+
+    <div style="margin-top:10px;padding-top:10px;border-top:1px solid #eee">
+      <table class="form-table">
+        <tr>
+          <th style="width:80px">학교명</th>
+          <td>
+            <input type="text" name="delivery_school" value="{{ order.delivery.name }}"
+                   style="width:240px;padding:4px 8px;border:1px solid #bbb;font-size:12px">
+          </td>
+        </tr>
+        <tr>
+          <th>주소</th>
+          <td>
+            <input type="text" name="delivery_address" value="{{ order.delivery.address|default:'' }}"
+                   style="width:360px;padding:4px 8px;border:1px solid #bbb;font-size:12px">
+          </td>
+        </tr>
+        <tr>
+          <th>전화</th>
+          <td>
+            <input type="tel" name="delivery_phone" value="{{ order.delivery.phone|default:'' }}"
+                   style="width:160px;padding:4px 8px;border:1px solid #bbb;font-size:12px">
+          </td>
+        </tr>
+        <tr>
+          <th>운송장</th>
+          <td>
+            <input type="text" name="tracking_no" value="{{ order.tracking_no }}"
+                   style="width:200px;padding:4px 8px;border:1px solid #bbb;font-size:12px" placeholder="운송장번호">
+          </td>
+        </tr>
+      </table>
+    </div>
+  </div>
+
+  <!-- 교재 선택 -->
+  <div class="order-row-wrap">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th style="width:28%">시리즈</th>
+          <th style="width:34%">교재</th>
+          <th class="right" style="width:90px">단가</th>
+          <th class="center" style="width:70px">수량</th>
+          <th class="right" style="width:90px">금액</th>
+          <th style="width:30px"></th>
+        </tr>
+      </thead>
+      <tbody>
+        <template x-for="(row, index) in rows" :key="index">
+          <tr :style="row.is_custom ? 'background:#fff8f0' : ''">
+            <template x-if="!row.is_custom">
+              <td>
+                <select x-model="row.series" @change="row.book_id = ''; row.unit_price = 0">
+                  <option value="">시리즈 선택</option>
+                  {% for s in series_list %}
+                  <option value="{{ s }}">{{ s }}</option>
+                  {% endfor %}
+                </select>
+              </td>
+            </template>
+            <template x-if="row.is_custom">
+              <td><span style="font-size:11px;color:#e8720c;font-weight:bold">직접입력</span></td>
+            </template>
+            <template x-if="!row.is_custom">
+              <td>
+                <select x-model="row.book_id" @change="updatePrice(row)">
+                  <option value="">교재 선택</option>
+                  <template x-for="b in getBooks(row.series)" :key="b.id">
+                    <option :value="b.id" x-text="b.name"></option>
+                  </template>
+                </select>
+                <input type="hidden" :name="'book_' + index" :value="row.book_id">
+              </td>
+            </template>
+            <template x-if="row.is_custom">
+              <td>
+                <input type="text" :name="'custom_name_' + index" x-model="row.custom_name"
+                       style="width:100%;padding:3px 5px;border:1px solid #bbb;font-size:12px" placeholder="교재명">
+              </td>
+            </template>
+            <td class="right">
+              <template x-if="!row.is_custom">
+                <span x-text="row.unit_price ? row.unit_price.toLocaleString() + '원' : '-'" style="color:#666"></span>
+              </template>
+              <template x-if="row.is_custom">
+                <input type="number" :name="'custom_price_' + index" x-model.number="row.unit_price"
+                       style="width:60px;padding:3px 5px;border:1px solid #bbb;font-size:11px;text-align:right" placeholder="단가">
+              </template>
+            </td>
+            <td class="center">
+              <input type="number" :name="'qty_' + index" x-model.number="row.qty" min="1" max="9999">
+            </td>
+            <td class="right" style="font-weight:bold">
+              <span x-text="rowAmount(row) ? rowAmount(row).toLocaleString() + '원' : '-'"></span>
+            </td>
+            <td class="center">
+              <button type="button" class="btn btn-sm btn-red" @click="rows.splice(index, 1)" x-show="rows.length > 1" style="padding:1px 6px">✕</button>
+            </td>
+          </tr>
+        </template>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="order-total-bar">
+    <button type="button" class="btn btn-outline btn-sm" @click="addRow" style="float:left">+ 행 추가</button>
+    <button type="button" class="btn btn-outline btn-sm" @click="addCustomRow" style="float:left;margin-left:4px;color:#e8720c;border-color:#e8720c">+ 직접입력</button>
+    합계: <span x-text="total().toLocaleString()" style="font-size:15px;color:#e8720c"></span>원
+  </div>
+
+  <div style="margin-top:10px;display:flex;align-items:center;gap:8px">
+    <label style="white-space:nowrap;background:#777;color:#fff;padding:3px 8px;font-size:12px">메모</label>
+    <input type="text" name="memo" value="{{ order.memo }}" style="flex:1;padding:4px 8px;border:1px solid #bbb;font-size:12px" placeholder="특이사항">
+  </div>
+
+  <div style="margin-top:12px">
+    <button type="button" class="btn btn-orange" @click="submitOrder" style="padding:6px 30px">수정 완료</button>
+    <a href="{% url 'order_detail' order.pk %}" class="btn btn-outline" style="margin-left:8px">취소</a>
+  </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const BOOKS = {{ books_json|safe }};
+const EXISTING_ROWS = {{ existing_rows|safe }};
+
+function editOrderForm() {
+  return {
+    rows: EXISTING_ROWS.length ? EXISTING_ROWS : [{ series: '', book_id: '', qty: 1, unit_price: 0, is_custom: false }],
+
+    getBooks(series) { return series ? BOOKS.filter(b => b.series === series) : BOOKS; },
+    updatePrice(row) { const b = BOOKS.find(b => b.id == row.book_id); row.unit_price = b ? b.unit_price : 0; },
+    rowAmount(row) { return ((row.book_id || row.is_custom) && row.qty) ? row.unit_price * row.qty : 0; },
+    total() { return this.rows.reduce((s, r) => s + this.rowAmount(r), 0); },
+    addRow() { this.rows.push({ series: '', book_id: '', qty: 1, unit_price: 0, is_custom: false }); },
+    addCustomRow() { this.rows.push({ is_custom: true, custom_name: '', qty: 1, unit_price: 0 }); },
+    submitOrder() {
+      if (!this.rows.some(r => (r.book_id || (r.is_custom && r.custom_name)) && r.qty > 0)) {
+        alert('주문할 교재를 1건 이상 선택하세요.');
+        return;
+      }
+      if (!confirm('주문을 수정하시겠습니까?')) return;
+      this.$el.closest('form').submit();
+    },
+  }
+}
+</script>
+{% endblock %}
