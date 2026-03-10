@@ -394,17 +394,43 @@ function inboxOrderForm() {
         // 메타데이터 자동 입력 (업체/학교/선생님/주소/전화)
         if (data.meta) {
           const m = data.meta;
+          // 선생님 이름으로 DB 검색 → 업체/배송지 자동 매칭
+          if (m.teacher && !this.teacherId) {
+            const candidates = ALL_TEACHERS.filter(t => t.name === m.teacher);
+            if (candidates.length === 1) {
+              // 정확히 1명 매칭 → 자동 선택
+              this.agencyId = String(candidates[0].agency_id);
+              this.selectTeacher(candidates[0]);
+            } else if (candidates.length > 1) {
+              // 동명이인 → 업체명이나 학교명으로 좁히기
+              let narrowed = candidates;
+              if (m.agency) narrowed = candidates.filter(t => {
+                const ag = ALL_AGENCIES.find(a => a.id == t.agency_id);
+                return ag && (ag.name.includes(m.agency) || m.agency.includes(ag.name));
+              });
+              if (narrowed.length === 0) narrowed = candidates;
+              if (m.school) {
+                const bySchool = narrowed.filter(t => t.delivery_name && (t.delivery_name.includes(m.school) || m.school.includes(t.delivery_name)));
+                if (bySchool.length > 0) narrowed = bySchool;
+              }
+              this.agencyId = String(narrowed[0].agency_id);
+              this.selectTeacher(narrowed[0]);
+            } else {
+              // 매칭 안됨 → 이름만 입력
+              this.teacherQuery = m.teacher;
+              if (m.agency) {
+                const found = ALL_AGENCIES.find(a => a.name.includes(m.agency) || m.agency.includes(a.name));
+                if (found) { this.agencyId = String(found.id); }
+              }
+            }
+          } else if (m.agency && !this.agencyId) {
+            const found = ALL_AGENCIES.find(a => a.name.includes(m.agency) || m.agency.includes(a.name));
+            if (found) { this.agencyId = String(found.id); }
+          }
+          // 메타데이터로 빈 필드 보충
           if (m.school && !this.deliverySchool) this.deliverySchool = m.school;
           if (m.address && !this.deliveryAddr) this.deliveryAddr = m.address;
           if (m.phone && !this.deliveryPhone) this.deliveryPhone = m.phone;
-          if (m.teacher && !this.teacherQuery) {
-            this.teacherQuery = m.teacher;
-            this.filterTeachers();
-          }
-          if (m.agency && !this.agencyId) {
-            const found = ALL_AGENCIES.find(a => a.name.includes(m.agency) || m.agency.includes(a.name));
-            if (found) { this.agencyId = String(found.id); this.onAgencyChange(); }
-          }
         }
         // 기존 빈 행 제거
         this.rows = this.rows.filter(r => r.book_id || (r.is_custom && r.custom_name));
