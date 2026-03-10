@@ -59,11 +59,11 @@
 <!-- 탭 -->
 <div class="inbox-tabs">
   <a class="inbox-tab {% if tab == 'email' %}active{% endif %}"
-     href="?tab=email{% if show_done %}&done=1{% endif %}">
+     href="?tab=email{% if hide_done %}&hide_done=1{% endif %}">
     메일{% if unread_email %} <span class="tab-count">{{ unread_email }}</span>{% endif %}
   </a>
   <a class="inbox-tab {% if tab == 'sms' %}active{% endif %}"
-     href="?tab=sms{% if show_done %}&done=1{% endif %}">
+     href="?tab=sms{% if hide_done %}&hide_done=1{% endif %}">
     문자{% if unread_sms %} <span class="tab-count">{{ unread_sms }}</span>{% endif %}
   </a>
 </div>
@@ -75,10 +75,10 @@
       {% csrf_token %}
       <button type="submit" class="btn btn-orange btn-sm">새 메일 가져오기</button>
     </form>
-    {% if show_done %}
-      <a href="?tab=email" class="btn btn-outline btn-sm">미처리만 보기</a>
+    {% if hide_done %}
+      <a href="?tab=email" class="btn btn-outline btn-sm">전체 보기</a>
     {% else %}
-      <a href="?tab=email&done=1" class="btn btn-outline btn-sm">처리 완료 포함</a>
+      <a href="?tab=email&hide_done=1" class="btn btn-outline btn-sm">미처리만 보기</a>
     {% endif %}
   </div>
 
@@ -86,20 +86,13 @@
     {% csrf_token %}
     <input type="hidden" name="tab" value="email">
 
-    {% if not show_done and email_messages %}
+    {% if email_messages %}
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
       <button type="submit" name="action" value="skip_selected" class="btn btn-outline btn-sm"
               onclick="return confirmSelected('email')">선택 처리완료</button>
       <button type="submit" name="action" value="skip_all" class="btn btn-outline btn-sm"
               style="color:#c00;border-color:#c00"
               onclick="return confirm('미처리 메일을 모두 처리완료하시겠습니까?')">전체 처리완료</button>
-      <button type="button" class="btn btn-outline btn-sm"
-              style="color:#888;border-color:#ccc"
-              onclick="bulkDelete('email')">선택 삭제</button>
-    </div>
-    {% endif %}
-    {% if show_done and email_messages %}
-    <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
       <button type="button" class="btn btn-outline btn-sm"
               style="color:#888;border-color:#ccc"
               onclick="bulkDelete('email')">선택 삭제</button>
@@ -147,7 +140,7 @@
             <td class="center" style="font-size:11px">{{ msg.received_at|date:"m/d H:i" }}</td>
             <td class="center">
               {% if msg.is_processed %}
-              <span style="color:#888;font-size:11px">완료</span>
+              <span style="color:#888;font-size:11px">처리</span>
               {% if msg.order %}
               <div style="font-size:10px"><a href="{% url 'order_detail' msg.order.pk %}">주문보기</a></div>
               {% endif %}
@@ -167,7 +160,7 @@
           {% empty %}
           <tr>
             <td colspan="8" class="center" style="padding:30px;color:#888">
-              {% if show_done %}메일이 없습니다.{% else %}미처리 메일이 없습니다.{% endif %}
+              {% if hide_done %}미처리 메일이 없습니다.{% else %}메일이 없습니다.{% endif %}
             </td>
           </tr>
           {% endfor %}
@@ -180,10 +173,10 @@
 <!-- 문자 탭 -->
 <div class="inbox-panel {% if tab == 'sms' %}active{% endif %}">
   <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
-    {% if show_done %}
-      <a href="?tab=sms" class="btn btn-outline btn-sm">미처리만 보기</a>
+    {% if hide_done %}
+      <a href="?tab=sms" class="btn btn-outline btn-sm">전체 보기</a>
     {% else %}
-      <a href="?tab=sms&done=1" class="btn btn-outline btn-sm">처리 완료 포함</a>
+      <a href="?tab=sms&hide_done=1" class="btn btn-outline btn-sm">미처리만 보기</a>
     {% endif %}
   </div>
 
@@ -191,20 +184,13 @@
     {% csrf_token %}
     <input type="hidden" name="tab" value="sms">
 
-    {% if not show_done and sms_messages %}
+    {% if sms_messages %}
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
       <button type="submit" name="action" value="skip_selected" class="btn btn-outline btn-sm"
               onclick="return confirmSelected('sms')">선택 처리완료</button>
       <button type="submit" name="action" value="skip_all_sms" class="btn btn-outline btn-sm"
               style="color:#c00;border-color:#c00"
               onclick="return confirm('미처리 문자를 모두 처리완료하시겠습니까?')">전체 처리완료</button>
-      <button type="button" class="btn btn-outline btn-sm"
-              style="color:#888;border-color:#ccc"
-              onclick="bulkDelete('sms')">선택 삭제</button>
-    </div>
-    {% endif %}
-    {% if show_done and sms_messages %}
-    <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
       <button type="button" class="btn btn-outline btn-sm"
               style="color:#888;border-color:#ccc"
               onclick="bulkDelete('sms')">선택 삭제</button>
@@ -240,7 +226,7 @@
             <td class="center" style="font-size:11px">{{ msg.received_at|date:"m/d H:i" }}</td>
             <td class="center">
               {% if msg.is_processed %}
-              <span style="color:#888;font-size:11px">완료</span>
+              <span style="color:#888;font-size:11px">처리</span>
               {% if msg.order %}
               <div style="font-size:10px"><a href="{% url 'order_detail' msg.order.pk %}">주문보기</a></div>
               {% endif %}
@@ -260,7 +246,7 @@
           {% empty %}
           <tr>
             <td colspan="7" class="center" style="padding:30px;color:#888">
-              {% if show_done %}문자가 없습니다.{% else %}미처리 문자가 없습니다.{% endif %}
+              {% if hide_done %}미처리 문자가 없습니다.{% else %}문자가 없습니다.{% endif %}
             </td>
           </tr>
           {% endfor %}
