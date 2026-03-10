@@ -22,7 +22,7 @@
       <tbody>
         {% for item in items %}
         <tr>
-          <td>{{ item.book.name }}</td>
+          <td>{{ item.display_name }}</td>
           <td class="right">{{ item.unit_price|floatformat:0 }}원</td>
           <td class="center">{{ item.requested_qty }}</td>
           <td class="center">

@@ -368,14 +368,24 @@ def order_create_admin(request):
 
         items = []
         i = 0
-        while f'book_{i}' in request.POST:
+        while f'book_{i}' in request.POST or f'custom_name_{i}' in request.POST:
             book_id = request.POST.get(f'book_{i}', '').strip()
+            custom_name = request.POST.get(f'custom_name_{i}', '').strip()
+            custom_price = request.POST.get(f'custom_price_{i}', '').strip()
             qty_str = request.POST.get(f'qty_{i}', '').strip()
             if book_id and qty_str:
                 try:
                     qty = int(qty_str)
                     if qty > 0:
-                        items.append((int(book_id), qty))
+                        items.append({'book_id': int(book_id), 'qty': qty})
+                except (ValueError, TypeError):
+                    pass
+            elif custom_name and qty_str:
+                try:
+                    qty = int(qty_str)
+                    price = int(custom_price) if custom_price else 0
+                    if qty > 0:
+                        items.append({'custom_name': custom_name, 'custom_price': price, 'qty': qty})
                 except (ValueError, TypeError):
                     pass
             i += 1
@@ -390,12 +400,16 @@ def order_create_admin(request):
                 delivery=teacher.delivery_address,
                 memo=request.POST.get('memo', ''),
             )
-            for book_id, qty in items:
-                try:
-                    book = Book.objects.get(id=book_id, is_active=True)
-                    OrderItem(order=order, book=book, quantity=qty).save()
-                except Book.DoesNotExist:
-                    pass
+            for item in items:
+                if 'book_id' in item:
+                    try:
+                        book = Book.objects.get(id=item['book_id'], is_active=True)
+                        OrderItem(order=order, book=book, quantity=item['qty']).save()
+                    except Book.DoesNotExist:
+                        pass
+                else:
+                    OrderItem(order=order, custom_book_name=item['custom_name'],
+                              unit_price=item['custom_price'], quantity=item['qty']).save()
             messages.success(request, f'[{teacher.name}] 대리 주문 완료. 주문번호: {order.order_no}')
             return redirect('order_detail', pk=order.pk)
 
@@ -949,8 +963,8 @@ def ledger(request):
                 'date': oi.order.ordered_at.date(),
                 'type': '매출',
                 'delivery': oi.order.delivery.name,
-                'publisher': oi.book.publisher.name,
-                'book': oi.book.name,
+                'publisher': oi.display_publisher,
+                'book': oi.display_name,
                 'qty': oi.quantity,
                 'list_price': oi.list_price,
                 'supply_rate': oi.supply_rate,
@@ -976,8 +990,8 @@ def ledger(request):
                 'date': ri.ret.confirmed_at.date(),
                 'type': '반품',
                 'delivery': ri.ret.delivery.name,
-                'publisher': ri.book.publisher.name,
-                'book': ri.book.name,
+                'publisher': ri.book.publisher.name if ri.book else '',
+                'book': ri.book.name if ri.book else '',
                 'qty': -(ri.confirmed_qty or 0),
                 'list_price': ri.list_price,
                 'supply_rate': ri.supply_rate,
@@ -1068,10 +1082,10 @@ def purchase_order(request):
     from collections import defaultdict
     publishers = defaultdict(lambda: {'books': defaultdict(lambda: {'name': '', 'series': '', 'qty': 0, 'amount': 0})})
     for item in items:
-        pub = item.book.publisher.name
-        book_id = item.book.pk
-        publishers[pub]['books'][book_id]['name'] = item.book.name
-        publishers[pub]['books'][book_id]['series'] = item.book.series
+        pub = item.display_publisher or '기타'
+        book_id = item.book.pk if item.book else f'custom_{item.pk}'
+        publishers[pub]['books'][book_id]['name'] = item.display_name
+        publishers[pub]['books'][book_id]['series'] = item.display_series
         publishers[pub]['books'][book_id]['qty'] += item.quantity
         publishers[pub]['books'][book_id]['amount'] += item.amount
 
@@ -1159,7 +1173,7 @@ def export_ledger(request):
     for oi in order_items:
         ws.append([
             oi.order.ordered_at.strftime('%Y-%m-%d'), '매출',
-            oi.order.delivery.name, oi.book.publisher.name, oi.book.name,
+            oi.order.delivery.name, oi.display_publisher, oi.display_name,
             oi.quantity, oi.list_price, float(oi.supply_rate), oi.amount,
         ])
 
@@ -1171,7 +1185,7 @@ def export_ledger(request):
     for ri in return_items:
         ws.append([
             ri.ret.confirmed_at.strftime('%Y-%m-%d'), '반품',
-            ri.ret.delivery.name, ri.book.publisher.name, ri.book.name,
+            ri.ret.delivery.name, ri.book.publisher.name if ri.book else '', ri.book.name if ri.book else '',
             -(ri.confirmed_qty or 0), ri.list_price, float(ri.supply_rate),
             -(ri.confirmed_amount or 0),
         ])
@@ -1213,7 +1227,7 @@ def export_sales(request):
         ws.append([
             oi.order.ordered_at.strftime('%Y-%m-%d'),
             oi.order.agency.name, oi.order.delivery.name, oi.order.teacher.name,
-            oi.book.publisher.name, oi.book.series, oi.book.name,
+            oi.display_publisher, oi.display_series, oi.display_name,
             oi.quantity, oi.list_price, float(oi.supply_rate), oi.amount,
         ])
 
@@ -1520,14 +1534,24 @@ def inbox_process(request, pk):
 
         items = []
         i = 0
-        while f'book_{i}' in request.POST:
+        while f'book_{i}' in request.POST or f'custom_name_{i}' in request.POST:
             book_id = request.POST.get(f'book_{i}', '').strip()
+            custom_name = request.POST.get(f'custom_name_{i}', '').strip()
+            custom_price = request.POST.get(f'custom_price_{i}', '').strip()
             qty_str = request.POST.get(f'qty_{i}', '').strip()
             if book_id and qty_str:
                 try:
                     qty = int(qty_str)
                     if qty > 0:
-                        items.append((int(book_id), qty))
+                        items.append({'book_id': int(book_id), 'qty': qty})
+                except (ValueError, TypeError):
+                    pass
+            elif custom_name and qty_str:
+                try:
+                    qty = int(qty_str)
+                    price = int(custom_price) if custom_price else 0
+                    if qty > 0:
+                        items.append({'custom_name': custom_name, 'custom_price': price, 'qty': qty})
                 except (ValueError, TypeError):
                     pass
             i += 1
@@ -1542,12 +1566,16 @@ def inbox_process(request, pk):
                 delivery=teacher.delivery_address,
                 memo=request.POST.get('memo', ''),
             )
-            for book_id, qty in items:
-                try:
-                    book = Book.objects.get(id=book_id, is_active=True)
-                    OrderItem(order=order, book=book, quantity=qty).save()
-                except Book.DoesNotExist:
-                    pass
+            for item in items:
+                if 'book_id' in item:
+                    try:
+                        book = Book.objects.get(id=item['book_id'], is_active=True)
+                        OrderItem(order=order, book=book, quantity=item['qty']).save()
+                    except Book.DoesNotExist:
+                        pass
+                else:
+                    OrderItem(order=order, custom_book_name=item['custom_name'],
+                              unit_price=item['custom_price'], quantity=item['qty']).save()
 
             inbox_msg.is_processed = True
             inbox_msg.order = order
@@ -1754,10 +1782,10 @@ def export_purchase(request):
     from collections import defaultdict
     publishers = defaultdict(lambda: defaultdict(lambda: {'name': '', 'series': '', 'qty': 0, 'amount': 0}))
     for item in items:
-        pub = item.book.publisher.name
-        bid = item.book.pk
-        publishers[pub][bid]['name'] = item.book.name
-        publishers[pub][bid]['series'] = item.book.series
+        pub = item.display_publisher or '기타'
+        bid = item.book.pk if item.book else f'custom_{item.pk}'
+        publishers[pub][bid]['name'] = item.display_name
+        publishers[pub][bid]['series'] = item.display_series
         publishers[pub][bid]['qty'] += item.quantity
         publishers[pub][bid]['amount'] += item.amount
 

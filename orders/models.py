@@ -1,4 +1,5 @@
 import math
+from decimal import Decimal
 from django.conf import settings
 from django.db import models
 from django.utils import timezone
@@ -90,8 +91,9 @@ class OrderItem(models.Model):
     )
     book = models.ForeignKey(
         'books.Book', on_delete=models.PROTECT, related_name='order_items',
-        verbose_name='교재'
+        verbose_name='교재', null=True, blank=True
     )
+    custom_book_name = models.CharField(max_length=255, blank=True, default='', verbose_name='커스텀 교재명')
     quantity = models.IntegerField(verbose_name='수량')
     # 주문 시점 스냅샷
     list_price = models.IntegerField(verbose_name='정가(스냅샷)')
@@ -107,16 +109,34 @@ class OrderItem(models.Model):
             models.Index(fields=['book']),
         ]
 
+    @property
+    def display_name(self):
+        return self.book.name if self.book else self.custom_book_name
+
+    @property
+    def display_publisher(self):
+        return self.book.publisher.name if self.book else ''
+
+    @property
+    def display_series(self):
+        return self.book.series if self.book else ''
+
     def save(self, *args, **kwargs):
-        # 단가·금액은 항상 서버에서 계산 (클라이언트 값 무시)
-        self.list_price = self.book.list_price
-        self.supply_rate = self.book.publisher.supply_rate
-        self.unit_price = math.floor(self.list_price * float(self.supply_rate) / 100)
+        if self.book:
+            # 단가·금액은 항상 서버에서 계산 (클라이언트 값 무시)
+            self.list_price = self.book.list_price
+            self.supply_rate = self.book.publisher.supply_rate
+            self.unit_price = math.floor(self.list_price * float(self.supply_rate) / 100)
+        else:
+            # 커스텀 교재: 클라이언트 값 사용
+            self.list_price = self.unit_price
+            self.supply_rate = Decimal('100.00')
         self.amount = self.unit_price * self.quantity
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return f'{self.book.name} × {self.quantity}'
+        name = self.book.name if self.book else self.custom_book_name
+        return f'{name} × {self.quantity}'
 
 
 class Return(models.Model):

@@ -40,9 +40,9 @@
         {% if request.user.is_admin %}<td>{{ item.order.agency.name }}</td>{% endif %}
         <td>{{ item.order.delivery.name }}</td>
         <td>{{ item.order.teacher.name }}</td>
-        <td style="font-size:11px">{{ item.book.publisher.name }}</td>
-        <td style="font-size:11px">{{ item.book.series }}</td>
-        <td>{{ item.book.name }}</td>
+        <td style="font-size:11px">{{ item.display_publisher }}</td>
+        <td style="font-size:11px">{{ item.display_series }}</td>
+        <td>{{ item.display_name }}</td>
         <td class="center">{{ item.quantity }}</td>
         <td class="right">{{ item.list_price|floatformat:0 }}</td>
         <td class="center">{{ item.supply_rate }}%</td>

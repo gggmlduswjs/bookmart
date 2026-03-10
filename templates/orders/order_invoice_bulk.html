@@ -263,8 +263,8 @@
       {% for item in data.items %}
       <tr>
         <td class="c">{{ forloop.counter }}</td>
-        <td style="max-width:160px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">{{ item.book.name }}</td>
-        <td class="c" style="font-size:8px">{{ item.book.publisher.name }}</td>
+        <td style="max-width:160px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">{{ item.display_name }}</td>
+        <td class="c" style="font-size:8px">{{ item.display_publisher }}</td>
         <td class="r">{{ item.list_price|floatformat:0 }}</td>
         <td class="c">{{ item.quantity }}</td>
         <td class="c">{{ item.supply_rate }}%</td>

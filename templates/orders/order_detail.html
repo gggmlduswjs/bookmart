@@ -85,8 +85,8 @@
         <tbody>
           {% for item in items %}
           <tr>
-            <td>{{ item.book.name }}</td>
-            <td style="color:#888;font-size:11px">{{ item.book.publisher.name }}</td>
+            <td>{{ item.display_name }}</td>
+            <td style="color:#888;font-size:11px">{{ item.display_publisher }}</td>
             <td class="right">{{ item.unit_price|floatformat:0 }}원</td>
             <td class="center">{{ item.quantity }}</td>
             <td class="right" style="font-weight:bold">{{ item.amount|floatformat:0 }}원</td>

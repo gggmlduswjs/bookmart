@@ -162,25 +162,46 @@
       </thead>
       <tbody>
         <template x-for="(row, index) in rows" :key="index">
-          <tr>
-            <td>
-              <select x-model="row.series" @change="row.book_id = ''; row.unit_price = 0">
-                <option value="">시리즈 선택</option>
-                {% for s in series_list %}
-                <option value="{{ s }}">{{ s }}</option>
-                {% endfor %}
-              </select>
+          <tr :style="row.is_custom ? 'background:#fff8f0' : ''">
+            <template x-if="!row.is_custom">
+              <td>
+                <select x-model="row.series" @change="row.book_id = ''; row.unit_price = 0">
+                  <option value="">시리즈 선택</option>
+                  {% for s in series_list %}
+                  <option value="{{ s }}">{{ s }}</option>
+                  {% endfor %}
+                </select>
+              </td>
+            </template>
+            <template x-if="row.is_custom">
+              <td><span style="font-size:11px;color:#e8720c;font-weight:bold">직접입력</span></td>
+            </template>
+            <template x-if="!row.is_custom">
+              <td>
+                <select x-model="row.book_id" @change="updatePrice(row)">
+                  <option value="">교재 선택</option>
+                  <template x-for="b in getBooks(row.series)" :key="b.id">
+                    <option :value="b.id" x-text="b.name"></option>
+                  </template>
+                </select>
+                <input type="hidden" :name="'book_' + index" :value="row.book_id">
+              </td>
+            </template>
+            <template x-if="row.is_custom">
+              <td>
+                <input type="text" :name="'custom_name_' + index" x-model="row.custom_name"
+                       style="width:100%;padding:3px 5px;border:1px solid #bbb;font-size:12px" placeholder="교재명">
+              </td>
+            </template>
+            <td class="right">
+              <template x-if="!row.is_custom">
+                <span x-text="row.unit_price ? row.unit_price.toLocaleString() + '원' : '-'" style="color:#666"></span>
+              </template>
+              <template x-if="row.is_custom">
+                <input type="number" :name="'custom_price_' + index" x-model.number="row.unit_price"
+                       style="width:60px;padding:3px 5px;border:1px solid #bbb;font-size:11px;text-align:right" placeholder="단가">
+              </template>
             </td>
-            <td>
-              <select x-model="row.book_id" @change="updatePrice(row)">
-                <option value="">교재 선택</option>
-                <template x-for="b in getBooks(row.series)" :key="b.id">
-                  <option :value="b.id" x-text="b.name"></option>
-                </template>
-              </select>
-              <input type="hidden" :name="'book_' + index" :value="row.book_id">
-            </td>
-            <td class="right"><span x-text="row.unit_price ? row.unit_price.toLocaleString() + '원' : '-'" style="color:#666"></span></td>
             <td class="center">
               <input type="number" :name="'qty_' + index" x-model.number="row.qty" min="1" max="9999">
             </td>
@@ -198,6 +219,7 @@
 
   <div class="order-total-bar">
     <button type="button" class="btn btn-outline btn-sm" @click="addRow" style="float:left">+ 행 추가</button>
+    <button type="button" class="btn btn-outline btn-sm" @click="addCustomRow" style="float:left;margin-left:4px;color:#e8720c;border-color:#e8720c">+ 직접입력</button>
     합계: <span x-text="total().toLocaleString()" style="font-size:15px;color:#e8720c"></span>원
   </div>
 
@@ -291,9 +313,10 @@ function adminOrderForm() {
     // 교재
     getBooks(series) { return series ? BOOKS.filter(b => b.series === series) : BOOKS; },
     updatePrice(row) { const b = BOOKS.find(b => b.id == row.book_id); row.unit_price = b ? b.unit_price : 0; },
-    rowAmount(row) { return (row.book_id && row.qty) ? row.unit_price * row.qty : 0; },
+    rowAmount(row) { return ((row.book_id || row.is_custom) && row.qty) ? row.unit_price * row.qty : 0; },
     total() { return this.rows.reduce((s, r) => s + this.rowAmount(r), 0); },
-    addRow() { this.rows.push({ series: '', book_id: '', qty: 1, unit_price: 0 }); },
+    addRow() { this.rows.push({ series: '', book_id: '', qty: 1, unit_price: 0, is_custom: false }); },
+    addCustomRow() { this.rows.push({ is_custom: true, custom_name: '', qty: 1, unit_price: 0 }); },
     async uploadExcel(e) {
       const file = e.target.files[0];
       if (!file) return;
@@ -306,19 +329,24 @@ function adminOrderForm() {
         const res = await fetch('{% url "parse_order_excel" %}', { method: 'POST', body: fd });
         const data = await res.json();
         if (data.error) { alert(data.error); return; }
+        // 기존 빈 행 제거
+        this.rows = this.rows.filter(r => r.book_id || (r.is_custom && r.custom_name));
         if (data.matched && data.matched.length) {
-          // 기존 빈 행 제거
-          this.rows = this.rows.filter(r => r.book_id);
           for (const m of data.matched) {
-            this.rows.push({ series: m.series, book_id: String(m.id), qty: m.qty, unit_price: m.unit_price });
+            this.rows.push({ series: m.series, book_id: String(m.id), qty: m.qty, unit_price: m.unit_price, is_custom: false });
           }
-          if (!this.rows.length) this.rows.push({ series: '', book_id: '', qty: 1, unit_price: 0 });
         }
         if (data.unmatched && data.unmatched.length) {
           this.excelUnmatched = data.unmatched;
+          for (const u of data.unmatched) {
+            this.rows.push({ is_custom: true, custom_name: u.name, qty: u.qty, unit_price: 0 });
+          }
         }
-        if (data.matched && data.matched.length) {
-          alert(`${data.matched.length}건 매칭 완료` + (data.unmatched?.length ? `, ${data.unmatched.length}건 매칭 실패` : ''));
+        if (!this.rows.length) this.rows.push({ series: '', book_id: '', qty: 1, unit_price: 0, is_custom: false });
+        const mc = data.matched?.length || 0;
+        const uc = data.unmatched?.length || 0;
+        if (mc || uc) {
+          alert(`${mc}건 매칭 완료` + (uc ? `, ${uc}건 직접입력 추가 (단가를 입력하세요)` : ''));
         } else {
           alert('매칭된 교재가 없습니다.');
         }
@@ -329,7 +357,7 @@ function adminOrderForm() {
       if (!this.agencyId) { alert('업체를 선택하세요.'); return; }
       if (!this.teacherId && !this.newTeacherName) { alert('선생님을 선택하거나 신규 등록하세요.'); return; }
       if (!this.deliverySchool) { alert('학교명을 입력하세요.'); return; }
-      if (!this.rows.some(r => r.book_id && r.qty > 0)) { alert('주문할 교재를 선택하세요.'); return; }
+      if (!this.rows.some(r => (r.book_id || (r.is_custom && r.custom_name)) && r.qty > 0)) { alert('주문할 교재를 선택하세요.'); return; }
       this.$el.closest('form').submit();
     },
   }
