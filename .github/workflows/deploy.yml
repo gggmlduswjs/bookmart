@@ -21,6 +21,34 @@ jobs:
             source venv/bin/activate
             python manage.py migrate --noinput
             python manage.py collectstatic --noinput
+            python manage.py shell -c "
+from accounts.models import User
+from books.models import Publisher, Book
+from orders.models import *
+print('=== DB 현황 ===')
+print(f'사용자: {User.objects.count()}건 (admin:{User.objects.filter(role=\"admin\").count()}, agency:{User.objects.filter(role=\"agency\").count()}, teacher:{User.objects.filter(role=\"teacher\").count()})')
+print(f'출판사: {Publisher.objects.count()}건')
+print(f'교재: {Book.objects.count()}건')
+print(f'배송지: {DeliveryAddress.objects.count()}건')
+print(f'주문: {Order.objects.count()}건')
+print(f'주문상세: {OrderItem.objects.count()}건')
+print(f'반품: {Return.objects.count()}건')
+print(f'수신메일: {InboxMessage.objects.filter(source=\"email\").count()}건')
+print(f'수신문자: {InboxMessage.objects.filter(source=\"sms\").count()}건')
+print(f'첨부파일: {InboxAttachment.objects.count()}건')
+print(f'입금내역: {Payment.objects.count()}건')
+print()
+print('=== 최근 주문 5건 ===')
+for o in Order.objects.all()[:5]:
+    items = o.items.count()
+    print(f'  {o.order_no} | {o.agency.name} | {o.teacher.name} | {o.delivery.name} | {o.status} | 품목{items}건 | {o.ordered_at:%m/%d %H:%M}')
+print()
+print('=== 주문상세 샘플 (최근 주문) ===')
+latest = Order.objects.first()
+if latest:
+    for item in latest.items.all():
+        print(f'  {item.display_name} | {item.display_publisher} | 단가:{item.unit_price} | 수량:{item.quantity} | book_id:{item.book_id} | custom:{item.custom_book_name}')
+"
             sudo systemctl restart bookmart
             # 5분마다 메일 자동 수신 cron 등록 (sh 호환: source 대신 . 사용)
             CRON_CMD="cd /home/bookmart/bookmart && . venv/bin/activate && python manage.py fetch_emails >> /home/bookmart/fetch_emails.log 2>&1"
