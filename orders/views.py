@@ -1434,8 +1434,8 @@ def inbox_list(request):
             Q(subject__icontains=search) |
             Q(content__icontains=search)
         )
-    email_qs = qs.filter(source='email').order_by('is_processed', '-received_at')
-    sms_qs = qs.filter(source='sms').order_by('is_processed', '-received_at')
+    email_qs = qs.filter(source='email').order_by('-received_at')
+    sms_qs = qs.filter(source='sms').order_by('-received_at')
     unread_email = InboxMessage.objects.filter(is_processed=False, source='email').count()
     unread_sms = InboxMessage.objects.filter(is_processed=False, source='sms').count()
     return render(request, 'orders/inbox_list.html', {
