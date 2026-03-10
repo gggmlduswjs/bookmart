@@ -1562,8 +1562,6 @@ def fetch_emails(request):
             continue
 
         for e in emails:
-            # 스팸 판별: 주문 관련이 아니면 자동으로 처리완료 표시
-            auto_skip = not is_order_related(e['sender'], e['subject'], e['content'])
             msg_obj = InboxMessage.objects.create(
                 source=InboxMessage.Source.EMAIL,
                 account_label=e['account_label'],
@@ -1572,7 +1570,7 @@ def fetch_emails(request):
                 content=e['content'],
                 received_at=e['received_at'],
                 imap_key=e['imap_key'],
-                is_processed=auto_skip,
+                is_processed=False,
                 is_read=e.get('is_seen', False),
                 message_id=e.get('message_id', ''),
             )

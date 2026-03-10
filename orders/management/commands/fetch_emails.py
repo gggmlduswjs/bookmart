@@ -3,7 +3,7 @@ from django.conf import settings as conf
 from django.core.files.base import ContentFile
 
 from orders.models import InboxMessage, InboxAttachment
-from orders.email_utils import fetch_naver_emails, is_order_related
+from orders.email_utils import fetch_naver_emails
 
 
 class Command(BaseCommand):
@@ -38,7 +38,6 @@ class Command(BaseCommand):
                 continue
 
             for e in emails:
-                auto_skip = not is_order_related(e['sender'], e['subject'], e['content'])
                 msg_obj = InboxMessage.objects.create(
                     source=InboxMessage.Source.EMAIL,
                     account_label=e['account_label'],
@@ -47,7 +46,7 @@ class Command(BaseCommand):
                     content=e['content'],
                     received_at=e['received_at'],
                     imap_key=e['imap_key'],
-                    is_processed=auto_skip,
+                    is_processed=False,
                     is_read=e.get('is_seen', False),
                     message_id=e.get('message_id', ''),
                 )
