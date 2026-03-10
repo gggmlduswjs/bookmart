@@ -6,6 +6,7 @@
   <style>
     :root {
       --half-h: 148.5mm;
+      /* 헤더 좌측 (거래처) */
       --date-x: 38mm;  --date-y: 6.5mm;
       --no-x: 38mm;    --no-y: 12.5mm;
       --client-x: 6mm; --client-y: 25mm;
@@ -14,12 +15,14 @@
       --total-x: 25mm; --total-y: 44mm;
       --code-x: 73mm;  --code-y: 44mm;
       --page-x: 85mm;  --page-y: 44mm;
+      /* 헤더 우측 (공급자) */
       --reg-x: 128mm;  --reg-y: 6.5mm;
       --biz-x: 115mm;  --biz-y: 14mm;
       --owner-x: 172mm; --owner-y: 14mm;
-      --addr-x: 115mm; --addr-y: 22mm;
+      --sup-addr-x: 115mm; --sup-addr-y: 22mm;
       --tel-x: 118mm;  --tel-y: 34mm;
       --fax-x: 160mm;  --fax-y: 34mm;
+      /* 품목 */
       --items-y: 51mm;
       --row-h: 5.6mm;
       --col-no: 11mm;
@@ -30,19 +33,17 @@
       --col-unit: 155mm;
       --col-amt: 178mm;
       --col-pct: 196mm;
+      /* 하단 */
       --sum-qty-x: 28mm;  --sum-y: 127.5mm;
       --sum-cnt-x: 95mm;
       --sum-amt-x: 178mm;
       --memo-x: 88mm; --memo-y: 133mm;
-      --delv-x: 6mm; --delv-y: 133mm;
+      --delv-x: 6mm;  --delv-y: 133mm;
     }
 
     @page { size: A4; margin: 0; }
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: 'Malgun Gothic', '맑은 고딕', sans-serif;
-      font-size: 10px; color: #000;
-    }
+    body { font-family: 'Malgun Gothic', '맑은 고딕', sans-serif; font-size: 10px; color: #000; }
 
     .print-bar {
       text-align: center; padding: 14px; background: #f1f5f9;
@@ -55,21 +56,17 @@
     .print-bar .btn-primary { background: #1e40af; color: #fff; border-color: #1e40af; }
 
     .page-pair {
-      width: 210mm; height: 297mm;
-      position: relative;
-      page-break-after: always;
-      overflow: hidden;
+      width: 210mm; height: 297mm; position: relative;
+      page-break-after: always; overflow: hidden;
     }
 
     .inv-half {
       width: 210mm; height: var(--half-h);
       position: relative; overflow: hidden;
     }
+    .inv-half span, .inv-half .item-row span { position: absolute; white-space: nowrap; }
 
-    .inv-half span, .inv-half .item-row span {
-      position: absolute; white-space: nowrap;
-    }
-
+    /* ── 데이터 위치 ── */
     .v-date   { left: var(--date-x); top: var(--date-y); font-size: 10px; }
     .v-no     { left: var(--no-x);   top: var(--no-y);   font-size: 10px; font-weight: bold; }
     .v-client { left: var(--client-x); top: var(--client-y); font-size: 13px; font-weight: bold; }
@@ -81,7 +78,7 @@
     .v-reg    { left: var(--reg-x);   top: var(--reg-y);   font-size: 11px; font-weight: bold; }
     .v-biz    { left: var(--biz-x);   top: var(--biz-y);   font-size: 11px; }
     .v-owner  { left: var(--owner-x); top: var(--owner-y); font-size: 11px; }
-    .v-addr   { left: var(--addr-x);  top: var(--addr-y);  font-size: 9px; }
+    .v-saddr  { left: var(--sup-addr-x); top: var(--sup-addr-y); font-size: 9px; }
     .v-tel    { left: var(--tel-x);   top: var(--tel-y);   font-size: 10px; }
     .v-fax    { left: var(--fax-x);   top: var(--fax-y);   font-size: 10px; }
 
@@ -101,12 +98,109 @@
     .v-memo    { left: var(--memo-x);    top: var(--memo-y); font-size: 9px; max-width: 100mm; overflow: hidden; text-overflow: ellipsis; }
     .v-delv    { left: var(--delv-x);    top: var(--delv-y); font-size: 8px; max-width: 78mm; overflow: hidden; text-overflow: ellipsis; }
 
-    @media print {
-      .print-bar { display: none; }
-    }
+    /* ══════════ 화면 전용: 명세서 틀 표시 ══════════ */
+    .form-bg { display: none; }
+
     @media screen {
       body { background: #e0e0e0; }
       .page-pair { background: #fff; margin: 10px auto; box-shadow: 0 2px 8px rgba(0,0,0,.2); }
+
+      .form-bg {
+        display: block;
+        position: absolute; left: 0; top: 0;
+        width: 100%; height: 100%;
+        pointer-events: none;
+        z-index: 0;
+      }
+      .inv-half span, .inv-half .item-row span { z-index: 1; }
+      .inv-half .item-row { z-index: 1; }
+
+      /* 반장 구분선 */
+      .inv-half { border-bottom: 1px dashed #ccc; }
+
+      /* 헤더 영역 */
+      .form-bg .f-header {
+        position: absolute; left: 4mm; top: 3mm; right: 4mm; height: 47mm;
+        border: 2px solid #000;
+      }
+      .form-bg .f-title {
+        position: absolute; left: 4mm; top: 3mm; right: 4mm; height: 10mm;
+        border: 2px solid #000; border-bottom: 2px solid #000;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 16px; font-weight: bold; letter-spacing: 8px;
+        background: #fffff0;
+      }
+      .form-bg .f-title-sub { font-size: 9px; letter-spacing: 0; color: #666; font-weight: normal; margin-left: 8px; }
+      /* 좌측 라벨 */
+      .form-bg .f-lbl {
+        position: absolute; font-size: 9px; font-weight: bold; color: #555;
+      }
+      .fl-date   { left: 6mm;  top: 7mm; }
+      .fl-no     { left: 6mm;  top: 13mm; }
+      .fl-client { left: 6mm;  top: 20mm; font-size: 10px !important; }
+      .fl-total  { left: 6mm;  top: 44mm; }
+      /* 우측 라벨 */
+      .fl-reg    { left: 108mm; top: 7mm; }
+      .fl-biz    { left: 108mm; top: 14mm; }
+      .fl-owner  { left: 162mm; top: 14mm; }
+      .fl-addr   { left: 108mm; top: 22mm; }
+      .fl-tel    { left: 108mm; top: 34mm; }
+      .fl-fax    { left: 150mm; top: 34mm; }
+      /* 세로 구분선 */
+      .form-bg .f-vline {
+        position: absolute; left: 105mm; top: 3mm; width: 0;
+        height: 47mm; border-left: 2px solid #000;
+      }
+
+      /* 품목 헤더 */
+      .form-bg .f-items-hdr {
+        position: absolute; left: 4mm; right: 4mm;
+        top: 50mm; height: 5mm;
+        background: #c00; color: #fff;
+        display: flex; align-items: center;
+        font-size: 8px; font-weight: bold;
+        border: 1px solid #900;
+      }
+      .form-bg .f-items-hdr span {
+        position: absolute; white-space: nowrap;
+      }
+      .fh-no   { left: 7mm; }
+      .fh-pub  { left: 27mm; }
+      .fh-name { left: 60mm; }
+      .fh-qty  { left: 113mm; }
+      .fh-price{ left: 130mm; }
+      .fh-unit { left: 150mm; }
+      .fh-amt  { left: 172mm; }
+      .fh-pct  { left: 194mm; }
+
+      /* 품목 영역 테두리 */
+      .form-bg .f-items-area {
+        position: absolute; left: 4mm; right: 4mm;
+        top: 55mm; bottom: 20mm;
+        border: 1px solid #ccc;
+      }
+      /* 품목 행 줄 */
+      .form-bg .f-row-line {
+        position: absolute; left: 4mm; right: 4mm;
+        border-bottom: 1px solid #eee;
+      }
+
+      /* 하단 */
+      .form-bg .f-bottom {
+        position: absolute; left: 4mm; right: 4mm;
+        bottom: 4mm; height: 15mm;
+        border: 1px solid #999;
+      }
+      .form-bg .f-bottom-lbl {
+        position: absolute; font-size: 8px; color: #555; font-weight: bold;
+      }
+      .fbl-qty  { left: 6mm; bottom: 18mm; }
+      .fbl-memo { left: 80mm; bottom: 11mm; }
+      .fbl-delv { left: 6mm; bottom: 11mm; }
+    }
+
+    @media print {
+      .print-bar { display: none; }
     }
   </style>
 </head>
@@ -119,8 +213,39 @@
 </div>
 
 <div class="page-pair">
-  <!-- 상단: 공급자 보관용 -->
+  {% for copy in "ab" %}
   <div class="inv-half">
+    <!-- 화면 전용: 명세서 틀 -->
+    <div class="form-bg">
+      <div class="f-title">거 래 명 세 서<span class="f-title-sub">{% if copy == "a" %}(공급자 보관용){% else %}(거래처 보관용){% endif %}</span></div>
+      <div class="f-header"></div>
+      <div class="f-vline"></div>
+      <div class="f-lbl fl-date">발행일자</div>
+      <div class="f-lbl fl-no">발행번호</div>
+      <div class="f-lbl fl-client">거래처</div>
+      <div class="f-lbl fl-total">합  계</div>
+      <div class="f-lbl fl-reg">등록번호</div>
+      <div class="f-lbl fl-biz">상호</div>
+      <div class="f-lbl fl-owner">성명</div>
+      <div class="f-lbl fl-addr">주소</div>
+      <div class="f-lbl fl-tel">전화</div>
+      <div class="f-lbl fl-fax">팩스</div>
+      <div class="f-items-hdr">
+        <span class="fh-no">NO</span><span class="fh-pub">출판사/코드</span><span class="fh-name">도 서 명</span>
+        <span class="fh-qty">부수</span><span class="fh-price">정가</span><span class="fh-unit">단가</span>
+        <span class="fh-amt">금액</span><span class="fh-pct">%</span>
+      </div>
+      <div class="f-items-area"></div>
+      {% for i in "0123456789" %}
+      <div class="f-row-line" style="top: calc(55mm + var(--row-h) * {{ forloop.counter }})"></div>
+      {% endfor %}
+      <div class="f-bottom"></div>
+      <div class="f-bottom-lbl fbl-qty">총 수 량</div>
+      <div class="f-bottom-lbl fbl-delv">배송요청지/연락처</div>
+      <div class="f-bottom-lbl fbl-memo">비고</div>
+    </div>
+
+    <!-- 데이터 (화면+인쇄 모두 출력) -->
     <span class="v-date">{{ order.ordered_at|date:"Y-m-d" }}</span>
     <span class="v-no">{{ order.order_no }}</span>
     <span class="v-client">{{ order.delivery.name }}  {{ order.teacher.name }}</span>
@@ -132,7 +257,7 @@
     <span class="v-reg">108-91-20797</span>
     <span class="v-biz">북마트e&c</span>
     <span class="v-owner">전우득</span>
-    <span class="v-addr">고양시 일산동구 일산로 207 지층</span>
+    <span class="v-saddr">고양시 일산동구 일산로 207 지층</span>
     <span class="v-tel">02-833-0864</span>
     <span class="v-fax">031-917-0866</span>
 
@@ -155,43 +280,7 @@
     <span class="v-delv">{{ order.delivery.address|default:"" }}  {{ order.delivery.phone|default:order.teacher.phone|default:"" }}</span>
     <span class="v-memo">{{ order.memo|default:"" }}</span>
   </div>
-
-  <!-- 하단: 거래처 보관용 (동일 내용) -->
-  <div class="inv-half">
-    <span class="v-date">{{ order.ordered_at|date:"Y-m-d" }}</span>
-    <span class="v-no">{{ order.order_no }}</span>
-    <span class="v-client">{{ order.delivery.name }}  {{ order.teacher.name }}</span>
-    <span class="v-cphone">{{ order.delivery.phone|default:order.teacher.phone|default:"" }}</span>
-    <span class="v-caddr">{{ order.delivery.address|default:"" }}</span>
-    <span class="v-total">{{ total_amount|floatformat:0 }}</span>
-    <span class="v-code">({{ order.agency.name }})</span>
-    <span class="v-page">1/1</span>
-    <span class="v-reg">108-91-20797</span>
-    <span class="v-biz">북마트e&c</span>
-    <span class="v-owner">전우득</span>
-    <span class="v-addr">고양시 일산동구 일산로 207 지층</span>
-    <span class="v-tel">02-833-0864</span>
-    <span class="v-fax">031-917-0866</span>
-
-    {% for item in items %}
-    <div class="item-row" style="top: calc(var(--items-y) + var(--row-h) * {{ forloop.counter0 }})">
-      <span class="i-no">{{ forloop.counter }}</span>
-      <span class="i-pub">{{ item.display_publisher }}</span>
-      <span class="i-name">{{ item.display_name }}</span>
-      <span class="i-qty">{{ item.quantity }}</span>
-      <span class="i-price">{{ item.list_price|floatformat:0 }}</span>
-      <span class="i-unit">{{ item.unit_price|floatformat:0 }}</span>
-      <span class="i-amt">{{ item.amount|floatformat:0 }}</span>
-      <span class="i-pct">{{ item.supply_rate|floatformat:0 }}</span>
-    </div>
-    {% endfor %}
-
-    <span class="v-sum-qty">{{ total_qty }}</span>
-    <span class="v-sum-cnt">{{ total_qty }}</span>
-    <span class="v-sum-amt">&#8361;{{ total_amount|floatformat:0 }}</span>
-    <span class="v-delv">{{ order.delivery.address|default:"" }}  {{ order.delivery.phone|default:order.teacher.phone|default:"" }}</span>
-    <span class="v-memo">{{ order.memo|default:"" }}</span>
-  </div>
+  {% endfor %}
 </div>
 
 </body>
