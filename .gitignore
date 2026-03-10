@@ -20,3 +20,6 @@ wheels/
 # IDE
 .vscode/
 .idea/
+
+# Claude
+.claude/

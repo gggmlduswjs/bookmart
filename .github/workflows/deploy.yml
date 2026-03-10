@@ -16,7 +16,8 @@ jobs:
           password: ${{ secrets.SERVER_PASSWORD }}
           script: |
             cd /home/bookmart/bookmart
-            git pull origin main
+            git fetch origin main
+            git reset --hard origin/main
             source venv/bin/activate
             python manage.py migrate --noinput
             python manage.py collectstatic --noinput
