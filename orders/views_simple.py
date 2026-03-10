@@ -196,7 +196,11 @@ def simple_order(request, slug):
         # 배송지 업데이트
         new_school = request.POST.get('delivery_school', '').strip()
         new_addr = request.POST.get('delivery_address', '').strip()
+        new_detail = request.POST.get('delivery_detail', '').strip()
         new_phone = request.POST.get('delivery_phone', '').strip()
+        # 상세정보가 있으면 주소에 합침
+        if new_detail:
+            new_addr = f'{new_addr} ({new_detail})' if new_addr else new_detail
         if new_school and new_school != delivery.name:
             delivery, _ = DeliveryAddress.objects.get_or_create(
                 agency=agency, name=new_school,
