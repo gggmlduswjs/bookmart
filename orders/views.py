@@ -902,6 +902,71 @@ def order_deliver(request, pk):
     return redirect('order_detail', pk=pk)
 
 
+# ── 배송관리 ──────────────────────────────────────────────────────────────────
+
+@role_required('admin')
+def delivery_manage(request):
+    """배송관리 페이지: 접수/발송중 주문 일괄 처리"""
+    tab = request.GET.get('tab', 'pending')
+
+    if request.method == 'POST':
+        action = request.POST.get('action', '')
+        ids = request.POST.getlist('ids')
+        if ids:
+            if action == 'ship':
+                # 일괄 발송 처리
+                orders = Order.objects.filter(pk__in=ids, status=Order.Status.PENDING)
+                count = 0
+                for order in orders:
+                    tracking = request.POST.get(f'tracking_{order.pk}', '').strip()
+                    order.tracking_no = tracking
+                    order.status = Order.Status.SHIPPING
+                    order.save(update_fields=['status', 'tracking_no'])
+                    send_ship_notification(order)
+                    count += 1
+                messages.success(request, f'{count}건 발송 처리 완료.')
+                return redirect(f'{request.path}?tab=pending')
+            elif action == 'deliver':
+                # 일괄 배송완료 처리
+                orders = Order.objects.filter(pk__in=ids, status=Order.Status.SHIPPING)
+                count = 0
+                for order in orders:
+                    order.status = Order.Status.DELIVERED
+                    order.save(update_fields=['status'])
+                    send_delivery_notification(order)
+                    count += 1
+                messages.success(request, f'{count}건 배송완료 처리.')
+                return redirect(f'{request.path}?tab=shipping')
+
+    pending_orders = (
+        Order.objects.filter(status=Order.Status.PENDING)
+        .select_related('agency', 'teacher', 'delivery')
+        .prefetch_related('items')
+        .order_by('ordered_at')
+    )
+    shipping_orders = (
+        Order.objects.filter(status=Order.Status.SHIPPING)
+        .select_related('agency', 'teacher', 'delivery')
+        .prefetch_related('items')
+        .order_by('ordered_at')
+    )
+    # 각 주문에 합계 추가
+    for order in pending_orders:
+        order.total_amt = sum(item.amount for item in order.items.all())
+        order.item_count = order.items.count()
+    for order in shipping_orders:
+        order.total_amt = sum(item.amount for item in order.items.all())
+        order.item_count = order.items.count()
+
+    return render(request, 'orders/delivery_manage.html', {
+        'pending_orders': pending_orders,
+        'shipping_orders': shipping_orders,
+        'pending_count': pending_orders.count(),
+        'shipping_count': shipping_orders.count(),
+        'tab': tab,
+    })
+
+
 # ── 거래명세서 인쇄 ────────────────────────────────────────────────────────────
 
 @role_required('admin', 'agency')

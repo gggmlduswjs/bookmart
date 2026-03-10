@@ -26,6 +26,7 @@ urlpatterns = [
     path('orders/bulk-delete/', views.order_bulk_delete, name='order_bulk_delete'),
     path('orders/<int:pk>/ship/', views.order_ship, name='order_ship'),
     path('orders/<int:pk>/deliver/', views.order_deliver, name='order_deliver'),
+    path('orders/delivery/', views.delivery_manage, name='delivery_manage'),
     path('orders/<int:pk>/invoice/', views.order_invoice, name='order_invoice'),
     path('orders/invoice/bulk/', views.order_invoice_bulk, name='order_invoice_bulk'),
     path('orders/<int:pk>/quote/', views.order_quote, name='order_quote'),

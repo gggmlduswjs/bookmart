@@ -1,0 +1,164 @@
+{% extends 'base.html' %}
+{% block title %}배송관리{% endblock %}
+
+{% block extra_css %}
+<style>
+  .tab-bar { display:flex; gap:0; margin-bottom:14px; }
+  .tab-bar a {
+    padding:10px 20px; font-size:13px; font-weight:600;
+    border:1px solid #e2e8f0; background:#f8fafc; color:#64748b;
+    text-decoration:none; transition:all 0.15s;
+  }
+  .tab-bar a:first-child { border-radius:6px 0 0 6px; }
+  .tab-bar a:last-child { border-radius:0 6px 6px 0; }
+  .tab-bar a.active { background:#1e40af; color:#fff; border-color:#1e40af; }
+  .tab-bar .tab-count {
+    display:inline-block; background:rgba(255,255,255,0.3);
+    padding:1px 7px; border-radius:10px; font-size:11px; margin-left:4px;
+  }
+  .tab-bar a.active .tab-count { background:rgba(255,255,255,0.3); }
+  .tab-bar a:not(.active) .tab-count { background:#e2e8f0; color:#475569; }
+  .tracking-input {
+    width:140px; padding:3px 6px; border:1px solid #cbd5e1;
+    font-size:12px; font-family:inherit; border-radius:4px;
+  }
+  .tracking-input:focus { border-color:#2563eb; outline:none; box-shadow:0 0 0 2px rgba(37,99,235,0.15); }
+  .action-bar {
+    display:flex; align-items:center; gap:8px; margin-bottom:10px;
+    padding:8px 12px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-title">배송관리</div>
+
+<div class="tab-bar">
+  <a href="?tab=pending" class="{% if tab == 'pending' %}active{% endif %}">
+    발송 대기 <span class="tab-count">{{ pending_count }}</span>
+  </a>
+  <a href="?tab=shipping" class="{% if tab == 'shipping' %}active{% endif %}">
+    배송중 <span class="tab-count">{{ shipping_count }}</span>
+  </a>
+</div>
+
+{% if tab == 'pending' %}
+<!-- ═══ 발송 대기 (접수 → 발송) ═══ -->
+<form method="post">
+  {% csrf_token %}
+  <input type="hidden" name="action" value="ship">
+
+  <div class="action-bar">
+    <label style="font-size:13px;color:#64748b;cursor:pointer">
+      <input type="checkbox" id="check-all-pending" onchange="toggleAll(this, 'pending-chk')"> 전체 선택
+    </label>
+    <button type="submit" class="btn btn-orange btn-sm" onclick="return confirm('선택한 주문을 발송 처리하시겠습니까?')">
+      선택 발송 처리
+    </button>
+    <span style="font-size:12px;color:#94a3b8">운송장번호를 입력하면 선생님에게 문자가 발송됩니다</span>
+  </div>
+
+  <div class="content-box">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th style="width:30px"></th>
+          <th>주문번호</th>
+          <th>업체</th>
+          <th>선생님</th>
+          <th>배송지</th>
+          <th class="center">건수</th>
+          <th class="right">금액</th>
+          <th>운송장번호</th>
+          <th>주문일시</th>
+          <th style="width:40px"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for order in pending_orders %}
+        <tr>
+          <td class="center"><input type="checkbox" class="pending-chk" name="ids" value="{{ order.pk }}"></td>
+          <td style="font-size:11px">{{ order.order_no }}</td>
+          <td>{{ order.agency.name }}</td>
+          <td>{{ order.teacher.name }}</td>
+          <td>{{ order.delivery.name }}</td>
+          <td class="center">{{ order.item_count }}</td>
+          <td class="right" style="font-weight:600">{{ order.total_amt|floatformat:0 }}원</td>
+          <td><input type="text" name="tracking_{{ order.pk }}" class="tracking-input" placeholder="운송장번호"></td>
+          <td style="font-size:11px;color:#64748b">{{ order.ordered_at|date:"m/d H:i" }}</td>
+          <td class="center"><a href="{% url 'order_detail' order.pk %}" class="btn btn-sm btn-outline" style="padding:1px 6px;font-size:10px">상세</a></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="10" class="center" style="padding:20px;color:#94a3b8">발송 대기중인 주문이 없습니다.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</form>
+
+{% else %}
+<!-- ═══ 배송중 (발송 → 완료) ═══ -->
+<form method="post">
+  {% csrf_token %}
+  <input type="hidden" name="action" value="deliver">
+
+  <div class="action-bar">
+    <label style="font-size:13px;color:#64748b;cursor:pointer">
+      <input type="checkbox" id="check-all-shipping" onchange="toggleAll(this, 'shipping-chk')"> 전체 선택
+    </label>
+    <button type="submit" class="btn btn-sm" style="background:#059669;color:#fff;border:none" onclick="return confirm('선택한 주문을 배송완료 처리하시겠습니까?')">
+      선택 배송완료 처리
+    </button>
+  </div>
+
+  <div class="content-box">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th style="width:30px"></th>
+          <th>주문번호</th>
+          <th>업체</th>
+          <th>선생님</th>
+          <th>배송지</th>
+          <th class="center">건수</th>
+          <th class="right">금액</th>
+          <th>운송장번호</th>
+          <th>주문일시</th>
+          <th style="width:40px"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for order in shipping_orders %}
+        <tr>
+          <td class="center"><input type="checkbox" class="shipping-chk" name="ids" value="{{ order.pk }}"></td>
+          <td style="font-size:11px">{{ order.order_no }}</td>
+          <td>{{ order.agency.name }}</td>
+          <td>{{ order.teacher.name }}</td>
+          <td>{{ order.delivery.name }}</td>
+          <td class="center">{{ order.item_count }}</td>
+          <td class="right" style="font-weight:600">{{ order.total_amt|floatformat:0 }}원</td>
+          <td>
+            {% if order.tracking_no %}
+              <a href="https://www.hanjin.co.kr/kor/CMS/DeliveryMgr/WaybillResult.do?mession=open&wblnum={{ order.tracking_no }}" target="_blank" style="font-size:12px">{{ order.tracking_no }}</a>
+            {% else %}
+              <span style="color:#94a3b8;font-size:12px">-</span>
+            {% endif %}
+          </td>
+          <td style="font-size:11px;color:#64748b">{{ order.ordered_at|date:"m/d H:i" }}</td>
+          <td class="center"><a href="{% url 'order_detail' order.pk %}" class="btn btn-sm btn-outline" style="padding:1px 6px;font-size:10px">상세</a></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="10" class="center" style="padding:20px;color:#94a3b8">배송중인 주문이 없습니다.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</form>
+{% endif %}
+
+<script>
+function toggleAll(el, cls) {
+  document.querySelectorAll('.' + cls).forEach(function(cb) { cb.checked = el.checked; });
+}
+</script>
+{% endblock %}
