@@ -221,7 +221,7 @@ def order_create(request):
                 teacher=user,
                 delivery=delivery,
                 memo=request.POST.get('memo', ''),
-                source=Order.Source.TEACHER,
+                source=Order.Source.SIMPLE,
             )
             for book_id, qty in items:
                 try:

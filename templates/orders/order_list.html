@@ -34,7 +34,6 @@
   <select name="source">
     <option value="">전체</option>
     <option value="simple" {% if filters.source == 'simple' %}selected{% endif %}>간편주문</option>
-    <option value="teacher" {% if filters.source == 'teacher' %}selected{% endif %}>선생님</option>
     <option value="inbox" {% if filters.source == 'inbox' %}selected{% endif %}>수신함</option>
     <option value="admin" {% if filters.source == 'admin' %}selected{% endif %}>관리자</option>
   </select>
@@ -91,8 +90,7 @@
         {% if request.user.is_admin %}<td>{{ order.agency.name }}</td>{% endif %}
         {% if request.user.is_admin %}
         <td class="center" style="font-size:11px">
-          {% if order.source == 'simple' %}<span class="badge badge-green">간편주문</span>
-          {% elif order.source == 'teacher' %}<span class="badge badge-blue">선생님</span>
+          {% if order.source == 'simple' or order.source == 'teacher' %}<span class="badge badge-green">간편주문</span>
           {% elif order.source == 'inbox' %}<span class="badge badge-orange">수신함</span>
           {% else %}<span class="badge badge-gray">관리자</span>
           {% endif %}

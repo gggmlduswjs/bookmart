@@ -38,7 +38,6 @@ class Order(models.Model):
 
     class Source(models.TextChoices):
         SIMPLE  = 'simple',  '간편주문'
-        TEACHER = 'teacher', '선생님'
         INBOX   = 'inbox',   '수신함'
         ADMIN   = 'admin',   '관리자'
 
