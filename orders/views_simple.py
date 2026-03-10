@@ -279,6 +279,32 @@ def simple_order(request, slug):
             send_order_confirmation(order)
             return redirect('simple_confirm', slug=slug, order_id=order.pk)
 
+    # 재주문 복사
+    copy_rows_json = '[]'
+    copy_id = request.GET.get('copy', '')
+    if copy_id:
+        try:
+            src_order = Order.objects.get(pk=int(copy_id), teacher=teacher)
+            copy_rows = []
+            for item in src_order.items.select_related('book', 'book__publisher'):
+                if item.book:
+                    copy_rows.append({
+                        'series': item.book.series or '기타',
+                        'book_id': str(item.book_id),
+                        'qty': item.quantity,
+                        'is_custom': False,
+                    })
+                else:
+                    copy_rows.append({
+                        'is_custom': True,
+                        'custom_name': item.custom_book_name,
+                        'qty': item.quantity,
+                        'unit_price': item.unit_price,
+                    })
+            copy_rows_json = json.dumps(copy_rows, ensure_ascii=False)
+        except (Order.DoesNotExist, ValueError):
+            pass
+
     return render(request, 'simple/order.html', {
         'agency': agency,
         'teacher': teacher,
@@ -287,6 +313,7 @@ def simple_order(request, slug):
         'books_json': books_json,
         'slug': slug,
         'error': error,
+        'copy_rows_json': copy_rows_json,
     })
 
 

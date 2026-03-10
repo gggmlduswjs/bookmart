@@ -226,5 +226,17 @@
 function toggleAll(el, cls) {
   document.querySelectorAll('.' + cls).forEach(function(cb) { cb.checked = el.checked; });
 }
+// 배송방법 기본값 기억
+document.addEventListener('alpine:init', () => {
+  const saved = localStorage.getItem('bm_default_carrier');
+  if (saved) {
+    document.querySelectorAll('select[name^="carrier_"]').forEach(s => { s.value = saved; s.dispatchEvent(new Event('input')); });
+  }
+  document.addEventListener('change', e => {
+    if (e.target.name && e.target.name.startsWith('carrier_')) {
+      localStorage.setItem('bm_default_carrier', e.target.value);
+    }
+  });
+});
 </script>
 {% endblock %}

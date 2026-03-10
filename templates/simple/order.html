@@ -230,7 +230,17 @@ function orderForm() {
     // 엑셀
     excelLoading: false, excelUnmatched: [],
     // 교재
-    rows: [{ series: '', book_id: '', qty: 1, list_price: 0, is_custom: false }],
+    rows: (() => {
+      const copy = {{ copy_rows_json|safe }};
+      if (copy.length) {
+        return copy.map(r => {
+          if (r.is_custom) return { is_custom: true, custom_name: r.custom_name, qty: r.qty, list_price: r.unit_price || 0 };
+          const b = BOOKS.find(b => b.id == r.book_id);
+          return { series: r.series || '', book_id: r.book_id, qty: r.qty, list_price: b ? b.list_price : 0, is_custom: false };
+        });
+      }
+      return [{ series: '', book_id: '', qty: 1, list_price: 0, is_custom: false }];
+    })(),
 
     openPostcode() {
       const self = this;

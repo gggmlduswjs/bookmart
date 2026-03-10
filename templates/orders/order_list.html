@@ -11,6 +11,8 @@
 
 <!-- 필터 -->
 <form method="get" class="search-bar">
+  <input type="text" name="q" value="{{ filters.q }}" placeholder="주문번호/선생님/학교/업체 검색"
+         style="width:200px;padding:4px 8px;border:1px solid #bbb;font-size:12px">
   <label>상태</label>
   <select name="status">
     <option value="">전체</option>

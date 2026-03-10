@@ -10,6 +10,8 @@
 </div>
 
 <div style="margin-bottom:8px;display:flex;align-items:center;gap:8px">
+  <input type="text" id="book-search" placeholder="교재명/시리즈 검색" oninput="filterBooks(this.value)"
+         style="width:200px;padding:4px 8px;border:1px solid #bbb;font-size:12px">
   <label style="font-size:13px;color:#64748b;cursor:pointer">
     <input type="checkbox" id="check-all" onchange="toggleAll(this)"> 전체 선택
   </label>
@@ -74,6 +76,13 @@
 </form>
 
 <script>
+function filterBooks(q) {
+  q = q.toLowerCase();
+  document.querySelectorAll('.data-table tbody tr').forEach(function(tr) {
+    var text = tr.textContent.toLowerCase();
+    tr.style.display = (!q || text.includes(q)) ? '' : 'none';
+  });
+}
 function toggleAll(el) {
   document.querySelectorAll('.book-chk').forEach(function(cb) { cb.checked = el.checked; });
 }

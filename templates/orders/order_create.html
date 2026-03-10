@@ -10,6 +10,12 @@
   .order-row-wrap select { width: 100%; }
   .order-row-wrap input[type=number] { width: 60px; text-align: center; }
   .deadline-warn { background:#fff3cd; border:1px solid #ffc107; color:#856404; padding:6px 12px; margin-bottom:10px; font-size:12px; }
+  .book-search-wrap { position:relative; }
+  .book-search-input { width:100%; padding:3px 5px; border:1px solid #bbb; font-size:12px; height:26px; box-sizing:border-box; }
+  .book-search-list { position:absolute; top:100%; left:0; right:0; z-index:100; background:#fff; border:1px solid #ccc; border-top:none; max-height:200px; overflow-y:auto; box-shadow:0 4px 12px rgba(0,0,0,0.15); }
+  .book-search-list div { padding:5px 8px; font-size:11px; cursor:pointer; }
+  .book-search-list div:hover { background:#e8f0fe; }
+  .book-search-list .bk-pub { color:#888; font-size:10px; }
 </style>
 {% endblock %}
 
@@ -51,7 +57,7 @@
         <template x-for="(row, index) in rows" :key="index">
           <tr>
             <td>
-              <select x-model="row.series" @change="row.book_id = ''; row.unit_price = 0">
+              <select x-model="row.series" @change="row.book_id = ''; row.unit_price = 0; row.bookQuery = ''">
                 <option value="">시리즈 선택</option>
                 {% for s in series_list %}
                 <option value="{{ s }}">{{ s }}</option>
@@ -59,12 +65,21 @@
               </select>
             </td>
             <td>
-              <select x-model="row.book_id" @change="updatePrice(row)">
-                <option value="">교재 선택</option>
-                <template x-for="b in getBooks(row.series)" :key="b.id">
-                  <option :value="b.id" x-text="b.name"></option>
-                </template>
-              </select>
+              <div class="book-search-wrap">
+                <input type="text" class="book-search-input" :value="getBookName(row)"
+                       @input="row.bookQuery = $event.target.value; row.showBookList = true; row.book_id = ''; row.unit_price = 0"
+                       @focus="row.showBookList = true"
+                       @keydown.escape="row.showBookList = false"
+                       placeholder="교재 검색...">
+                <div class="book-search-list" x-show="row.showBookList && row.bookQuery && row.bookQuery.length >= 1" @click.outside="row.showBookList = false">
+                  <template x-for="b in searchBooks(row)" :key="b.id">
+                    <div @click="selectBook(row, b, $event)">
+                      <span x-text="b.name"></span>
+                      <span class="bk-pub" x-text="'(' + b.publisher + ')'"></span>
+                    </div>
+                  </template>
+                </div>
+              </div>
               <input type="hidden" :name="'book_' + index" :value="row.book_id">
             </td>
             <td class="right"><span x-text="row.unit_price ? row.unit_price.toLocaleString() + '원' : '-'" style="color:#666"></span></td>
@@ -105,12 +120,28 @@
 const BOOKS = {{ books_json|safe }};
 function orderForm() {
   return {
-    rows: [{ series: '', book_id: '', qty: 1, unit_price: 0 }],
+    rows: [{ series: '', book_id: '', qty: 1, unit_price: 0, bookQuery: '', showBookList: false }],
     getBooks(series) { return series ? BOOKS.filter(b => b.series === series) : BOOKS; },
+    searchBooks(row) {
+      const q = (row.bookQuery || '').toLowerCase();
+      let list = row.series ? BOOKS.filter(b => b.series === row.series) : BOOKS;
+      if (q) list = list.filter(b => b.name.toLowerCase().includes(q) || b.publisher.toLowerCase().includes(q));
+      return list.slice(0, 20);
+    },
+    getBookName(row) {
+      if (row.bookQuery !== undefined && row.bookQuery !== '') return row.bookQuery;
+      const b = BOOKS.find(b => b.id == row.book_id);
+      return b ? b.name : '';
+    },
+    selectBook(row, b, e) {
+      row.book_id = b.id; row.unit_price = b.unit_price;
+      row.series = b.series; row.bookQuery = b.name;
+      row.showBookList = false;
+    },
     updatePrice(row) { const b = BOOKS.find(b => b.id == row.book_id); row.unit_price = b ? b.unit_price : 0; },
     rowAmount(row) { return (row.book_id && row.qty) ? row.unit_price * row.qty : 0; },
     total() { return this.rows.reduce((s, r) => s + this.rowAmount(r), 0); },
-    addRow() { this.rows.push({ series: '', book_id: '', qty: 1, unit_price: 0 }); },
+    addRow() { this.rows.push({ series: '', book_id: '', qty: 1, unit_price: 0, bookQuery: '', showBookList: false }); },
     submitOrder() {
       if (!this.rows.some(r => r.book_id && r.qty > 0)) { alert('주문할 교재를 선택하세요.'); return; }
       this.$el.submit();

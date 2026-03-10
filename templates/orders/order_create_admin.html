@@ -27,6 +27,7 @@
   .new-fields .form-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
   .new-fields label { font-size: 11px; color: #666; width: 60px; flex-shrink: 0; }
   .new-fields input { flex: 1; padding: 4px 8px; border: 1px solid #bbb; font-size: 12px; }
+  @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 </style>
 {% endblock %}
 
@@ -135,13 +136,20 @@
     <div style="display:flex;align-items:center;gap:10px">
       <label style="font-size:12px;font-weight:bold;color:#334155;white-space:nowrap">엑셀 일괄 등록</label>
       <input type="file" accept=".xlsx,.xls" @change="uploadExcel($event)" style="font-size:12px">
-      <span x-show="excelLoading" style="font-size:11px;color:#888">파싱 중...</span>
+      <span x-show="excelLoading" style="font-size:11px;color:#2563eb;font-weight:600">
+        <span style="display:inline-block;animation:spin 1s linear infinite;margin-right:4px">&#9696;</span> 파싱 중...
+      </span>
     </div>
     <template x-if="excelUnmatched.length > 0">
       <div style="margin-top:8px;padding:6px 10px;background:#fff3cd;border:1px solid #ffc107;font-size:11px;color:#856404">
-        <strong>매칭 실패:</strong>
+        <strong>매칭 실패 (직접입력으로 추가됨):</strong>
         <template x-for="u in excelUnmatched" :key="u.name">
-          <span x-text="u.name + '(' + u.qty + '권) '" style="margin-right:6px"></span>
+          <div style="margin:3px 0">
+            <span x-text="u.name + ' (' + u.qty + '권)'"></span>
+            <template x-if="findSimilar(u.name)">
+              <span style="color:#2563eb;font-size:10px" x-text="' → 유사: ' + findSimilar(u.name)"></span>
+            </template>
+          </div>
         </template>
       </div>
     </template>
@@ -305,6 +313,15 @@ function adminOrderForm() {
       if (this.acIdx[type] >= 0 && this.acIdx[type] < list.length) {
         type === 'agency' ? this.selectAgency(list[this.acIdx[type]]) : this.selectTeacher(list[this.acIdx[type]]);
       }
+    },
+    // 유사 교재 찾기
+    findSimilar(name) {
+      const q = name.toLowerCase().replace(/\s/g, '');
+      const found = BOOKS.find(b => {
+        const bn = b.name.toLowerCase().replace(/\s/g, '');
+        return bn.includes(q) || q.includes(bn) || (q.length > 3 && bn.includes(q.slice(0, Math.ceil(q.length * 0.7))));
+      });
+      return found ? found.name + ' (' + found.publisher + ')' : '';
     },
     // 교재
     getBooks(series) { return series ? BOOKS.filter(b => b.series === series) : BOOKS; },

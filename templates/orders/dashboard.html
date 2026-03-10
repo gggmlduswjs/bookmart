@@ -128,24 +128,24 @@
 {% block content %}
 <div class="page-title">대시보드</div>
 
-<!-- 상단: 4개 요약 카드 -->
+<!-- 상단: 4개 요약 카드 (클릭 시 이동) -->
 <div class="dash-cards">
-  <div class="dash-card">
+  <a href="{% url 'inbox_list' %}?tab=email&hide_done=1" class="dash-card" style="text-decoration:none;cursor:pointer">
     <div class="card-label">미처리 수신함</div>
     <div class="card-value">{{ unprocessed_inbox }}</div>
-  </div>
-  <div class="dash-card">
+  </a>
+  <a href="{% url 'order_list' %}?date_from={{ today_str }}&date_to={{ today_str }}" class="dash-card" style="text-decoration:none;cursor:pointer">
     <div class="card-label">오늘 주문</div>
     <div class="card-value blue">{{ today_orders }}</div>
-  </div>
-  <div class="dash-card">
+  </a>
+  <a href="{% url 'delivery_manage' %}?tab=pending" class="dash-card" style="text-decoration:none;cursor:pointer">
     <div class="card-label">발송 대기</div>
     <div class="card-value">{{ pending_orders }}</div>
-  </div>
-  <div class="dash-card">
+  </a>
+  <a href="{% url 'delivery_manage' %}?tab=shipping" class="dash-card" style="text-decoration:none;cursor:pointer">
     <div class="card-label">발송중</div>
     <div class="card-value green">{{ shipping_orders }}</div>
-  </div>
+  </a>
 </div>
 
 <!-- 중단: 2컬럼 -->

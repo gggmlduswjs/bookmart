@@ -57,6 +57,7 @@ def dashboard(request):
         'deadline_region': deadline_region,
         'now': now,
         'recent_delivered': recent_delivered,
+        'today_str': today.strftime('%Y-%m-%d'),
     })
 
 
@@ -135,6 +136,7 @@ def order_list(request):
     date_to = request.GET.get('date_to', '')
     delivery_id = request.GET.get('delivery', '')
     source = request.GET.get('source', '')
+    q = request.GET.get('q', '').strip()
 
     if status:
         qs = qs.filter(status=status)
@@ -146,6 +148,13 @@ def order_list(request):
         qs = qs.filter(delivery_id=delivery_id)
     if source:
         qs = qs.filter(source=source)
+    if q:
+        qs = qs.filter(
+            Q(order_no__icontains=q) |
+            Q(teacher__name__icontains=q) |
+            Q(delivery__name__icontains=q) |
+            Q(agency__name__icontains=q)
+        )
 
     # 마감 시간 기준: 11:20 시내, 13:50 지방
     now = timezone.localtime()
@@ -163,7 +172,7 @@ def order_list(request):
         'filters': {
             'status': status, 'date_from': date_from,
             'date_to': date_to, 'delivery': delivery_id,
-            'source': source,
+            'source': source, 'q': q,
         },
         'past_city': past_city,
         'past_region': past_region,
@@ -265,6 +274,37 @@ def order_detail(request, pk):
             and order.status == Order.Status.SHIPPING
         ),
     })
+
+
+# ── 주문 복사 ──────────────────────────────────────────────────────────────────
+
+@role_required('admin')
+def order_copy(request, pk):
+    """기존 주문을 복사하여 새 주문 생성"""
+    src = get_object_or_404(Order, pk=pk)
+    src_items = list(src.items.select_related('book', 'book__publisher'))
+
+    new_order = Order.objects.create(
+        order_no=Order.generate_order_no(),
+        agency=src.agency,
+        teacher=src.teacher,
+        delivery=src.delivery,
+        source=Order.Source.ADMIN,
+        memo=f'[복사] {src.order_no}',
+    )
+    for item in src_items:
+        OrderItem.objects.create(
+            order=new_order,
+            book=item.book,
+            custom_book_name=item.custom_book_name,
+            quantity=item.quantity,
+            list_price=item.list_price,
+            supply_rate=item.supply_rate,
+            unit_price=item.unit_price,
+            amount=item.amount,
+        )
+    messages.success(request, f'주문 {src.order_no}를 복사하여 새 주문 {new_order.order_no}을 생성했습니다.')
+    return redirect('order_detail', pk=new_order.pk)
 
 
 # ── 주문 수정 ──────────────────────────────────────────────────────────────────
@@ -1862,11 +1902,20 @@ def inbox_process(request, pk):
                 if creds:
                     mark_as_read_imap(creds[0], creds[1], uid_str)
 
+    # 다음 미처리 메일
+    next_unprocessed = (
+        InboxMessage.objects.filter(is_processed=False, source=inbox_msg.source)
+        .exclude(pk=pk).order_by('-received_at').first()
+    )
+
     # 처리 완료 (주문 없이)
     if request.method == 'POST' and 'skip' in request.POST:
         inbox_msg.is_processed = True
         inbox_msg.save(update_fields=['is_processed'])
         messages.info(request, '처리 완료되었습니다.')
+        nxt = InboxMessage.objects.filter(is_processed=False, source=inbox_msg.source).order_by('-received_at').first()
+        if nxt:
+            return redirect('inbox_process', pk=nxt.pk)
         return redirect('inbox_list')
 
     agencies = User.objects.filter(role='agency', is_active=True).order_by('name')
@@ -2009,6 +2058,9 @@ def inbox_process(request, pk):
             inbox_msg.save(update_fields=['is_processed', 'order'])
 
             messages.success(request, f'주문 등록 완료. 주문번호: {order.order_no}')
+            nxt = InboxMessage.objects.filter(is_processed=False, source=inbox_msg.source).order_by('-received_at').first()
+            if nxt:
+                return redirect('inbox_process', pk=nxt.pk)
             return redirect('inbox_list')
 
     attachments = inbox_msg.attachments.all()
@@ -2021,6 +2073,7 @@ def inbox_process(request, pk):
         'series_list': series_list,
         'books_json': books_json,
         'attachments': attachments,
+        'next_unprocessed': next_unprocessed,
     })
 
 
