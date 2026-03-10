@@ -16,13 +16,6 @@ jobs:
           password: ${{ secrets.SERVER_PASSWORD }}
           script: |
             cd /home/bookmart/bookmart
-            echo "=== .env ==="
-            cat .env 2>/dev/null || echo "NO .env FILE"
-            echo "=== nginx ==="
-            grep -r 'server_name\|proxy_pass' /etc/nginx/ 2>/dev/null | head -20
-            echo "=== systemd ==="
-            cat /etc/systemd/system/bookmart.service 2>/dev/null | head -30
-            echo "=== END DEBUG ==="
             git fetch origin main
             git reset --hard origin/main
             source venv/bin/activate

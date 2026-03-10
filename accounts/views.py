@@ -19,6 +19,26 @@ from orders.models import DeliveryAddress
 from orders.sms import send_sms
 
 
+def csrf_failure(request, reason=''):
+    """CSRF 검증 실패 시 안내 페이지"""
+    html = '''<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>페이지 만료</title>
+    <style>body{font-family:-apple-system,sans-serif;display:flex;align-items:center;
+    justify-content:center;min-height:100vh;background:#f1f5f9;margin:0}
+    .box{background:#fff;padding:40px;border-radius:12px;text-align:center;
+    box-shadow:0 2px 12px rgba(0,0,0,.08);max-width:400px}
+    h2{margin:0 0 12px;color:#1e293b}p{color:#64748b;font-size:14px;line-height:1.6;margin:0 0 20px}
+    a{display:inline-block;background:#e8720c;color:#fff;padding:10px 28px;
+    border-radius:6px;text-decoration:none;font-weight:600;font-size:14px}
+    a:hover{background:#d4650a}</style></head>
+    <body><div class="box"><h2>페이지가 만료되었습니다</h2>
+    <p>오래된 페이지이거나 쿠키가 만료되었습니다.<br>아래 버튼을 눌러 다시 시도해 주세요.</p>
+    <a href="/login/">로그인 페이지로 이동</a></div></body></html>'''
+    from django.http import HttpResponseForbidden
+    return HttpResponseForbidden(html)
+
+
 class CustomLoginView(LoginView):
     form_class = LoginForm
     template_name = 'auth/login.html'
