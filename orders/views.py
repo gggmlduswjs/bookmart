@@ -552,27 +552,50 @@ def parse_order_excel(request):
             name = re.sub(r'^[^)]+\)\s*', '', name)
             return name.strip()
 
+        def normalize(text):
+            """매칭용 문자열 정규화: 특수문자/공백 제거"""
+            t = text.strip()
+            t = re.sub(r'[\s\-_·•:：/\\&+<>()（）【】\[\]「」『』]', '', t)
+            return t.lower()
+
         def try_match(name):
-            """교재명 매칭: 원본 → 접두사제거 → 부분매칭 순서"""
+            """교재명 매칭: 정확→접두사제거→정규화→부분매칭 순서"""
+            # 1. 정확 일치
             if name in book_map:
                 return book_map[name]
             cleaned = clean_book_name(name)
             if cleaned != name and cleaned in book_map:
                 return book_map[cleaned]
+            # 2. 정규화 후 정확 일치
+            norm_name = normalize(cleaned)
             for bname, binfo in book_map.items():
-                if name in bname or bname in name:
+                if normalize(bname) == norm_name:
                     return binfo
-                if cleaned != name and (cleaned in bname or bname in cleaned):
-                    return binfo
-            return None
+            # 3. 부분 매칭 (길이 비율 60% 이상만 허용)
+            best = None
+            best_ratio = 0
+            for bname, binfo in book_map.items():
+                norm_b = normalize(bname)
+                shorter = min(len(norm_name), len(norm_b))
+                longer = max(len(norm_name), len(norm_b))
+                if shorter < 3 or longer == 0:
+                    continue
+                ratio = shorter / longer
+                if ratio < 0.5:
+                    continue
+                if norm_name in norm_b or norm_b in norm_name:
+                    if ratio > best_ratio:
+                        best = binfo
+                        best_ratio = ratio
+            return best
 
         def is_skip_row(text):
             """교재가 아닌 메타데이터 행인지 판별"""
             t = text.strip()
             if not t:
                 return True
-            # 출판사, 주소, 연락처, 샘플 등 메타데이터
-            if re.match(r'^[●•◆■□▶▷※★☆\-\*]?\s*(출판사|샘플|합계)', t):
+            # 출판사, 주소, 연락처, 샘플, 합계 등 메타데이터
+            if re.match(r'^[●•◆■□▶▷※★☆\-\*]?\s*(출판사|샘플|합계|소계|총합계)', t):
                 return True
             if re.match(r'출판사\s*[:：]', t):
                 return True
@@ -581,7 +604,14 @@ def parse_order_excel(request):
             # 전화번호만 있는 행
             if re.match(r'^[\d\-\s\(\)]+$', t):
                 return True
-            # NO., 번호, 비고 등 헤더 잔해
+            # 전화번호가 포함된 텍스트 (예: "김미선 010-5637-3737")
+            if re.search(r'01[016789][\-\s]?\d{3,4}[\-\s]?\d{4}', t):
+                return True
+            # 주소 패턴 (시/도 + 구/군/시)
+            if re.search(r'(서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|전북|전남|경북|경남|제주)', t):
+                if re.search(r'(시|구|군|읍|면|동|로|길)\s', t):
+                    return True
+            # NO., 번호, 비고 등
             if t in ('NO.', 'NO', '비고', '합계', '총합계', '소계'):
                 return True
             return False
@@ -640,11 +670,27 @@ def parse_order_excel(request):
                     m2 = re.search(r'(\S*(?:초등학교|초|중학교|중|고등학교|고)\S*)', line)
                     if m2 and '출판사' not in line:
                         meta['school'] = m2.group(1)
-                # 전화번호 패턴 (별도 라벨 없이)
+                # "이름 전화번호" 패턴 (예: "김미선 010-5637-3737")
                 if not meta.get('phone'):
                     m3 = re.search(r'(01[016789][\-\s]?\d{3,4}[\-\s]?\d{4})', line)
                     if m3 and '출판사' not in line:
                         meta['phone'] = re.sub(r'[^\d\-]', '', m3.group(1))
+                        # 전화번호 앞의 이름 추출
+                        if not meta.get('teacher'):
+                            name_part = line[:m3.start()].strip()
+                            if name_part and len(name_part) <= 10 and not any(k in name_part for k in ['주소', '출판사', '연락처']):
+                                meta['teacher'] = name_part
+                # 주소 패턴 (라벨 없이 시/도로 시작)
+                if not meta.get('address'):
+                    m4 = re.match(r'(서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|전북|전남|경북|경남|제주)', line)
+                    if m4 and re.search(r'(구|군|시|읍|면|동|로|길)', line):
+                        addr = line.split('\n')[0].strip()
+                        meta['address'] = addr
+                        # 주소에서 학교명 추출
+                        if not meta.get('school'):
+                            s = re.search(r'(\S*(?:초등학교|중학교|고등학교)\S*)', addr)
+                            if s:
+                                meta['school'] = s.group(1)
             return meta
 
         # 전체 행 수집
