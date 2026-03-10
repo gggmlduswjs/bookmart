@@ -839,6 +839,8 @@ def order_delete(request, pk):
     order = get_object_or_404(Order, pk=pk)
     if request.method == 'POST':
         order_no = order.order_no
+        # 연결된 수신함 메시지를 미처리로 되돌림
+        InboxMessage.objects.filter(order=order).update(is_processed=False, order=None)
         order.items.all().delete()
         order.delete()
         messages.success(request, f'주문 {order_no}을 삭제했습니다.')
@@ -854,6 +856,8 @@ def order_bulk_delete(request):
     if ids:
         qs = Order.objects.filter(pk__in=ids)
         count = qs.count()
+        # 연결된 수신함 메시지를 미처리로 되돌림
+        InboxMessage.objects.filter(order__in=qs).update(is_processed=False, order=None)
         OrderItem.objects.filter(order__in=qs).delete()
         qs.delete()
         messages.success(request, f'{count}건의 주문을 삭제했습니다.')
