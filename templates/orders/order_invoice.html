@@ -6,49 +6,50 @@
   <style>
     :root {
       --half-h: 148.5mm;
-      /* ── 헤더 행 경계 (title 포함 5행 그리드) ── */
-      --hdr-top: 3mm;
+      /* ── 헤더 행 경계 ── */
+      --hdr-top: 4mm;
       --hdr-bot: 50mm;
-      --hdr-r1: 11mm;   /* title ↔ 발행일자/등록번호 */
-      --hdr-r2: 18mm;   /* 발행번호 */
-      --hdr-r3: 31mm;   /* 거래처/상호·성명 */
-      --hdr-r4: 39mm;   /* 전화주소/주소 */
+      --hdr-r1: 12mm;   /* title 하단 */
+      --hdr-r2: 19mm;   /* 발행일자/등록번호 하단 */
+      --hdr-r3: 25mm;   /* 발행번호 하단 */
+      --hdr-r4: 33mm;   /* 거래처·상호 하단 */
+      --hdr-r5: 40mm;   /* 전화주소·주소 하단 */
       --vline-x: 105mm; /* 좌우 구분선 */
 
       /* 헤더 좌측 (거래처) */
-      --date-x: 35mm;  --date-y: 12mm;
-      --no-x: 35mm;    --no-y: 19mm;
-      --client-x: 6mm; --client-y: 23mm;
-      --client-phone-x: 6mm; --client-phone-y: 33mm;
-      --client-addr-x: 45mm; --client-addr-y: 33mm;
-      --total-x: 22mm; --total-y: 41.5mm;
-      --code-x: 62mm;  --code-y: 41.5mm;
-      --page-x: 82mm;  --page-y: 41.5mm;
+      --date-x: 33mm;  --date-y: 13.5mm;
+      --no-x: 33mm;    --no-y: 20.5mm;
+      --client-x: 6mm; --client-y: 26mm;
+      --client-phone-x: 6mm; --client-phone-y: 27mm;
+      --client-addr-x: 50mm; --client-addr-y: 27mm;
+      --total-x: 22mm; --total-y: 43mm;
+      --code-x: 55mm;  --code-y: 43mm;
+      --page-x: 75mm;  --page-y: 43mm;
       /* 헤더 우측 (공급자) */
-      --reg-x: 128mm;  --reg-y: 12mm;
-      --biz-x: 115mm;  --biz-y: 23mm;
-      --owner-x: 172mm; --owner-y: 23mm;
-      --sup-addr-x: 115mm; --sup-addr-y: 33mm;
-      --tel-x: 118mm;  --tel-y: 41.5mm;
-      --fax-x: 162mm;  --fax-y: 41.5mm;
+      --reg-x: 130mm;  --reg-y: 14mm;
+      --biz-x: 118mm;  --biz-y: 26mm;
+      --owner-x: 175mm; --owner-y: 26mm;
+      --sup-addr-x: 118mm; --sup-addr-y: 35mm;
+      --tel-x: 120mm;  --tel-y: 43mm;
+      --fax-x: 165mm;  --fax-y: 43mm;
       /* 품목 */
       --items-y: 56mm;
       --row-h: 5.5mm;
       --col-no: 8mm;
-      --col-pub: 22mm;
-      --col-name: 55mm;
-      --col-qty: 117mm;
-      --col-price: 132mm;
-      --col-unit: 152mm;
-      --col-amt: 173mm;
-      --col-pct: 196mm;
+      --col-pub: 20mm;
+      --col-name: 52mm;
+      --col-qty: 116mm;
+      --col-price: 131mm;
+      --col-unit: 151mm;
+      --col-amt: 172mm;
+      --col-pct: 195mm;
       /* 하단 */
       --bot-top: 127.5mm;
-      --sum-qty-x: 28mm;  --sum-y: 128mm;
+      --sum-qty-x: 28mm;  --sum-y: 128.5mm;
       --sum-cnt-x: 95mm;
-      --sum-amt-x: 178mm;
-      --memo-x: 52mm; --memo-y: 134mm;
-      --delv-x: 52mm;  --delv-y: 139mm;
+      --sum-amt-x: 175mm;
+      --memo-x: 52mm; --memo-y: 134.5mm;
+      --delv-x: 52mm;  --delv-y: 140mm;
       /* 은행 */
       --bank-x: 8mm;
     }
@@ -95,14 +96,14 @@
     .v-fax    { left: var(--fax-x);   top: var(--fax-y);   font-size: 10px; }
 
     .item-row { position: absolute; left: 0; right: 0; height: var(--row-h); }
-    .item-row .i-no   { left: var(--col-no);    font-size: 9px; }
-    .item-row .i-pub  { left: var(--col-pub);   font-size: 8px; }
-    .item-row .i-name { left: var(--col-name);  font-size: 9px; max-width: 58mm; overflow: hidden; text-overflow: ellipsis; }
-    .item-row .i-qty  { left: var(--col-qty);   font-size: 9px; }
-    .item-row .i-price{ left: var(--col-price); font-size: 9px; }
-    .item-row .i-unit { left: var(--col-unit);  font-size: 9px; }
-    .item-row .i-amt  { left: var(--col-amt);   font-size: 9px; font-weight: bold; }
-    .item-row .i-pct  { left: var(--col-pct);   font-size: 8px; }
+    .item-row .i-no   { left: var(--col-no);    top: 1mm; font-size: 9px; }
+    .item-row .i-pub  { left: var(--col-pub);   top: 1mm; font-size: 8px; }
+    .item-row .i-name { left: var(--col-name);  top: 1mm; font-size: 9px; max-width: 58mm; overflow: hidden; text-overflow: ellipsis; }
+    .item-row .i-qty  { left: var(--col-qty);   top: 1mm; font-size: 9px; }
+    .item-row .i-price{ left: var(--col-price); top: 1mm; font-size: 9px; }
+    .item-row .i-unit { left: var(--col-unit);  top: 1mm; font-size: 9px; }
+    .item-row .i-amt  { left: var(--col-amt);   top: 1mm; font-size: 9px; font-weight: bold; }
+    .item-row .i-pct  { left: var(--col-pct);   top: 1mm; font-size: 8px; }
 
     .v-bank    { left: var(--bank-x); font-size: 8px; font-weight: bold; }
 
@@ -134,13 +135,13 @@
 
       /* ── 외곽 테두리 ── */
       .form-bg .f-outer {
-        position: absolute; left: 4mm; top: var(--hdr-top); right: 4mm; bottom: 3mm;
+        position: absolute; left: 5mm; top: var(--hdr-top); right: 5mm; bottom: 3mm;
         border: 2px solid #c00;
       }
 
       /* ── 타이틀 행 ── */
       .form-bg .f-title {
-        position: absolute; left: 4mm; top: var(--hdr-top); right: 4mm;
+        position: absolute; left: 5mm; top: var(--hdr-top); right: 5mm;
         height: calc(var(--hdr-r1) - var(--hdr-top));
         border: 2px solid #c00;
         display: flex; align-items: center; justify-content: center;
@@ -152,7 +153,7 @@
 
       /* ── 헤더 그리드 수평선 ── */
       .form-bg .f-hline {
-        position: absolute; left: 4mm; right: 4mm;
+        position: absolute; left: 5mm; right: 5mm;
         border-top: 1px solid #c00;
       }
 
@@ -167,21 +168,20 @@
       .form-bg .f-lbl {
         position: absolute; font-size: 9px; font-weight: bold; color: #c00;
       }
-      .fl-date   { left: 6mm;  top: 12.5mm; }
-      .fl-no     { left: 6mm;  top: 19.5mm; }
-      .fl-client { left: 6mm;  top: 21mm; font-size: 10px !important; }
-      .fl-total  { left: 6mm;  top: 42mm; }
-      .fl-p      { left: 96mm; top: 42mm; font-size: 11px !important; color: #c00; }
-      .fl-reg    { left: 108mm; top: 12.5mm; }
-      .fl-biz    { left: 108mm; top: 23.5mm; }
-      .fl-owner  { left: 162mm; top: 23.5mm; }
-      .fl-addr   { left: 108mm; top: 33.5mm; }
-      .fl-tel    { left: 108mm; top: 42mm; }
-      .fl-fax    { left: 152mm; top: 42mm; }
+      .fl-date   { left: 8mm;  top: 14mm; }
+      .fl-no     { left: 8mm;  top: 21mm; }
+      .fl-total  { left: 8mm;  top: 43.5mm; }
+      .fl-p      { left: 96mm; top: 43.5mm; font-size: 11px !important; color: #c00; }
+      .fl-reg    { left: 110mm; top: 14mm; }
+      .fl-biz    { left: 110mm; top: 26.5mm; }
+      .fl-owner  { left: 165mm; top: 26.5mm; }
+      .fl-addr   { left: 110mm; top: 35.5mm; }
+      .fl-tel    { left: 110mm; top: 43.5mm; }
+      .fl-fax    { left: 155mm; top: 43.5mm; }
 
       /* ── 품목 헤더 (빨간 바) ── */
       .form-bg .f-items-hdr {
-        position: absolute; left: 4mm; right: 4mm;
+        position: absolute; left: 5mm; right: 5mm;
         top: var(--hdr-bot); height: 6mm;
         background: #c00; color: #fff;
         display: flex; align-items: center;
@@ -191,24 +191,24 @@
       .form-bg .f-items-hdr span {
         position: absolute; white-space: nowrap;
       }
-      .fh-no   { left: 4mm; }
-      .fh-pub  { left: 18mm; }
-      .fh-name { left: 52mm; }
-      .fh-qty  { left: 113mm; }
-      .fh-price{ left: 128mm; }
-      .fh-unit { left: 148mm; }
-      .fh-amt  { left: 168mm; }
-      .fh-pct  { left: 192mm; }
+      .fh-no   { left: 3mm; }
+      .fh-pub  { left: 15mm; }
+      .fh-name { left: 48mm; }
+      .fh-qty  { left: 111mm; }
+      .fh-price{ left: 126mm; }
+      .fh-unit { left: 146mm; }
+      .fh-amt  { left: 167mm; }
+      .fh-pct  { left: 190mm; }
 
       /* ── 품목 영역 ── */
       .form-bg .f-items-area {
-        position: absolute; left: 4mm; right: 4mm;
+        position: absolute; left: 5mm; right: 5mm;
         top: calc(var(--hdr-bot) + 6mm);
         height: calc(var(--bot-top) - var(--hdr-bot) - 6mm);
         border-left: 1px solid #ccc; border-right: 1px solid #ccc;
       }
       .form-bg .f-row-line {
-        position: absolute; left: 4mm; right: 4mm;
+        position: absolute; left: 5mm; right: 5mm;
         border-bottom: 1px solid #eee;
       }
       /* 품목 세로 구분선 */
@@ -221,7 +221,7 @@
 
       /* ── 하단 영역 ── */
       .form-bg .f-bottom {
-        position: absolute; left: 4mm; right: 4mm;
+        position: absolute; left: 5mm; right: 5mm;
         top: var(--bot-top); bottom: 3mm;
         border: 2px solid #c00;
       }
@@ -307,6 +307,7 @@
       <div class="f-hline" style="top: var(--hdr-r2)"></div>
       <div class="f-hline" style="top: var(--hdr-r3)"></div>
       <div class="f-hline" style="top: var(--hdr-r4)"></div>
+      <div class="f-hline" style="top: var(--hdr-r5)"></div>
       <div class="f-hline" style="top: var(--hdr-bot)"></div>
 
       <!-- 좌우 구분선 -->
@@ -318,7 +319,7 @@
       <div class="f-lbl fl-total">합 &nbsp; 계</div>
       <div class="f-lbl fl-p">P</div>
       <!-- 라벨 우측 -->
-      <div class="f-lbl fl-reg">등록번호</div>
+      <div class="f-lbl fl-reg">등 록 번 호</div>
       <div class="f-lbl fl-biz">상호</div>
       <div class="f-lbl fl-owner">성명</div>
       <div class="f-lbl fl-addr">주소</div>
