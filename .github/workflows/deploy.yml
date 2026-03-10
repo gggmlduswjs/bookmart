@@ -21,6 +21,16 @@ jobs:
             source venv/bin/activate
             python manage.py migrate --noinput
             python manage.py collectstatic --noinput
+            python manage.py shell -c "
+from orders.models import InboxMessage, InboxAttachment
+# 주문 미연결 메일 삭제 (첨부파일 포함)
+no_order = InboxMessage.objects.filter(source='email', order__isnull=True)
+InboxAttachment.objects.filter(message__in=no_order).delete()
+cnt = no_order.delete()[0]
+print(f'삭제: {cnt}건')
+# 주문 연결 메일의 imap_key 유지하여 중복 방지
+"
+            python manage.py fetch_emails
             sudo systemctl restart bookmart
             # 5분마다 메일 자동 수신 cron 등록
             CRON_CMD="cd /home/bookmart/bookmart && source venv/bin/activate && python manage.py fetch_emails >> /home/bookmart/fetch_emails.log 2>&1"
