@@ -3,7 +3,7 @@ import math
 from functools import wraps
 
 from django.shortcuts import render, redirect, get_object_or_404
-from django.http import Http404
+from django.http import Http404, HttpResponse
 
 from accounts.models import User
 from books.models import Book
@@ -193,11 +193,39 @@ def simple_order(request, slug):
     error = None
 
     if request.method == 'POST':
+        # 배송지 업데이트
+        new_school = request.POST.get('delivery_school', '').strip()
+        new_addr = request.POST.get('delivery_address', '').strip()
+        new_phone = request.POST.get('delivery_phone', '').strip()
+        if new_school and new_school != delivery.name:
+            delivery, _ = DeliveryAddress.objects.get_or_create(
+                agency=agency, name=new_school,
+                defaults={'address': new_addr, 'phone': new_phone},
+            )
+            if new_addr:
+                delivery.address = new_addr
+            if new_phone:
+                delivery.phone = new_phone
+            delivery.save()
+            teacher.delivery_address = delivery
+            teacher.save(update_fields=['delivery_address'])
+        else:
+            if new_addr and new_addr != delivery.address:
+                delivery.address = new_addr
+                delivery.save(update_fields=['address'])
+            if new_phone and new_phone != delivery.phone:
+                delivery.phone = new_phone
+                delivery.save(update_fields=['phone'])
+
         items = []
+        custom_items = []
         i = 0
-        while f'book_{i}' in request.POST:
+        while f'book_{i}' in request.POST or f'custom_name_{i}' in request.POST:
             book_id = request.POST.get(f'book_{i}', '').strip()
+            custom_name = request.POST.get(f'custom_name_{i}', '').strip()
             qty_str = request.POST.get(f'qty_{i}', '').strip()
+            custom_price_str = request.POST.get(f'custom_price_{i}', '').strip()
+
             if book_id and qty_str:
                 try:
                     qty = int(qty_str)
@@ -205,9 +233,17 @@ def simple_order(request, slug):
                         items.append((int(book_id), qty))
                 except (ValueError, TypeError):
                     pass
+            elif custom_name and qty_str:
+                try:
+                    qty = int(qty_str)
+                    price = int(custom_price_str) if custom_price_str else 0
+                    if qty > 0:
+                        custom_items.append((custom_name, qty, price))
+                except (ValueError, TypeError):
+                    pass
             i += 1
 
-        if not items:
+        if not items and not custom_items:
             error = '주문할 교재를 1권 이상 선택하세요.'
         else:
             order = Order.objects.create(
@@ -224,6 +260,11 @@ def simple_order(request, slug):
                     OrderItem(order=order, book=book, quantity=qty).save()
                 except Book.DoesNotExist:
                     pass
+            for cname, qty, price in custom_items:
+                OrderItem(
+                    order=order, book=None,
+                    custom_book_name=cname, quantity=qty, unit_price=price,
+                ).save()
 
             LinkAccessLog.objects.create(
                 agency=agency, teacher=teacher,
@@ -243,6 +284,204 @@ def simple_order(request, slug):
         'slug': slug,
         'error': error,
     })
+
+
+# ── 엑셀 파싱 (간편주문용, 세션 인증) ────────────────────────────────────────────
+
+def simple_parse_excel(request, slug):
+    """간편주문에서 엑셀 업로드 시 교재 매칭 JSON 반환 (세션 인증)"""
+    agency = _get_agency_or_404(slug)
+    teacher = _get_session_teacher(request, agency)
+    if not teacher:
+        return HttpResponse(json.dumps({'error': '세션이 만료되었습니다.'}),
+                            content_type='application/json', status=403)
+
+    return _do_parse_excel(request)
+
+
+def _do_parse_excel(request):
+    """엑셀 파싱 핵심 로직 (인증 없이)"""
+    from openpyxl import load_workbook
+    import re
+
+    if request.method != 'POST' or not request.FILES.get('file'):
+        return HttpResponse(json.dumps({'error': '파일이 없습니다.'}),
+                            content_type='application/json', status=400)
+
+    file = request.FILES['file']
+    if not file.name.endswith(('.xlsx', '.xls')):
+        return HttpResponse(json.dumps({'error': '.xlsx 파일만 지원합니다.'}),
+                            content_type='application/json', status=400)
+
+    try:
+        wb = load_workbook(file, read_only=True, data_only=True)
+        ws = wb.active
+
+        books = Book.objects.filter(is_active=True).select_related('publisher')
+        book_map = {}
+        for b in books:
+            book_map[b.name.strip()] = {
+                'id': b.id,
+                'series': b.series or '기타',
+                'name': b.name,
+                'publisher': b.publisher.name,
+                'list_price': b.list_price,
+            }
+
+        def clean_book_name(name):
+            name = re.sub(r'^[^)]+\)\s*', '', name)
+            return name.strip()
+
+        def normalize(text):
+            t = text.strip()
+            t = re.sub(r'[\s\-_·•:：/\\&+<>()（）【】\[\]「」『』]', '', t)
+            return t.lower()
+
+        def try_match(name):
+            if name in book_map:
+                return book_map[name]
+            cleaned = clean_book_name(name)
+            if cleaned != name and cleaned in book_map:
+                return book_map[cleaned]
+            norm_name = normalize(cleaned)
+            for bname, binfo in book_map.items():
+                if normalize(bname) == norm_name:
+                    return binfo
+            best = None
+            best_ratio = 0
+            for bname, binfo in book_map.items():
+                norm_b = normalize(bname)
+                shorter = min(len(norm_name), len(norm_b))
+                longer = max(len(norm_name), len(norm_b))
+                if shorter < 3 or longer == 0:
+                    continue
+                if shorter / longer < 0.5:
+                    continue
+                if norm_name in norm_b or norm_b in norm_name:
+                    ratio = shorter / longer
+                    if ratio > best_ratio:
+                        best = binfo
+                        best_ratio = ratio
+            return best
+
+        def is_skip_row(text):
+            t = text.strip()
+            if not t:
+                return True
+            if re.match(r'^[●•◆■□▶▷※★☆\-\*]?\s*(출판사|샘플|합계|소계|총합계)', t):
+                return True
+            if re.match(r'출판사\s*[:：]', t):
+                return True
+            if re.match(r'(주소|연락처|전화|핸드폰|휴대폰|팩스|이메일|메일|E-?mail)\s*[:：]', t, re.IGNORECASE):
+                return True
+            if re.match(r'^[\d\-\s\(\)]+$', t):
+                return True
+            if re.search(r'01[016789][\-\s]?\d{3,4}[\-\s]?\d{4}', t):
+                return True
+            if re.search(r'(서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|전북|전남|경북|경남|제주)', t):
+                if re.search(r'(시|구|군|읍|면|동|로|길)\s', t):
+                    return True
+            if t in ('NO.', 'NO', '비고', '합계', '총합계', '소계'):
+                return True
+            return False
+
+        def parse_qty(val):
+            if val is None:
+                return None
+            s = str(val).strip()
+            m = re.match(r'^(\d+)\s*(권|부|개|세트)?$', s)
+            if m:
+                v = int(m.group(1))
+                return v if 0 < v < 10000 else None
+            try:
+                v = int(float(s))
+                return v if 0 < v < 10000 else None
+            except (ValueError, TypeError):
+                return None
+
+        all_rows = list(ws.iter_rows(values_only=True))
+
+        # 헤더 탐색
+        header_row = -1
+        col_name = -1
+        col_qty = -1
+        col_price = -1
+        name_keywords = ('교재명', '도서명', '교재')
+        qty_keywords = ('수량', '부수', '권수', '주문수량', '신청수량')
+        price_keywords = ('단가', '정가', '가격')
+
+        for i, row in enumerate(all_rows):
+            cells = [str(c or '').strip().replace(' ', '') for c in row]
+            for j, cell in enumerate(cells):
+                cell_clean = cell.split('\n')[0].strip()
+                if col_name < 0 and cell_clean in name_keywords:
+                    col_name = j
+                if col_qty < 0:
+                    if cell_clean in qty_keywords or any(cell_clean.startswith(k) for k in qty_keywords):
+                        col_qty = j
+                if col_price < 0 and cell_clean in price_keywords:
+                    col_price = j
+            if col_name >= 0:
+                header_row = i
+                break
+
+        matched = []
+        unmatched = []
+
+        if header_row >= 0 and col_name >= 0:
+            for row in all_rows[header_row + 1:]:
+                cells = list(row)
+                if col_name >= len(cells):
+                    continue
+                name = str(cells[col_name] or '').strip()
+                if not name or is_skip_row(name):
+                    continue
+                qty = 1
+                if col_qty >= 0 and col_qty < len(cells):
+                    q = parse_qty(cells[col_qty])
+                    if q:
+                        qty = q
+                if qty <= 0:
+                    continue
+                excel_price = 0
+                if col_price >= 0 and col_price < len(cells):
+                    try:
+                        excel_price = int(float(str(cells[col_price] or '0').replace(',', '')))
+                    except (ValueError, TypeError):
+                        pass
+                info = try_match(name)
+                if info:
+                    matched.append({**info, 'qty': qty})
+                else:
+                    unmatched.append({'name': name, 'qty': qty, 'excel_price': excel_price})
+        else:
+            for row in all_rows:
+                cells = [str(c or '').strip() for c in row if c is not None]
+                name_candidate = None
+                qty_candidate = 1
+                for cell in cells:
+                    q = parse_qty(cell)
+                    if q is not None and cell != name_candidate:
+                        qty_candidate = q
+                    elif len(cell) >= 2 and cell not in ('', 'NO.', 'NO') and not is_skip_row(cell):
+                        name_candidate = cell
+                if name_candidate:
+                    info = try_match(name_candidate)
+                    if info:
+                        matched.append({**info, 'qty': qty_candidate})
+                    else:
+                        unmatched.append({'name': name_candidate, 'qty': qty_candidate})
+
+        wb.close()
+        return HttpResponse(
+            json.dumps({'matched': matched, 'unmatched': unmatched}, ensure_ascii=False),
+            content_type='application/json',
+        )
+    except Exception as e:
+        return HttpResponse(
+            json.dumps({'error': f'파일 처리 오류: {str(e)}'}, ensure_ascii=False),
+            content_type='application/json', status=400,
+        )
 
 
 # ── 주문 확인 ───────────────────────────────────────────────────────────────────

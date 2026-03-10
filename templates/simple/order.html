@@ -2,7 +2,7 @@
 {% block title %}교재 주문 - {{ agency.name }}{% endblock %}
 
 {% block extra_style %}
-  .order-row-wrap select, .order-row-wrap input[type=number] {
+  .order-row-wrap select, .order-row-wrap input[type=number], .order-row-wrap input[type=text] {
     padding: 6px 8px; border: 1px solid #cbd5e1;
     font-size: 13px; font-family: inherit; height: 32px;
     border-radius: 4px;
@@ -18,6 +18,40 @@
     text-align: right;
     font-weight: 600;
   }
+  .order-total-bar::after { content: ''; display: block; clear: both; }
+  .section-title {
+    font-size: 13px; font-weight: 700; color: #334155;
+    margin-bottom: 8px; display: flex; align-items: center; gap: 6px;
+  }
+  .delivery-box {
+    background: #f8fafc; border: 1px solid #e2e8f0;
+    border-radius: 8px; padding: 12px 14px; margin-bottom: 14px;
+  }
+  .delivery-box .form-row {
+    display: flex; align-items: center; gap: 8px; margin-bottom: 6px;
+  }
+  .delivery-box .form-row:last-child { margin-bottom: 0; }
+  .delivery-box label {
+    font-size: 12px; color: #64748b; font-weight: 600;
+    width: 70px; flex-shrink: 0;
+  }
+  .delivery-box input {
+    flex: 1; padding: 6px 10px; border: 1px solid #cbd5e1;
+    border-radius: 4px; font-size: 13px; font-family: inherit;
+  }
+  .excel-box {
+    background: #fffbeb; border: 1px solid #fbbf24;
+    border-radius: 8px; padding: 10px 14px; margin-bottom: 14px;
+  }
+  .tab-order { display: flex; gap: 0; margin-bottom: 14px; }
+  .tab-order button {
+    flex: 1; padding: 10px; font-size: 13px; font-weight: 600;
+    border: 1px solid #e2e8f0; background: #f8fafc; color: #64748b;
+    cursor: pointer; transition: all 0.15s;
+  }
+  .tab-order button:first-child { border-radius: 8px 0 0 8px; }
+  .tab-order button:last-child { border-radius: 0 8px 8px 0; }
+  .tab-order button.active { background: #2563eb; color: #fff; border-color: #2563eb; }
 {% endblock %}
 
 {% block content %}
@@ -26,7 +60,7 @@
   <a href="{% url 'simple_order_list' slug=slug %}">주문내역</a>
 </div>
 
-<div class="simple-card" style="padding:16px">
+<div class="simple-card" style="padding:16px" x-data="orderForm()">
   <div style="margin-bottom:12px;display:flex;justify-content:space-between;align-items:center">
     <h2 style="margin-bottom:0">교재 주문</h2>
     <span style="font-size:12px;color:#64748b">{{ teacher.name }} | {{ delivery.name }}</span>
@@ -36,43 +70,110 @@
   <div class="error-msg">{{ error }}</div>
   {% endif %}
 
-  <form method="post" x-data="orderForm()" @submit.prevent="submitOrder">
+  <!-- 배송요청지 -->
+  <div class="delivery-box">
+    <div class="section-title">배송요청지</div>
+    <div class="form-row">
+      <label>학교명</label>
+      <input type="text" x-model="deliverySchool" placeholder="OO초등학교">
+    </div>
+    <div class="form-row">
+      <label>주소</label>
+      <div style="display:flex;gap:6px;flex:1">
+        <input type="text" x-model="deliveryAddr" placeholder="주소" style="flex:1">
+        <button type="button" class="btn btn-outline btn-sm" @click="openPostcode()" style="white-space:nowrap">주소 검색</button>
+      </div>
+    </div>
+    <div class="form-row">
+      <label>연락처</label>
+      <input type="text" x-model="deliveryPhone" @input="deliveryPhone = formatPhone(deliveryPhone)" placeholder="010-1234-5678" style="max-width:180px">
+    </div>
+  </div>
+
+  <!-- 주문 방식 탭 -->
+  <div class="tab-order">
+    <button :class="{'active': orderTab === 'direct'}" @click="orderTab = 'direct'">직접 입력</button>
+    <button :class="{'active': orderTab === 'excel'}" @click="orderTab = 'excel'">엑셀 일괄 등록</button>
+  </div>
+
+  <!-- 엑셀 업로드 -->
+  <div class="excel-box" x-show="orderTab === 'excel'" x-cloak>
+    <div style="display:flex;align-items:center;gap:10px">
+      <label style="font-size:12px;font-weight:bold;color:#92400e;white-space:nowrap">엑셀 파일</label>
+      <input type="file" accept=".xlsx,.xls" @change="uploadExcel($event)" style="font-size:12px">
+      <span x-show="excelLoading" style="font-size:11px;color:#888">파싱 중...</span>
+    </div>
+    <template x-if="excelUnmatched.length > 0">
+      <div style="margin-top:8px;padding:6px 10px;background:#fef2f2;border:1px solid #fca5a5;font-size:11px;color:#991b1b;border-radius:4px">
+        <strong>매칭 실패:</strong>
+        <template x-for="u in excelUnmatched" :key="u.name">
+          <span x-text="u.name + '(' + u.qty + '권) '" style="margin-right:6px"></span>
+        </template>
+      </div>
+    </template>
+    <p style="font-size:11px;color:#92400e;margin-top:6px">교재명/수량 컬럼이 있는 엑셀 파일을 업로드하면 자동으로 교재가 입력됩니다.</p>
+  </div>
+
+  <form method="post">
     {% csrf_token %}
-    <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+    <input type="hidden" name="delivery_school" :value="deliverySchool">
+    <input type="hidden" name="delivery_address" :value="deliveryAddr">
+    <input type="hidden" name="delivery_phone" :value="deliveryPhone">
 
     <div class="order-row-wrap" style="border:1px solid #e2e8f0;border-radius:10px 10px 0 0;overflow:hidden">
       <table class="data-table">
         <thead>
           <tr>
-            <th style="width:30%">시리즈</th>
+            <th style="width:28%">시리즈</th>
             <th style="width:30%">교재</th>
-            <th class="right" style="width:70px">정가</th>
+            <th class="right" style="width:65px">정가</th>
             <th class="center" style="width:55px">수량</th>
-            <th class="right" style="width:70px">금액</th>
+            <th class="right" style="width:65px">금액</th>
             <th style="width:30px"></th>
           </tr>
         </thead>
         <tbody>
           <template x-for="(row, index) in rows" :key="index">
-            <tr>
-              <td>
-                <select x-model="row.series" @change="row.book_id = ''; row.list_price = 0">
-                  <option value="">시리즈</option>
-                  {% for s in series_list %}
-                  <option value="{{ s }}">{{ s }}</option>
-                  {% endfor %}
-                </select>
+            <tr :style="row.is_custom ? 'background:#fff8f0' : ''">
+              <template x-if="!row.is_custom">
+                <td>
+                  <select x-model="row.series" @change="row.book_id = ''; row.list_price = 0">
+                    <option value="">시리즈</option>
+                    {% for s in series_list %}
+                    <option value="{{ s }}">{{ s }}</option>
+                    {% endfor %}
+                  </select>
+                </td>
+              </template>
+              <template x-if="row.is_custom">
+                <td><span style="font-size:11px;color:#ea580c;font-weight:bold">직접입력</span></td>
+              </template>
+              <template x-if="!row.is_custom">
+                <td>
+                  <select x-model="row.book_id" @change="updatePrice(row)">
+                    <option value="">교재</option>
+                    <template x-for="b in getBooks(row.series)" :key="b.id">
+                      <option :value="b.id" x-text="b.name"></option>
+                    </template>
+                  </select>
+                  <input type="hidden" :name="'book_' + index" :value="row.book_id">
+                </td>
+              </template>
+              <template x-if="row.is_custom">
+                <td>
+                  <input type="text" :name="'custom_name_' + index" x-model="row.custom_name"
+                         style="width:100%" placeholder="교재명 입력">
+                </td>
+              </template>
+              <td class="right">
+                <template x-if="!row.is_custom">
+                  <span x-text="row.list_price ? row.list_price.toLocaleString() : '-'" style="color:#666;font-size:12px"></span>
+                </template>
+                <template x-if="row.is_custom">
+                  <input type="number" :name="'custom_price_' + index" x-model.number="row.unit_price"
+                         style="width:55px;padding:4px;text-align:right;font-size:11px" placeholder="단가">
+                </template>
               </td>
-              <td>
-                <select x-model="row.book_id" @change="updatePrice(row)">
-                  <option value="">교재</option>
-                  <template x-for="b in getBooks(row.series)" :key="b.id">
-                    <option :value="b.id" x-text="b.name"></option>
-                  </template>
-                </select>
-                <input type="hidden" :name="'book_' + index" :value="row.book_id">
-              </td>
-              <td class="right"><span x-text="row.list_price ? row.list_price.toLocaleString() : '-'" style="color:#666;font-size:12px"></span></td>
               <td class="center">
                 <input type="number" :name="'qty_' + index" x-model.number="row.qty" min="1" max="9999">
               </td>
@@ -90,6 +191,7 @@
 
     <div class="order-total-bar">
       <button type="button" class="btn btn-outline btn-sm" @click="addRow" style="float:left">+ 행 추가</button>
+      <button type="button" class="btn btn-outline btn-sm" @click="addCustomRow" style="float:left;margin-left:4px;color:#ea580c;border-color:#ea580c">+ 직접입력</button>
       합계: <span x-text="total().toLocaleString()" style="font-size:16px;color:#2563eb"></span>원
     </div>
 
@@ -100,25 +202,92 @@
       </div>
     </div>
 
-    <button type="submit" class="btn btn-primary btn-block" style="margin-top:8px">주문 완료</button>
+    <button type="button" class="btn btn-primary btn-block" style="margin-top:8px" @click="submitOrder">주문 완료</button>
   </form>
 </div>
 {% endblock %}
 
 {% block extra_js %}
+<script src="//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
 <script>
 const BOOKS = {{ books_json|safe }};
 function orderForm() {
   return {
-    rows: [{ series: '', book_id: '', qty: 1, list_price: 0 }],
+    orderTab: 'direct',
+    // 배송지
+    deliverySchool: '{{ delivery.name|escapejs }}',
+    deliveryAddr: '{{ delivery.address|escapejs }}',
+    deliveryPhone: '{{ delivery.phone|escapejs }}',
+    // 엑셀
+    excelLoading: false, excelUnmatched: [],
+    // 교재
+    rows: [{ series: '', book_id: '', qty: 1, list_price: 0, is_custom: false }],
+
+    openPostcode() {
+      const self = this;
+      new daum.Postcode({
+        oncomplete(data) { self.deliveryAddr = data.address; }
+      }).open({ q: this.deliverySchool });
+    },
+    formatPhone(val) {
+      const nums = val.replace(/\D/g, '').slice(0, 11);
+      if (nums.length <= 3) return nums;
+      if (nums.length <= 7) return nums.slice(0, 3) + '-' + nums.slice(3);
+      return nums.slice(0, 3) + '-' + nums.slice(3, 7) + '-' + nums.slice(7);
+    },
     getBooks(series) { return series ? BOOKS.filter(b => b.series === series) : BOOKS; },
-    updatePrice(row) { const b = BOOKS.find(b => b.id == row.book_id); row.list_price = b ? b.list_price : 0; },
-    rowAmount(row) { return (row.book_id && row.qty) ? row.list_price * row.qty : 0; },
+    updatePrice(row) {
+      const b = BOOKS.find(b => b.id == row.book_id);
+      row.list_price = b ? b.list_price : 0;
+    },
+    rowAmount(row) {
+      if (row.is_custom) return (row.custom_name && row.qty) ? (row.unit_price || 0) * row.qty : 0;
+      return (row.book_id && row.qty) ? row.list_price * row.qty : 0;
+    },
     total() { return this.rows.reduce((s, r) => s + this.rowAmount(r), 0); },
-    addRow() { this.rows.push({ series: '', book_id: '', qty: 1, list_price: 0 }); },
+    addRow() { this.rows.push({ series: '', book_id: '', qty: 1, list_price: 0, is_custom: false }); },
+    addCustomRow() { this.rows.push({ is_custom: true, custom_name: '', qty: 1, unit_price: 0 }); },
+    async uploadExcel(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      this.excelLoading = true;
+      this.excelUnmatched = [];
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+      try {
+        const res = await fetch('{% url "simple_parse_excel" slug=slug %}', { method: 'POST', body: fd });
+        const data = await res.json();
+        if (data.error) { alert(data.error); return; }
+        // 기존 빈 행 제거
+        this.rows = this.rows.filter(r => r.book_id || (r.is_custom && r.custom_name));
+        if (data.matched && data.matched.length) {
+          for (const m of data.matched) {
+            this.rows.push({ series: m.series || '', book_id: String(m.id), qty: m.qty, list_price: m.list_price || 0, is_custom: false });
+          }
+        }
+        if (data.unmatched && data.unmatched.length) {
+          this.excelUnmatched = data.unmatched;
+          for (const u of data.unmatched) {
+            this.rows.push({ is_custom: true, custom_name: u.name, qty: u.qty, unit_price: u.excel_price || 0 });
+          }
+        }
+        if (!this.rows.length) this.rows.push({ series: '', book_id: '', qty: 1, list_price: 0, is_custom: false });
+        this.orderTab = 'direct';
+        const mc = data.matched?.length || 0;
+        const uc = data.unmatched?.length || 0;
+        let msg = mc ? `${mc}건 매칭 완료` : '';
+        if (uc) msg += (msg ? ', ' : '') + `${uc}건 직접입력 추가`;
+        if (!msg) msg = '매칭된 교재가 없습니다.';
+        alert(msg);
+      } catch (err) { alert('업로드 실패: ' + err.message); }
+      finally { this.excelLoading = false; e.target.value = ''; }
+    },
     submitOrder() {
-      if (!this.rows.some(r => r.book_id && r.qty > 0)) { alert('주문할 교재를 선택하세요.'); return; }
-      this.$el.submit();
+      if (!this.rows.some(r => (r.book_id || (r.is_custom && r.custom_name)) && r.qty > 0)) {
+        alert('주문할 교재를 선택하세요.'); return;
+      }
+      this.$el.closest('form').submit();
     }
   }
 }
