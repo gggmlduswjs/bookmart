@@ -21,7 +21,6 @@ jobs:
             source venv/bin/activate
             python manage.py migrate --noinput
             python manage.py collectstatic --noinput
-            python manage.py shell -c "from orders.models import InboxMessage; InboxMessage.objects.filter(is_processed=True, order__isnull=True).update(is_processed=False); print('복구 완료')"
             sudo systemctl restart bookmart
             # 5분마다 메일 자동 수신 cron 등록
             CRON_CMD="cd /home/bookmart/bookmart && source venv/bin/activate && python manage.py fetch_emails >> /home/bookmart/fetch_emails.log 2>&1"
