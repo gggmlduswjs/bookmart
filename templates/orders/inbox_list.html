@@ -56,14 +56,24 @@
   수신함
 </div>
 
+<!-- 검색 -->
+<form method="get" style="margin-bottom:10px;display:flex;gap:6px;align-items:center">
+  <input type="hidden" name="tab" value="{{ tab }}">
+  {% if hide_done %}<input type="hidden" name="hide_done" value="1">{% endif %}
+  <input type="text" name="q" value="{{ search }}" placeholder="발신자, 제목, 내용 검색"
+         style="width:280px;padding:6px 10px;border:1px solid #bbb;border-radius:4px;font-size:13px">
+  <button type="submit" class="btn btn-outline btn-sm">검색</button>
+  {% if search %}<a href="?tab={{ tab }}{% if hide_done %}&hide_done=1{% endif %}" class="btn btn-outline btn-sm" style="color:#888">초기화</a>{% endif %}
+</form>
+
 <!-- 탭 -->
 <div class="inbox-tabs">
   <a class="inbox-tab {% if tab == 'email' %}active{% endif %}"
-     href="?tab=email{% if hide_done %}&hide_done=1{% endif %}">
+     href="?tab=email{% if hide_done %}&hide_done=1{% endif %}{% if search %}&q={{ search|urlencode }}{% endif %}">
     메일{% if unread_email %} <span class="tab-count">{{ unread_email }}</span>{% endif %}
   </a>
   <a class="inbox-tab {% if tab == 'sms' %}active{% endif %}"
-     href="?tab=sms{% if hide_done %}&hide_done=1{% endif %}">
+     href="?tab=sms{% if hide_done %}&hide_done=1{% endif %}{% if search %}&q={{ search|urlencode }}{% endif %}">
     문자{% if unread_sms %} <span class="tab-count">{{ unread_sms }}</span>{% endif %}
   </a>
 </div>
@@ -76,9 +86,9 @@
       <button type="submit" class="btn btn-orange btn-sm">새 메일 가져오기</button>
     </form>
     {% if hide_done %}
-      <a href="?tab=email" class="btn btn-outline btn-sm">전체 보기</a>
+      <a href="?tab=email{% if search %}&q={{ search|urlencode }}{% endif %}" class="btn btn-outline btn-sm">전체 보기</a>
     {% else %}
-      <a href="?tab=email&hide_done=1" class="btn btn-outline btn-sm">미처리만 보기</a>
+      <a href="?tab=email&hide_done=1{% if search %}&q={{ search|urlencode }}{% endif %}" class="btn btn-outline btn-sm">미처리만 보기</a>
     {% endif %}
   </div>
 
@@ -174,9 +184,9 @@
 <div class="inbox-panel {% if tab == 'sms' %}active{% endif %}">
   <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
     {% if hide_done %}
-      <a href="?tab=sms" class="btn btn-outline btn-sm">전체 보기</a>
+      <a href="?tab=sms{% if search %}&q={{ search|urlencode }}{% endif %}" class="btn btn-outline btn-sm">전체 보기</a>
     {% else %}
-      <a href="?tab=sms&hide_done=1" class="btn btn-outline btn-sm">미처리만 보기</a>
+      <a href="?tab=sms&hide_done=1{% if search %}&q={{ search|urlencode }}{% endif %}" class="btn btn-outline btn-sm">미처리만 보기</a>
     {% endif %}
   </div>
 

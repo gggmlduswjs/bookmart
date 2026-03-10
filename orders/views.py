@@ -1421,12 +1421,19 @@ def export_sales(request):
 @role_required('admin')
 def inbox_list(request):
     hide_done = request.GET.get('hide_done', '')
+    search = request.GET.get('q', '').strip()
     tab = request.GET.get('tab', 'email')  # email or sms
     qs = InboxMessage.objects.annotate(
         attachment_count=Count('attachments')
     ).select_related('order')
     if hide_done:
         qs = qs.filter(is_processed=False)
+    if search:
+        qs = qs.filter(
+            Q(sender__icontains=search) |
+            Q(subject__icontains=search) |
+            Q(content__icontains=search)
+        )
     email_qs = qs.filter(source='email')
     sms_qs = qs.filter(source='sms')
     unread_email = InboxMessage.objects.filter(is_processed=False, source='email').count()
@@ -1436,6 +1443,7 @@ def inbox_list(request):
         'sms_messages': sms_qs,
         'tab': tab,
         'hide_done': hide_done,
+        'search': search,
         'unread_email': unread_email,
         'unread_sms': unread_sms,
         'unread_count': unread_email + unread_sms,
