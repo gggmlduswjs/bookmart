@@ -394,40 +394,27 @@ function inboxOrderForm() {
         // 메타데이터 자동 입력 (업체/학교/선생님/주소/전화)
         if (data.meta) {
           const m = data.meta;
-          // 선생님 이름으로 DB 검색 → 업체/배송지 자동 매칭
-          if (m.teacher && !this.teacherId) {
-            const candidates = ALL_TEACHERS.filter(t => t.name === m.teacher);
-            if (candidates.length === 1) {
-              // 정확히 1명 매칭 → 자동 선택
-              this.agencyId = String(candidates[0].agency_id);
-              this.selectTeacher(candidates[0]);
-            } else if (candidates.length > 1) {
-              // 동명이인 → 업체명이나 학교명으로 좁히기
-              let narrowed = candidates;
-              if (m.agency) narrowed = candidates.filter(t => {
-                const ag = ALL_AGENCIES.find(a => a.id == t.agency_id);
-                return ag && (ag.name.includes(m.agency) || m.agency.includes(ag.name));
-              });
-              if (narrowed.length === 0) narrowed = candidates;
-              if (m.school) {
-                const bySchool = narrowed.filter(t => t.delivery_name && (t.delivery_name.includes(m.school) || m.school.includes(t.delivery_name)));
-                if (bySchool.length > 0) narrowed = bySchool;
-              }
-              this.agencyId = String(narrowed[0].agency_id);
-              this.selectTeacher(narrowed[0]);
-            } else {
-              // 매칭 안됨 → 이름만 입력
-              this.teacherQuery = m.teacher;
-              if (m.agency) {
-                const found = ALL_AGENCIES.find(a => a.name.includes(m.agency) || m.agency.includes(a.name));
-                if (found) { this.agencyId = String(found.id); }
-              }
-            }
-          } else if (m.agency && !this.agencyId) {
+          // 1. 업체 매칭 (엑셀에 있는 업체명 우선)
+          if (m.agency && !this.agencyId) {
             const found = ALL_AGENCIES.find(a => a.name.includes(m.agency) || m.agency.includes(a.name));
-            if (found) { this.agencyId = String(found.id); }
+            if (found) this.agencyId = String(found.id);
           }
-          // 메타데이터로 빈 필드 보충
+          // 2. 선생님 매칭 (DB 검색 → 업체 보정)
+          if (m.teacher && !this.teacherId) {
+            let candidates = ALL_TEACHERS.filter(t => t.name === m.teacher);
+            // 업체가 이미 선택되었으면 해당 업체 소속만
+            if (this.agencyId && candidates.length > 0) {
+              const byAgency = candidates.filter(t => String(t.agency_id) === this.agencyId);
+              if (byAgency.length > 0) candidates = byAgency;
+            }
+            if (candidates.length >= 1) {
+              if (!this.agencyId) this.agencyId = String(candidates[0].agency_id);
+              this.selectTeacher(candidates[0]);
+            } else {
+              this.teacherQuery = m.teacher;
+            }
+          }
+          // 3. 빈 필드 보충
           if (m.school && !this.deliverySchool) this.deliverySchool = m.school;
           if (m.address && !this.deliveryAddr) this.deliveryAddr = m.address;
           if (m.phone && !this.deliveryPhone) this.deliveryPhone = m.phone;
