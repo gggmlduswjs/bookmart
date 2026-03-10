@@ -1059,6 +1059,12 @@ def delivery_manage(request):
         .prefetch_related('items')
         .order_by('ordered_at')
     )
+    delivered_orders = (
+        Order.objects.filter(status=Order.Status.DELIVERED)
+        .select_related('agency', 'teacher', 'delivery')
+        .prefetch_related('items')
+        .order_by('-ordered_at')[:100]
+    )
     # 각 주문에 합계 추가
     for order in pending_orders:
         order.total_amt = sum(item.amount for item in order.items.all())
@@ -1066,12 +1072,17 @@ def delivery_manage(request):
     for order in shipping_orders:
         order.total_amt = sum(item.amount for item in order.items.all())
         order.item_count = order.items.count()
+    for order in delivered_orders:
+        order.total_amt = sum(item.amount for item in order.items.all())
+        order.item_count = order.items.count()
 
     return render(request, 'orders/delivery_manage.html', {
         'pending_orders': pending_orders,
         'shipping_orders': shipping_orders,
+        'delivered_orders': delivered_orders,
         'pending_count': pending_orders.count(),
         'shipping_count': shipping_orders.count(),
+        'delivered_count': delivered_orders.count() if hasattr(delivered_orders, 'count') else len(delivered_orders),
         'tab': tab,
     })
 
