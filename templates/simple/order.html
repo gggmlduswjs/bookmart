@@ -58,6 +58,7 @@
 <div class="simple-nav">
   <a href="{% url 'simple_order' slug=slug %}" class="active">주문하기</a>
   <a href="{% url 'simple_order_list' slug=slug %}">주문내역</a>
+  <a href="{% url 'simple_delivery_status' slug=slug %}">배송현황</a>
 </div>
 
 <div class="simple-card" style="padding:16px" x-data="orderForm()">

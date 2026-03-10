@@ -1,0 +1,119 @@
+{% extends 'simple/base.html' %}
+{% block title %}배송현황 - {{ agency.name }}{% endblock %}
+
+{% block extra_style %}
+  .status-card {
+    background: #fff; border: 1px solid #e2e8f0; border-radius: 10px;
+    padding: 14px; margin-bottom: 12px;
+  }
+  .status-card .order-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid #f1f5f9;
+  }
+  .status-card .order-no {
+    font-size: 13px; font-weight: 700; color: #1e293b;
+  }
+  .status-card .order-date {
+    font-size: 11px; color: #94a3b8;
+  }
+  .status-card .delivery-info {
+    font-size: 12px; color: #475569; margin-bottom: 6px;
+  }
+  .status-card .items-summary {
+    font-size: 12px; color: #64748b; margin-bottom: 8px;
+  }
+  .status-card .tracking-info {
+    background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 6px;
+    padding: 8px 10px; font-size: 12px; color: #0369a1;
+  }
+  .status-card .tracking-info a { color: #0369a1; font-weight: 600; text-decoration: underline; }
+  .status-steps {
+    display: flex; align-items: center; gap: 0; margin: 10px 0;
+  }
+  .status-step {
+    flex: 1; text-align: center; position: relative; font-size: 11px;
+  }
+  .status-step .dot {
+    width: 24px; height: 24px; border-radius: 50%;
+    background: #e2e8f0; color: #94a3b8;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 4px; font-size: 11px; font-weight: 700;
+  }
+  .status-step.done .dot { background: #059669; color: #fff; }
+  .status-step.current .dot { background: #2563eb; color: #fff; box-shadow: 0 0 0 4px rgba(37,99,235,0.2); }
+  .status-step .label { color: #94a3b8; font-weight: 500; }
+  .status-step.done .label { color: #059669; }
+  .status-step.current .label { color: #2563eb; font-weight: 700; }
+  .status-line {
+    flex: 0 0 auto; width: 30px; height: 2px; background: #e2e8f0; margin-bottom: 18px;
+  }
+  .status-line.done { background: #059669; }
+  .empty-state {
+    text-align: center; padding: 40px 20px; color: #94a3b8;
+  }
+  .empty-state .icon { font-size: 40px; margin-bottom: 8px; }
+{% endblock %}
+
+{% block content %}
+<div class="simple-nav">
+  <a href="{% url 'simple_order' slug=slug %}">주문하기</a>
+  <a href="{% url 'simple_order_list' slug=slug %}">주문내역</a>
+  <a href="{% url 'simple_delivery_status' slug=slug %}" class="active">배송현황</a>
+</div>
+
+{% if orders %}
+{% for order in orders %}
+<div class="status-card">
+  <div class="order-header">
+    <span class="order-no">{{ order.order_no }}</span>
+    <span class="order-date">{{ order.ordered_at|date:"Y.m.d H:i" }}</span>
+  </div>
+
+  <div class="delivery-info">
+    {{ order.delivery.name }}{% if order.delivery.address %} — {{ order.delivery.address }}{% endif %}
+  </div>
+
+  <div class="items-summary">
+    {{ order.items_summary }} | {{ order.list_price_total|floatformat:0 }}원
+  </div>
+
+  <!-- 배송 단계 -->
+  <div class="status-steps">
+    <div class="status-step {% if order.status == 'pending' %}current{% else %}done{% endif %}">
+      <div class="dot">1</div>
+      <div class="label">접수</div>
+    </div>
+    <div class="status-line {% if order.status != 'pending' %}done{% endif %}"></div>
+    <div class="status-step {% if order.status == 'shipping' %}current{% elif order.status == 'delivered' %}done{% endif %}">
+      <div class="dot">2</div>
+      <div class="label">발송</div>
+    </div>
+    <div class="status-line {% if order.status == 'delivered' %}done{% endif %}"></div>
+    <div class="status-step {% if order.status == 'delivered' %}current{% endif %}">
+      <div class="dot">3</div>
+      <div class="label">완료</div>
+    </div>
+  </div>
+
+  {% if order.status == 'cancelled' %}
+  <div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:6px;padding:8px 10px;font-size:12px;color:#991b1b;text-align:center;font-weight:600">
+    주문이 취소되었습니다
+  </div>
+  {% endif %}
+
+  {% if order.tracking_no %}
+  <div class="tracking-info">
+    운송장번호: <strong>{{ order.tracking_no }}</strong>
+  </div>
+  {% endif %}
+</div>
+{% endfor %}
+{% else %}
+<div class="simple-card">
+  <div class="empty-state">
+    <div class="icon">&#128230;</div>
+    <p>배송현황이 없습니다.</p>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

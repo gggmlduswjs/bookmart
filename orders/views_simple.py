@@ -290,6 +290,35 @@ def simple_order(request, slug):
     })
 
 
+# ── 배송현황 ──────────────────────────────────────────────────────────────────
+
+@simple_session_required
+def simple_delivery_status(request, slug):
+    teacher = request.simple_teacher
+    orders = (
+        Order.objects.filter(teacher=teacher)
+        .select_related('delivery')
+        .prefetch_related('items', 'items__book')
+        .order_by('-ordered_at')
+    )
+    for order in orders:
+        all_items = order.items.all()
+        order.list_price_total = sum(item.list_price * item.quantity for item in all_items)
+        count = all_items.count()
+        first = all_items.first()
+        if first:
+            name = first.display_name
+            order.items_summary = f'{name} 외 {count - 1}건' if count > 1 else name
+        else:
+            order.items_summary = '-'
+
+    return render(request, 'simple/delivery_status.html', {
+        'agency': request.simple_agency,
+        'orders': orders,
+        'slug': slug,
+    })
+
+
 # ── 엑셀 파싱 (간편주문용, 세션 인증) ────────────────────────────────────────────
 
 def simple_parse_excel(request, slug):

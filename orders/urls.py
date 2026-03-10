@@ -8,6 +8,7 @@ urlpatterns = [
     path('s/<str:slug>/order/', views_simple.simple_order, name='simple_order'),
     path('s/<str:slug>/confirm/<int:order_id>/', views_simple.simple_confirm, name='simple_confirm'),
     path('s/<str:slug>/orders/', views_simple.simple_order_list, name='simple_order_list'),
+    path('s/<str:slug>/delivery/', views_simple.simple_delivery_status, name='simple_delivery_status'),
     path('s/<str:slug>/parse-excel/', views_simple.simple_parse_excel, name='simple_parse_excel'),
 
     # ── 대시보드 ──────────────────────────────────────────────────────────────
