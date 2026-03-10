@@ -975,8 +975,8 @@ def order_invoice(request, pk):
     items = order.items.select_related('book', 'book__publisher')
     total_amount = sum(item.amount for item in items)
     total_qty = sum(item.quantity for item in items)
-    # 빈 행 채우기 (최소 10행)
-    empty_rows = range(max(0, 10 - items.count()))
+    # 빈 행 채우기 (최소 13행)
+    empty_rows = range(max(0, 13 - items.count()))
     return render(request, 'orders/order_invoice.html', {
         'order': order,
         'items': items,
@@ -1007,7 +1007,7 @@ def order_invoice_bulk(request):
         items = order.items.select_related('book', 'book__publisher')
         total_amount = sum(item.amount for item in items)
         total_qty = sum(item.quantity for item in items)
-        empty_rows = range(max(0, 8 - items.count()))
+        empty_rows = range(max(0, 13 - items.count()))
         orders_data.append({
             'order': order,
             'items': items,
