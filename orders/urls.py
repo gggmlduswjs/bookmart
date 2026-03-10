@@ -53,6 +53,8 @@ urlpatterns = [
     path('inbox/<int:pk>/reply/', views.inbox_reply, name='inbox_reply'),
     path('inbox/attachment/<int:pk>/download/', views.attachment_download, name='attachment_download'),
     path('inbox/attachment/<int:pk>/preview/', views.attachment_preview, name='attachment_preview'),
+    path('inbox/sms-desk/', views.sms_desk, name='sms_desk'),
+    path('inbox/send-sms/', views.send_sms_ajax, name='send_sms_ajax'),
     path('webhook/sms/', views.sms_webhook, name='sms_webhook'),
 
     # ── 엑셀 Export ────────────────────────────────────────────────────────────
