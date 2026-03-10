@@ -531,7 +531,7 @@ def parse_order_excel(request):
                             content_type='application/json', status=400)
 
     try:
-        wb = load_workbook(file, read_only=True)
+        wb = load_workbook(file, read_only=True, data_only=True)
         ws = wb.active
 
         # DB 교재 목록 로드
@@ -546,19 +546,49 @@ def parse_order_excel(request):
                 'unit_price': math.floor(b.list_price * float(b.publisher.supply_rate) / 100),
             }
 
+        def clean_book_name(name):
+            """출판사 접두사 제거: '마린) 교재명' → '교재명'"""
+            import re
+            name = re.sub(r'^[^)]+\)\s*', '', name)
+            return name.strip()
+
+        def try_match(name):
+            """교재명 매칭: 원본 → 접두사제거 → 부분매칭 순서"""
+            # 1. 정확히 일치
+            if name in book_map:
+                return book_map[name]
+            # 2. 출판사 접두사 제거 후 일치
+            cleaned = clean_book_name(name)
+            if cleaned != name and cleaned in book_map:
+                return book_map[cleaned]
+            # 3. 부분 매칭 (원본/접두사제거 모두)
+            for bname, binfo in book_map.items():
+                if name in bname or bname in name:
+                    return binfo
+                if cleaned != name and (cleaned in bname or bname in cleaned):
+                    return binfo
+            return None
+
         # 헤더 탐색: 교재명/수량 컬럼 찾기
         header_row = -1
         col_name = -1
         col_qty = -1
+        name_keywords = ('교재명', '도서명', '교재')
+        qty_keywords = ('수량', '부수', '권수', '주문수량', '신청수량')
         all_rows = list(ws.iter_rows(values_only=True))
 
         for i, row in enumerate(all_rows):
             cells = [str(c or '').strip().replace(' ', '') for c in row]
             for j, cell in enumerate(cells):
-                if cell in ('교재명', '교재명', '도서명', '교재'):
+                # 줄바꿈 제거 후 키워드 매칭 (예: '주문수량\n(3/8)')
+                cell_clean = cell.split('\n')[0].strip()
+                if col_name < 0 and cell_clean in name_keywords:
                     col_name = j
-                if cell in ('수량', '부수', '권수', '주문수량'):
-                    col_qty = j
+                if col_qty < 0:
+                    if cell_clean in qty_keywords:
+                        col_qty = j
+                    elif any(cell_clean.startswith(k) for k in qty_keywords):
+                        col_qty = j
             if col_name >= 0:
                 header_row = i
                 break
@@ -584,20 +614,11 @@ def parse_order_excel(request):
                 if qty <= 0:
                     continue
 
-                info = book_map.get(name)
+                info = try_match(name)
                 if info:
                     matched.append({**info, 'qty': qty})
                 else:
-                    # 부분 매칭 시도
-                    found = None
-                    for bname, binfo in book_map.items():
-                        if name in bname or bname in name:
-                            found = binfo
-                            break
-                    if found:
-                        matched.append({**found, 'qty': qty})
-                    else:
-                        unmatched.append({'name': name, 'qty': qty})
+                    unmatched.append({'name': name, 'qty': qty})
         else:
             # 헤더 없음 — 각 행에서 교재명+수량 추측
             for row in all_rows:
@@ -613,19 +634,11 @@ def parse_order_excel(request):
                         if len(cell) >= 2 and cell not in ('', 'NO.', 'NO'):
                             name_candidate = cell
                 if name_candidate:
-                    info = book_map.get(name_candidate)
+                    info = try_match(name_candidate)
                     if info:
                         matched.append({**info, 'qty': qty_candidate})
                     else:
-                        found = None
-                        for bname, binfo in book_map.items():
-                            if name_candidate in bname or bname in name_candidate:
-                                found = binfo
-                                break
-                        if found:
-                            matched.append({**found, 'qty': qty_candidate})
-                        else:
-                            unmatched.append({'name': name_candidate, 'qty': qty_candidate})
+                        unmatched.append({'name': name_candidate, 'qty': qty_candidate})
 
         wb.close()
         return HttpResponse(
