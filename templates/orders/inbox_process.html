@@ -185,7 +185,7 @@
               <td>
                 <div style="display:flex;gap:6px;align-items:center">
                   <input type="text" x-model="deliveryAddr" style="width:280px;padding:4px 8px;border:1px solid #bbb;font-size:12px" placeholder="주소">
-                  <button type="button" class="btn btn-outline btn-sm" onclick="openPostcode()">주소 검색</button>
+                  <button type="button" class="btn btn-outline btn-sm" @click="openPostcode()">주소 검색</button>
                 </div>
               </td>
             </tr>
@@ -313,15 +313,6 @@ const BOOKS = {{ books_json|safe }};
 const ALL_TEACHERS = {{ teachers_json|safe }};
 const ALL_AGENCIES = {{ agencies_json|safe }};
 
-function openPostcode() {
-  new daum.Postcode({
-    oncomplete: function(data) {
-      const comp = Alpine.$data(document.querySelector('[x-data="inboxOrderForm()"]'));
-      comp.deliveryAddr = data.address;
-    }
-  }).open();
-}
-
 function inboxOrderForm() {
   return {
     agencyId: '',
@@ -334,6 +325,14 @@ function inboxOrderForm() {
     excelLoading: false, excelUnmatched: [],
     rows: [{ series: '', book_id: '', qty: 1, unit_price: 0 }],
 
+    openPostcode() {
+      const self = this;
+      new daum.Postcode({
+        oncomplete: function(data) {
+          self.deliveryAddr = data.address;
+        }
+      }).open({ q: this.deliverySchool });
+    },
     onAgencyChange() {
       this.teacherId = '';
       this.teacherQuery = '';
