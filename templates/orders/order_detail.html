@@ -44,6 +44,18 @@
       {% if order.memo %}
       <tr><th>메모</th><td>{{ order.memo }}</td></tr>
       {% endif %}
+      {% with inbox_msg=order.inbox_messages.first %}
+      {% if inbox_msg %}
+      <tr>
+        <th>수신메일</th>
+        <td style="font-size:11px">
+          <a href="{% url 'inbox_process' inbox_msg.pk %}" style="color:#1a73e8">
+            {% if inbox_msg.subject %}{{ inbox_msg.subject|truncatechars:30 }}{% else %}{{ inbox_msg.sender|truncatechars:30 }}{% endif %}
+          </a>
+        </td>
+      </tr>
+      {% endif %}
+      {% endwith %}
     </table>
 
     <!-- 총판 상태 변경 버튼 -->
