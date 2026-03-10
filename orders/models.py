@@ -148,6 +148,54 @@ class OrderItem(models.Model):
         return f'{name} × {self.quantity}'
 
 
+class Shipment(models.Model):
+    class Carrier(models.TextChoices):
+        HANJIN   = 'hanjin',   '한진택배'
+        CJ       = 'cj',       'CJ대한통운'
+        LOTTE    = 'lotte',    '롯데택배'
+        LOGEN    = 'logen',    '로젠택배'
+        POST     = 'post',     '우체국택배'
+        DIRECT   = 'direct',   '직접배송'
+        OTHER    = 'other',    '기타'
+
+    order = models.ForeignKey(
+        Order, on_delete=models.CASCADE, related_name='shipments', verbose_name='주문'
+    )
+    carrier = models.CharField(
+        max_length=10, choices=Carrier.choices, default=Carrier.HANJIN,
+        verbose_name='택배사'
+    )
+    tracking_no = models.CharField(max_length=50, blank=True, verbose_name='운송장번호')
+    memo = models.TextField(blank=True, verbose_name='배송메모')
+    shipped_at = models.DateTimeField(null=True, blank=True, verbose_name='발송일시')
+    delivered_at = models.DateTimeField(null=True, blank=True, verbose_name='배송완료일시')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'shipments'
+        verbose_name = '배송'
+        verbose_name_plural = '배송 목록'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['order', 'created_at']),
+            models.Index(fields=['tracking_no']),
+        ]
+
+    def __str__(self):
+        return f'{self.order.order_no} — {self.get_carrier_display()} {self.tracking_no}'
+
+    @property
+    def tracking_url(self):
+        urls = {
+            'hanjin': f'https://www.hanjin.co.kr/kor/CMS/DeliveryMgr/WaybillSch.do?mCode=MN038&wblnumList={self.tracking_no}',
+            'cj': f'https://www.cjlogistics.com/ko/tool/parcel/tracking?gnbInvcNo={self.tracking_no}',
+            'lotte': f'https://www.lotteglogis.com/home/reservation/tracking/link498?InvNo={self.tracking_no}',
+            'logen': f'https://www.ilogen.com/web/personal/trace/{self.tracking_no}',
+            'post': f'https://service.epost.go.kr/trace.RetrieveDomRi498.postal?sid1={self.tracking_no}',
+        }
+        return urls.get(self.carrier, '')
+
+
 class Return(models.Model):
     class Status(models.TextChoices):
         REQUESTED = 'requested', '신청'
