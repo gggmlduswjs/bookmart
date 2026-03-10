@@ -699,12 +699,16 @@ def parse_order_excel(request):
         # 메타데이터 추출
         meta = extract_metadata(all_rows)
 
-        # 헤더 탐색: 교재명/수량 컬럼 찾기
+        # 헤더 탐색: 교재명/수량/단가/강사용 컬럼 찾기
         header_row = -1
         col_name = -1
         col_qty = -1
+        col_price = -1
+        col_sample = -1
         name_keywords = ('교재명', '도서명', '교재')
         qty_keywords = ('수량', '부수', '권수', '주문수량', '신청수량')
+        price_keywords = ('단가', '정가', '가격')
+        sample_keywords = ('강사용', '샘플', '강사용(샘플)')
 
         for i, row in enumerate(all_rows):
             cells = [str(c or '').strip().replace(' ', '') for c in row]
@@ -717,6 +721,11 @@ def parse_order_excel(request):
                         col_qty = j
                     elif any(cell_clean.startswith(k) for k in qty_keywords):
                         col_qty = j
+                if col_price < 0 and cell_clean in price_keywords:
+                    col_price = j
+                if col_sample < 0:
+                    if cell_clean in sample_keywords or any(cell_clean.startswith(k) for k in sample_keywords):
+                        col_sample = j
             if col_name >= 0:
                 header_row = i
                 break
@@ -740,12 +749,29 @@ def parse_order_excel(request):
                         qty = q
                 if qty <= 0:
                     continue
+                # 단가 추출
+                excel_price = 0
+                if col_price >= 0 and col_price < len(cells):
+                    try:
+                        excel_price = int(float(str(cells[col_price] or '0').replace(',', '')))
+                    except (ValueError, TypeError):
+                        pass
+                # 강사용(샘플) 수량 추출
+                sample_qty = 0
+                if col_sample >= 0 and col_sample < len(cells):
+                    sq = parse_qty(cells[col_sample])
+                    if sq:
+                        sample_qty = sq
 
                 info = try_match(name)
                 if info:
                     matched.append({**info, 'qty': qty})
+                    if sample_qty > 0:
+                        matched.append({**info, 'qty': sample_qty, 'is_sample': True})
                 else:
-                    unmatched.append({'name': name, 'qty': qty})
+                    unmatched.append({'name': name, 'qty': qty, 'excel_price': excel_price})
+                    if sample_qty > 0:
+                        unmatched.append({'name': name, 'qty': sample_qty, 'excel_price': excel_price, 'is_sample': True})
         else:
             # 헤더 없음 — 각 행에서 교재명+수량 추측
             in_sample_section = False

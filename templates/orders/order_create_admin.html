@@ -356,22 +356,25 @@ function adminOrderForm() {
         this.rows = this.rows.filter(r => r.book_id || (r.is_custom && r.custom_name));
         const sampleItems = [];
         if (data.matched && data.matched.length) {
-          const pendingIds = [];
+          const pendingRows = [];
           for (const m of data.matched) {
             if (m.is_sample) { sampleItems.push(m.name); continue; }
             const row = { series: '', book_id: '', qty: m.qty, unit_price: m.unit_price, is_custom: false };
             this.rows.push(row);
-            pendingIds.push({ row, id: String(m.id) });
+            pendingRows.push({ row, id: String(m.id), series: m.series });
           }
           this.$nextTick(() => {
-            for (const p of pendingIds) p.row.book_id = p.id;
+            for (const p of pendingRows) {
+              p.row.book_id = p.id;
+              p.row.series = p.series;
+            }
           });
         }
         if (data.unmatched && data.unmatched.length) {
           this.excelUnmatched = data.unmatched.filter(u => !u.is_sample);
           for (const u of data.unmatched) {
             if (u.is_sample) { sampleItems.push(u.name); continue; }
-            this.rows.push({ is_custom: true, custom_name: u.name, qty: u.qty, unit_price: 0 });
+            this.rows.push({ is_custom: true, custom_name: u.name, qty: u.qty, unit_price: u.excel_price || 0 });
           }
         }
         if (!this.rows.length) this.rows.push({ series: '', book_id: '', qty: 1, unit_price: 0, is_custom: false });
