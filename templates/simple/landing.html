@@ -44,7 +44,10 @@
       </div>
       <div class="form-group">
         <label>학교명 *</label>
-        <input type="text" name="school" value="{{ request.POST.school|default:'' }}" placeholder="OO초등학교" required>
+        <div style="display:flex;gap:6px">
+          <input type="text" id="school-input" name="school" value="{{ request.POST.school|default:'' }}" placeholder="OO초등학교" required style="flex:1">
+          <button type="button" class="btn btn-outline btn-sm" onclick="searchSchool()" style="white-space:nowrap">학교 검색</button>
+        </div>
       </div>
       <div class="form-group">
         <label>배송주소 *</label>
@@ -52,7 +55,7 @@
           <input type="text" id="postcode" name="postcode" value="{{ request.POST.postcode|default:'' }}" placeholder="우편번호" readonly style="width:100px;background:#f5f5f5;cursor:pointer" onclick="openPostcode()">
           <button type="button" class="btn btn-outline btn-sm" onclick="openPostcode()">주소 검색</button>
         </div>
-        <input type="text" id="address-main" name="address" value="{{ request.POST.address|default:'' }}" placeholder="주소 검색 버튼을 눌러주세요" readonly style="background:#f5f5f5;cursor:pointer;margin-bottom:6px" onclick="openPostcode()" required>
+        <input type="text" id="address-main" name="address" value="{{ request.POST.address|default:'' }}" placeholder="학교명 입력 후 '학교 검색' 버튼을 눌러주세요" readonly style="background:#f5f5f5;cursor:pointer;margin-bottom:6px" onclick="openPostcode()" required>
         <input type="text" id="address-detail" name="address_detail" value="{{ request.POST.address_detail|default:'' }}" placeholder="상세주소 (동/호수 등)">
       </div>
       <button type="submit" class="btn btn-primary btn-block" style="margin-top:8px">주문하기</button>
@@ -82,6 +85,21 @@
 
 <script src="//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
 <script>
+function searchSchool() {
+  var school = document.getElementById('school-input').value.trim();
+  if (!school) { alert('학교명을 입력해주세요.'); return; }
+  new daum.Postcode({
+    oncomplete: function(data) {
+      document.getElementById('postcode').value = data.zonecode;
+      document.getElementById('address-main').value = data.address;
+      // 학교명 보정: 검색 결과의 건물명이 있으면 사용
+      if (data.buildingName) {
+        document.getElementById('school-input').value = data.buildingName;
+      }
+      document.getElementById('address-detail').focus();
+    }
+  }).open({ q: school });
+}
 function openPostcode() {
   new daum.Postcode({
     oncomplete: function(data) {
