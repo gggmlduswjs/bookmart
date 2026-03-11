@@ -24,6 +24,11 @@
     </div>
 
     <div class="form-group">
+      <label class="form-label">현재 비밀번호</label>
+      <input type="text" class="form-control" value="{{ agency_user.plain_password|default:'(확인 불가)' }}" disabled style="background:#f8fafc;color:#64748b">
+    </div>
+
+    <div class="form-group">
       <label class="form-label">비밀번호 변경</label>
       <input type="text" name="new_password" class="form-control" placeholder="변경할 비밀번호 입력 (미입력 시 유지)">
     </div>

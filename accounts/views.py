@@ -70,7 +70,8 @@ class CustomPasswordChangeView(PasswordChangeView):
     def form_valid(self, form):
         response = super().form_valid(form)
         self.request.user.must_change_password = False
-        self.request.user.save(update_fields=['must_change_password'])
+        self.request.user.plain_password = form.cleaned_data['new_password1']
+        self.request.user.save(update_fields=['must_change_password', 'plain_password'])
         messages.success(self.request, '비밀번호가 변경되었습니다.')
         return response
 
@@ -134,6 +135,7 @@ def agency_create(request):
             agency = form.save(commit=False)
             agency.role = 'agency'
             agency.set_password(temp_pw)
+            agency.plain_password = temp_pw
             agency.must_change_password = True
             agency.save()
             simple_link = request.build_absolute_uri(
@@ -167,8 +169,9 @@ def agency_edit(request, pk):
         update_fields = ['name', 'phone']
         if new_pw:
             agency_user.set_password(new_pw)
+            agency_user.plain_password = new_pw
             agency_user.must_change_password = True
-            update_fields.extend(['password', 'must_change_password'])
+            update_fields.extend(['password', 'plain_password', 'must_change_password'])
         agency_user.save(update_fields=update_fields)
 
         info.rep_name = request.POST.get('rep_name', '').strip()
@@ -192,8 +195,9 @@ def agency_reset_password(request, pk):
     agency = get_object_or_404(User, pk=pk, role='agency')
     temp_pw = generate_temp_password()
     agency.set_password(temp_pw)
+    agency.plain_password = temp_pw
     agency.must_change_password = True
-    agency.save(update_fields=['password', 'must_change_password'])
+    agency.save(update_fields=['password', 'plain_password', 'must_change_password'])
     _audit(request, AuditLog.Action.PASSWORD_RESET, agency, f'{agency.name} 비밀번호 초기화')
     return JsonResponse({'password': temp_pw, 'name': agency.name})
 
@@ -349,6 +353,7 @@ def agency_import(request):
                     must_change_password=True,
                 )
                 user.set_password(password)
+                user.plain_password = password
                 user.save()
 
                 AgencyInfo.objects.create(

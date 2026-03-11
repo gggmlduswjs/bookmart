@@ -74,6 +74,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     is_active = models.BooleanField(default=True, verbose_name='활성')
     is_staff = models.BooleanField(default=False)
     must_change_password = models.BooleanField(default=True, verbose_name='비번 변경 필요')
+    plain_password = models.CharField(max_length=100, blank=True, default='', verbose_name='비밀번호(평문)')
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

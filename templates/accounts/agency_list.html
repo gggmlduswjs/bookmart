@@ -86,7 +86,7 @@
   <table class="data-table">
     <thead>
       <tr>
-        <th>업체명</th><th>아이디</th><th>연락처</th><th>상태</th><th style="width:240px"></th>
+        <th>업체명</th><th>아이디</th><th>비밀번호</th><th>연락처</th><th>상태</th><th style="width:240px"></th>
       </tr>
     </thead>
     <tbody>
@@ -94,6 +94,7 @@
       <tr>
         <td>{{ agency.name }}{% if agency.is_individual %} <span class="badge badge-blue" style="font-size:10px">개인</span>{% endif %}</td>
         <td>{{ agency.login_id }}</td>
+        <td style="font-size:12px;color:#64748b">{{ agency.plain_password|default:"-" }}</td>
         <td>{{ agency.phone }}</td>
         <td class="center">
           {% if agency.is_active %}
@@ -116,7 +117,7 @@
         </td>
       </tr>
       {% empty %}
-      <tr><td colspan="5" class="center" style="padding:20px;color:#888">등록된 업체가 없습니다.</td></tr>
+      <tr><td colspan="6" class="center" style="padding:20px;color:#888">등록된 업체가 없습니다.</td></tr>
       {% endfor %}
     </tbody>
   </table>
