@@ -46,6 +46,24 @@ def inbox_list(request):
     sms_qs = qs.filter(source='sms').order_by('-received_at')
     unread_email = InboxMessage.objects.filter(is_processed=False, source='email').count()
     unread_sms = InboxMessage.objects.filter(is_processed=False, source='sms').count()
+
+    # 통화 녹음 탭 데이터
+    from pathlib import Path
+    from django.conf import settings as conf
+    from django.core.paginator import Paginator
+
+    call_qs = CallRecording.objects.all()
+    call_status = request.GET.get('call_status', '')
+    if call_status:
+        call_qs = call_qs.filter(status=call_status)
+    call_paginator = Paginator(call_qs.order_by('-created_at'), 30)
+    call_page = call_paginator.get_page(request.GET.get('call_page'))
+    call_counts = dict(
+        CallRecording.objects.values_list('status').annotate(c=Count('id')).values_list('status', 'c')
+    )
+    pending_calls = call_counts.get('pending', 0) + call_counts.get('parsed', 0)
+    token_path = Path(conf.BASE_DIR) / 'gdrive_token.json'
+
     return render(request, 'orders/inbox_list.html', {
         'email_messages': email_qs,
         'sms_messages': sms_qs,
@@ -55,6 +73,11 @@ def inbox_list(request):
         'unread_email': unread_email,
         'unread_sms': unread_sms,
         'unread_count': unread_email + unread_sms,
+        'call_page': call_page,
+        'call_status': call_status,
+        'call_counts': call_counts,
+        'pending_calls': pending_calls,
+        'gdrive_connected': token_path.exists(),
     })
 
 

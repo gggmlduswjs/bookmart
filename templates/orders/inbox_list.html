@@ -77,6 +77,10 @@
      href="?tab=sms{% if hide_done %}&hide_done=1{% endif %}{% if search %}&q={{ search|urlencode }}{% endif %}">
     문자{% if unread_sms %} <span class="tab-count">{{ unread_sms }}</span>{% endif %}
   </a>
+  <a class="inbox-tab {% if tab == 'call' %}active{% endif %}"
+     href="?tab=call">
+    통화{% if pending_calls %} <span class="tab-count">{{ pending_calls }}</span>{% endif %}
+  </a>
 </div>
 
 <!-- 메일 탭 -->
@@ -266,6 +270,96 @@
       </table>
     </div>
   </form>
+</div>
+
+<!-- 통화 탭 -->
+<div class="inbox-panel {% if tab == 'call' %}active{% endif %}">
+  <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
+    {% if gdrive_connected %}
+    <span style="color:#059669;font-size:12px;font-weight:600">Google Drive 연동됨</span>
+    <a href="{% url 'call_sync_drive' %}" class="btn btn-blue btn-sm">수동 동기화</a>
+    {% else %}
+    <a href="{% url 'gdrive_auth_start' %}" class="btn btn-green btn-sm">Google Drive 연동</a>
+    {% endif %}
+    <a href="{% url 'call_order_upload' %}" class="btn btn-orange btn-sm">직접 입력</a>
+  </div>
+
+  <!-- 상태 필터 -->
+  <div style="display:flex;gap:0;margin-bottom:12px;border-bottom:2px solid #e2e8f0">
+    <a href="?tab=call" style="padding:6px 14px;font-size:12px;text-decoration:none;border-bottom:2px solid {% if not call_status %}#3b82f6{% else %}transparent{% endif %};margin-bottom:-2px;color:{% if not call_status %}#1e40af{% else %}#64748b{% endif %};font-weight:{% if not call_status %}600{% else %}400{% endif %}">
+      전체 <span style="background:#e2e8f0;padding:1px 5px;border-radius:8px;font-size:10px">{{ call_page.paginator.count }}</span>
+    </a>
+    {% for st, label in call_status_choices %}
+    <a href="?tab=call&call_status={{ st }}" style="padding:6px 14px;font-size:12px;text-decoration:none;border-bottom:2px solid {% if call_status == st %}#3b82f6{% else %}transparent{% endif %};margin-bottom:-2px;color:{% if call_status == st %}#1e40af{% else %}#64748b{% endif %};font-weight:{% if call_status == st %}600{% else %}400{% endif %}">
+      {{ label }} <span style="background:#e2e8f0;padding:1px 5px;border-radius:8px;font-size:10px">{{ call_counts|default_if_none:"" }}</span>
+    </a>
+    {% endfor %}
+    <a href="?tab=call&call_status=pending" style="padding:6px 14px;font-size:12px;text-decoration:none;border-bottom:2px solid {% if call_status == 'pending' %}#3b82f6{% else %}transparent{% endif %};margin-bottom:-2px;color:{% if call_status == 'pending' %}#1e40af{% else %}#64748b{% endif %};font-weight:{% if call_status == 'pending' %}600{% else %}400{% endif %}">
+      대기 <span style="background:#e2e8f0;padding:1px 5px;border-radius:8px;font-size:10px">{{ call_counts.pending|default:"0" }}</span>
+    </a>
+    <a href="?tab=call&call_status=parsed" style="padding:6px 14px;font-size:12px;text-decoration:none;border-bottom:2px solid {% if call_status == 'parsed' %}#3b82f6{% else %}transparent{% endif %};margin-bottom:-2px;color:{% if call_status == 'parsed' %}#1e40af{% else %}#64748b{% endif %};font-weight:{% if call_status == 'parsed' %}600{% else %}400{% endif %}">
+      파싱완료 <span style="background:#e2e8f0;padding:1px 5px;border-radius:8px;font-size:10px">{{ call_counts.parsed|default:"0" }}</span>
+    </a>
+    <a href="?tab=call&call_status=ordered" style="padding:6px 14px;font-size:12px;text-decoration:none;border-bottom:2px solid {% if call_status == 'ordered' %}#3b82f6{% else %}transparent{% endif %};margin-bottom:-2px;color:{% if call_status == 'ordered' %}#1e40af{% else %}#64748b{% endif %};font-weight:{% if call_status == 'ordered' %}600{% else %}400{% endif %}">
+      주문생성 <span style="background:#e2e8f0;padding:1px 5px;border-radius:8px;font-size:10px">{{ call_counts.ordered|default:"0" }}</span>
+    </a>
+    <a href="?tab=call&call_status=failed" style="padding:6px 14px;font-size:12px;text-decoration:none;border-bottom:2px solid {% if call_status == 'failed' %}#3b82f6{% else %}transparent{% endif %};margin-bottom:-2px;color:{% if call_status == 'failed' %}#1e40af{% else %}#64748b{% endif %};font-weight:{% if call_status == 'failed' %}600{% else %}400{% endif %}">
+      실패 <span style="background:#e2e8f0;padding:1px 5px;border-radius:8px;font-size:10px">{{ call_counts.failed|default:"0" }}</span>
+    </a>
+  </div>
+
+  <!-- 녹음 목록 -->
+  {% for rec in call_page %}
+  <div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px;margin-bottom:6px;display:flex;align-items:center;gap:12px">
+    <div style="font-size:22px;flex-shrink:0">
+      {% if rec.status == 'ordered' %}&#9989;{% elif rec.status == 'parsed' %}&#128269;{% elif rec.status == 'failed' %}&#10060;{% elif rec.status == 'processing' %}&#9203;{% elif rec.status == 'skipped' %}&#9199;{% else %}&#127908;{% endif %}
+    </div>
+    <div style="flex:1;min-width:0">
+      <div style="font-size:13px;font-weight:600;color:#334155">
+        {{ rec.file_name|default:"녹음" }}
+        <span style="display:inline-block;padding:2px 7px;font-size:10px;border-radius:4px;font-weight:500;
+          {% if rec.status == 'pending' %}background:#fef3c7;color:#92400e{% elif rec.status == 'parsed' %}background:#d1fae5;color:#065f46{% elif rec.status == 'ordered' %}background:#e0e7ff;color:#3730a3{% elif rec.status == 'failed' %}background:#fee2e2;color:#991b1b{% else %}background:#f1f5f9;color:#64748b{% endif %}">{{ rec.get_status_display }}</span>
+      </div>
+      <div style="font-size:11px;color:#94a3b8;margin-top:2px">
+        {% if rec.caller_phone %}&#128222; {{ rec.caller_phone }} &nbsp;{% endif %}
+        {% if rec.recorded_at %}&#128197; {{ rec.recorded_at|date:"Y-m-d H:i" }} &nbsp;{% endif %}
+        {{ rec.created_at|date:"m/d H:i" }} 수신
+      </div>
+      {% if rec.transcript %}<div style="font-size:12px;color:#64748b;margin-top:3px;max-height:36px;overflow:hidden">{{ rec.transcript|truncatechars:120 }}</div>{% endif %}
+      {% if rec.error_msg %}<div style="font-size:12px;color:#dc2626;margin-top:3px">{{ rec.error_msg }}</div>{% endif %}
+      {% if rec.order %}<div style="font-size:12px;color:#059669;margin-top:3px">주문 <a href="{% url 'order_detail' pk=rec.order.pk %}" style="color:#059669;font-weight:600">{{ rec.order.order_no }}</a></div>{% endif %}
+      {% if rec.parsed_data %}<div style="font-size:11px;color:#64748b;margin-top:2px">{% if rec.parsed_data.teacher_name %}{{ rec.parsed_data.teacher_name }}{% endif %}{% if rec.parsed_data.school_name %} / {{ rec.parsed_data.school_name }}{% endif %}{% if rec.parsed_data.items %} / 교재 {{ rec.parsed_data.items|length }}건{% endif %}</div>{% endif %}
+    </div>
+    <div style="display:flex;gap:5px;flex-shrink:0">
+      {% if rec.status == 'pending' or rec.status == 'parsed' %}
+      <a href="{% url 'call_recording_process' pk=rec.pk %}" class="btn btn-orange btn-sm">{% if rec.status == 'parsed' %}주문 생성{% else %}파싱{% endif %}</a>
+      {% endif %}
+      {% if rec.status == 'failed' %}
+      <a href="{% url 'call_recording_retry' pk=rec.pk %}" class="btn btn-blue btn-sm">재시도</a>
+      {% endif %}
+      {% if rec.status != 'ordered' and rec.status != 'skipped' %}
+      <a href="{% url 'call_recording_skip' pk=rec.pk %}" class="btn btn-outline btn-sm" style="font-size:11px">건너뛰기</a>
+      {% endif %}
+    </div>
+  </div>
+  {% empty %}
+  <div style="text-align:center;padding:40px;color:#94a3b8">
+    <div style="font-size:36px;margin-bottom:6px">&#127908;</div>
+    수신된 통화 녹음이 없습니다
+  </div>
+  {% endfor %}
+
+  {% if call_page.has_other_pages %}
+  <div style="text-align:center;margin-top:12px;font-size:13px">
+    {% if call_page.has_previous %}
+    <a href="?tab=call{% if call_status %}&call_status={{ call_status }}{% endif %}&call_page={{ call_page.previous_page_number }}">&laquo; 이전</a>
+    {% endif %}
+    <span style="margin:0 8px;color:#666">{{ call_page.number }} / {{ call_page.paginator.num_pages }}</span>
+    {% if call_page.has_next %}
+    <a href="?tab=call{% if call_status %}&call_status={{ call_status }}{% endif %}&call_page={{ call_page.next_page_number }}">다음 &raquo;</a>
+    {% endif %}
+  </div>
+  {% endif %}
 </div>
 
 <form id="singleSkipForm" method="post" style="display:none">

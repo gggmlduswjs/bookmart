@@ -2,7 +2,6 @@ import json
 import math
 
 from django.contrib import messages
-from django.core.paginator import Paginator
 from django.db.models import Count
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -287,30 +286,12 @@ def call_order_confirm(request):
 
 @role_required('admin')
 def call_inbox(request):
-    """통화 녹음 수신함 - 자동 수집된 녹음 목록"""
-    from pathlib import Path
-
-    qs = CallRecording.objects.all()
-
-    status_filter = request.GET.get('status', '')
-    if status_filter:
-        qs = qs.filter(status=status_filter)
-
-    paginator = Paginator(qs, 30)
-    page = paginator.get_page(request.GET.get('page'))
-
-    counts = dict(CallRecording.objects.values_list('status').annotate(c=Count('id')).values_list('status', 'c'))
-
-    from django.conf import settings as conf
-    token_path = Path(conf.BASE_DIR) / 'gdrive_token.json'
-    gdrive_connected = token_path.exists()
-
-    return render(request, 'orders/call_inbox.html', {
-        'page': page,
-        'status_filter': status_filter,
-        'counts': counts,
-        'gdrive_connected': gdrive_connected,
-    })
+    """통화 수신함 → 통합 수신함의 통화 탭으로 리다이렉트"""
+    status = request.GET.get('status', '')
+    url = '/inbox/?tab=call'
+    if status:
+        url += f'&call_status={status}'
+    return redirect(url)
 
 
 @role_required('admin')
