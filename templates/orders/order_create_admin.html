@@ -9,6 +9,26 @@
   }
   .order-row-wrap select { width: 100%; }
   .order-row-wrap input[type=number] { width: 60px; text-align: center; }
+  /* 교재 검색 자동완성 */
+  .book-ac-wrap { position: relative; width: 100%; }
+  .book-ac-wrap input[type=text] { width: 100%; padding: 4px 28px 4px 8px; border: 1px solid #bbb; font-size: 12px; font-family: inherit; height: 26px; box-sizing: border-box; }
+  .book-ac-wrap input[type=text]:focus { border-color: #4a90d9; outline: none; box-shadow: 0 0 0 2px rgba(74,144,217,0.15); }
+  .book-ac-wrap .book-ac-clear { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); cursor: pointer; color: #999; font-size: 14px; line-height: 1; display: none; }
+  .book-ac-wrap .book-ac-clear.show { display: block; }
+  .book-ac-list {
+    position: absolute; top: 100%; left: 0; right: 0; z-index: 200;
+    background: #fff; border: 1px solid #ccc; border-top: none;
+    max-height: 240px; overflow-y: auto; box-shadow: 0 4px 12px rgba(0,0,0,0.18);
+  }
+  .book-ac-list div {
+    padding: 6px 10px; font-size: 12px; cursor: pointer; border-bottom: 1px solid #f0f0f0;
+  }
+  .book-ac-list div:last-child { border-bottom: none; }
+  .book-ac-list div:hover, .book-ac-list div.active { background: #e8f0fe; }
+  .book-ac-list div .book-name { font-weight: 600; }
+  .book-ac-list div .book-meta { color: #888; font-size: 11px; margin-left: 4px; }
+  .book-ac-list div .book-price { float: right; color: #e8720c; font-size: 11px; }
+  .book-ac-list .no-result { padding: 10px; color: #999; font-size: 11px; text-align: center; cursor: default; }
   .deadline-warn { background:#fff3cd; border:1px solid #ffc107; color:#856404; padding:6px 12px; margin-bottom:10px; font-size:12px; }
   /* 자동완성 */
   .ac-wrap { position: relative; display: inline-block; }
@@ -160,8 +180,7 @@
     <table class="data-table">
       <thead>
         <tr>
-          <th style="width:28%">시리즈</th>
-          <th style="width:34%">교재</th>
+          <th style="width:62%">교재 검색</th>
           <th class="right" style="width:90px">단가</th>
           <th class="center" style="width:70px">수량</th>
           <th class="right" style="width:90px">금액</th>
@@ -173,32 +192,44 @@
           <tr :style="row.is_custom ? 'background:#fff8f0' : ''">
             <template x-if="!row.is_custom">
               <td>
-                <select x-model="row.series" @change="row.book_id = ''; row.unit_price = 0">
-                  <option value="">시리즈 선택</option>
-                  {% for s in series_list %}
-                  <option value="{{ s }}">{{ s }}</option>
-                  {% endfor %}
-                </select>
-              </td>
-            </template>
-            <template x-if="row.is_custom">
-              <td><span style="font-size:11px;color:#e8720c;font-weight:bold">직접입력</span></td>
-            </template>
-            <template x-if="!row.is_custom">
-              <td>
-                <select x-model="row.book_id" @change="updatePrice(row)">
-                  <option value="">교재 선택</option>
-                  <template x-for="b in getBooks(row.series)" :key="b.id">
-                    <option :value="b.id" x-text="b.name"></option>
-                  </template>
-                </select>
+                <div class="book-ac-wrap">
+                  <input type="text"
+                    x-model="row.bookQuery"
+                    @input="filterBooksForRow(row)"
+                    @focus="row.showBookList = !row.book_id && row.bookQuery.length > 0"
+                    @keydown.arrow-down.prevent="bookAcDown(row)"
+                    @keydown.arrow-up.prevent="bookAcUp(row)"
+                    @keydown.enter.prevent="bookAcSelect(row)"
+                    @keydown.escape="row.showBookList = false"
+                    :placeholder="row.book_id ? '' : '교재명, 시리즈, 출판사 검색...'"
+                    :readonly="!!row.book_id"
+                    :style="row.book_id ? 'background:#f0f7ff;font-weight:600' : ''"
+                    autocomplete="off">
+                  <span class="book-ac-clear" :class="{'show': row.book_id || row.bookQuery}"
+                        @click="clearBookSelection(row)">&#10005;</span>
+                  <div class="book-ac-list" x-show="row.showBookList" @click.outside="row.showBookList = false">
+                    <template x-if="row.filteredBooks && row.filteredBooks.length > 0">
+                      <template x-for="(b, bi) in row.filteredBooks" :key="b.id">
+                        <div @click="selectBook(row, b)" :class="{'active': bi === row.bookAcIdx}">
+                          <span class="book-price" x-text="b.unit_price.toLocaleString() + '원'"></span>
+                          <span class="book-name" x-text="b.name"></span>
+                          <span class="book-meta" x-text="'(' + b.series + ' - ' + b.publisher + ')'"></span>
+                        </div>
+                      </template>
+                    </template>
+                    <template x-if="!row.filteredBooks || row.filteredBooks.length === 0">
+                      <div class="no-result">검색 결과가 없습니다</div>
+                    </template>
+                  </div>
+                </div>
                 <input type="hidden" :name="'book_' + index" :value="row.book_id">
               </td>
             </template>
             <template x-if="row.is_custom">
               <td>
+                <span style="font-size:10px;color:#e8720c;font-weight:bold">직접입력 &nbsp;</span>
                 <input type="text" :name="'custom_name_' + index" x-model="row.custom_name"
-                       style="width:100%;padding:3px 5px;border:1px solid #bbb;font-size:12px" placeholder="교재명">
+                       style="width:calc(100% - 60px);padding:3px 5px;border:1px solid #bbb;font-size:12px" placeholder="교재명">
               </td>
             </template>
             <td class="right">
@@ -266,7 +297,7 @@ function adminOrderForm() {
     // 엑셀 업로드
     excelLoading: false, excelUnmatched: [],
     // 교재
-    rows: [{ series: '', book_id: '', qty: 1, unit_price: 0 }],
+    rows: [{ book_id: '', qty: 1, unit_price: 0, bookQuery: '', showBookList: false, filteredBooks: [], bookAcIdx: -1 }],
 
     openPostcode() {
       const self = this;
@@ -323,8 +354,46 @@ function adminOrderForm() {
       });
       return found ? found.name + ' (' + found.publisher + ')' : '';
     },
-    // 교재
-    getBooks(series) { return series ? BOOKS.filter(b => b.series === series) : BOOKS; },
+    // 교재 검색
+    filterBooksForRow(row) {
+      const q = row.bookQuery.toLowerCase().replace(/\s/g, '');
+      if (!q) { row.filteredBooks = []; row.showBookList = false; return; }
+      row.filteredBooks = BOOKS.filter(b => {
+        const name = b.name.toLowerCase().replace(/\s/g, '');
+        const series = b.series.toLowerCase().replace(/\s/g, '');
+        const pub = b.publisher.toLowerCase().replace(/\s/g, '');
+        return name.includes(q) || series.includes(q) || pub.includes(q);
+      }).slice(0, 10);
+      row.showBookList = true;
+      row.bookAcIdx = -1;
+    },
+    selectBook(row, book) {
+      row.book_id = String(book.id);
+      row.unit_price = book.unit_price;
+      row.bookQuery = book.name + ' (' + book.series + ' - ' + book.publisher + ')';
+      row.showBookList = false;
+      row.filteredBooks = [];
+      row.bookAcIdx = -1;
+    },
+    clearBookSelection(row) {
+      row.book_id = '';
+      row.unit_price = 0;
+      row.bookQuery = '';
+      row.showBookList = false;
+      row.filteredBooks = [];
+      row.bookAcIdx = -1;
+    },
+    bookAcDown(row) {
+      if (row.filteredBooks && row.bookAcIdx < row.filteredBooks.length - 1) row.bookAcIdx++;
+    },
+    bookAcUp(row) {
+      if (row.bookAcIdx > 0) row.bookAcIdx--;
+    },
+    bookAcSelect(row) {
+      if (row.filteredBooks && row.bookAcIdx >= 0 && row.bookAcIdx < row.filteredBooks.length) {
+        this.selectBook(row, row.filteredBooks[row.bookAcIdx]);
+      }
+    },
     updatePrice(row) { const b = BOOKS.find(b => b.id == row.book_id); row.unit_price = b ? b.unit_price : 0; },
     rowAmount(row) { return ((row.book_id || row.is_custom) && row.qty) ? row.unit_price * row.qty : 0; },
     total() { return this.rows.reduce((s, r) => s + this.rowAmount(r), 0); },
@@ -334,7 +403,7 @@ function adminOrderForm() {
       if (nums.length <= 7) return nums.slice(0, 3) + '-' + nums.slice(3);
       return nums.slice(0, 3) + '-' + nums.slice(3, 7) + '-' + nums.slice(7);
     },
-    addRow() { this.rows.push({ series: '', book_id: '', qty: 1, unit_price: 0, is_custom: false }); },
+    addRow() { this.rows.push({ book_id: '', qty: 1, unit_price: 0, is_custom: false, bookQuery: '', showBookList: false, filteredBooks: [], bookAcIdx: -1 }); },
     addCustomRow() { this.rows.push({ is_custom: true, custom_name: '', qty: 1, unit_price: 0 }); },
     async uploadExcel(e) {
       const file = e.target.files[0];
@@ -381,7 +450,8 @@ function adminOrderForm() {
         if (data.matched && data.matched.length) {
           for (const m of data.matched) {
             if (m.is_sample) { sampleItems.push(m.name); continue; }
-            this.rows.push({ series: m.series || '', book_id: String(m.id), qty: m.qty, unit_price: m.unit_price, is_custom: false });
+            const bookLabel = m.name + ' (' + (m.series || '') + ' - ' + (m.publisher || '') + ')';
+            this.rows.push({ book_id: String(m.id), qty: m.qty, unit_price: m.unit_price, is_custom: false, bookQuery: bookLabel, showBookList: false, filteredBooks: [], bookAcIdx: -1 });
           }
         }
         if (data.unmatched && data.unmatched.length) {
@@ -391,7 +461,7 @@ function adminOrderForm() {
             this.rows.push({ is_custom: true, custom_name: u.name, qty: u.qty, unit_price: u.excel_price || 0 });
           }
         }
-        if (!this.rows.length) this.rows.push({ series: '', book_id: '', qty: 1, unit_price: 0, is_custom: false });
+        if (!this.rows.length) this.rows.push({ book_id: '', qty: 1, unit_price: 0, is_custom: false, bookQuery: '', showBookList: false, filteredBooks: [], bookAcIdx: -1 });
         const mc = data.matched?.filter(x => !x.is_sample).length || 0;
         const uc = data.unmatched?.filter(x => !x.is_sample).length || 0;
         let msg = '';

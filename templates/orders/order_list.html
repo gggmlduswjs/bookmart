@@ -13,10 +13,10 @@
 </div>
 
 <!-- 필터 -->
-<form method="get" class="search-bar">
+<form method="get" class="search-bar" id="filterForm">
   <input type="text" name="q" value="{{ filters.q }}" placeholder="주문번호/선생님/학교/업체/운송장 검색"
-         aria-label="주문 검색"
-         style="width:220px;padding:4px 8px;border:1px solid #bbb;font-size:12px">
+         aria-label="주문 검색" style="width:220px;padding:4px 8px;border:1px solid #bbb;font-size:12px">
+
   <label for="filter-status">상태</label>
   <select name="status" id="filter-status">
     <option value="">전체</option>
@@ -42,6 +42,7 @@
     <option value="simple" {% if filters.source == 'simple' %}selected{% endif %}>간편주문</option>
     <option value="inbox" {% if filters.source == 'inbox' %}selected{% endif %}>수신함</option>
     <option value="admin" {% if filters.source == 'admin' %}selected{% endif %}>관리자</option>
+    <option value="call" {% if filters.source == 'call' %}selected{% endif %}>통화주문</option>
   </select>
   {% endif %}
 
@@ -52,7 +53,7 @@
   <input type="date" name="date_to" id="filter-date-to" value="{{ filters.date_to }}">
 
   <button type="submit" class="btn btn-dark btn-sm">조회</button>
-  <a href="{% url 'order_list' %}" class="btn btn-outline btn-sm">초기화</a>
+  <a href="{% url 'order_list' %}" class="btn btn-outline btn-sm" id="filterReset">초기화</a>
 </form>
 
 <!-- 일괄 작업 -->
@@ -61,6 +62,7 @@
   <label style="font-size:13px;color:#64748b;cursor:pointer">
     <input type="checkbox" id="check-all" onchange="toggleAll(this)"> 전체 선택
   </label>
+  <span id="bulk-count" style="font-size:12px;color:#2563eb;font-weight:600;display:none">0건 선택됨</span>
   <button class="btn btn-dark btn-sm" onclick="bulkPrint()">거래명세서</button>
   <button class="btn btn-outline btn-sm" onclick="bulkQuote()">견적서</button>
   {% if request.user.is_admin %}
@@ -82,41 +84,120 @@
         {% if request.user.is_admin %}<th>경로</th>{% endif %}
         <th>상태</th>
         <th>주문일시</th>
-        <th style="width:50px"><span class="sr-only">상세</span></th>
+        <th style="width:40px"><span class="sr-only">메뉴</span></th>
       </tr>
     </thead>
     <tbody>
       {% for order in orders %}
-      <tr>
+      <tr data-order-id="{{ order.pk }}">
         {% if not request.user.is_teacher %}
-        <td class="center"><input type="checkbox" class="order-chk" value="{{ order.pk }}" aria-label="주문 {{ order.order_no }} 선택"></td>
+        <td class="center" style="padding:10px 10px">
+          <input type="checkbox" class="order-chk" value="{{ order.pk }}" aria-label="주문 {{ order.order_no }} 선택" onclick="handleCheckboxClick(event, this)">
+        </td>
         {% endif %}
-        <td style="font-size:11px">{{ order.order_no }}</td>
-        {% if not request.user.is_teacher %}<td>{{ order.teacher.name }}</td>{% endif %}
-        <td>{{ order.delivery.name }}</td>
-        {% if request.user.is_admin %}<td>{{ order.agency.name }}</td>{% endif %}
+        <td style="font-size:11px;padding:10px 10px">{{ order.order_no }}</td>
+        {% if not request.user.is_teacher %}<td style="padding:10px 10px">{{ order.teacher.name }}</td>{% endif %}
+        <td style="padding:10px 10px">{{ order.delivery.name }}</td>
+        {% if request.user.is_admin %}<td style="padding:10px 10px">{{ order.agency.name }}</td>{% endif %}
         {% if request.user.is_admin %}
-        <td class="center" style="font-size:11px">
+        <td class="center" style="font-size:11px;padding:10px 10px">
           {% if order.source == 'simple' or order.source == 'teacher' %}<span class="badge badge-green">간편주문</span>
           {% elif order.source == 'inbox' %}<span class="badge badge-orange">수신함</span>
+          {% elif order.source == 'call' %}<span class="badge badge-blue">통화주문</span>
           {% else %}<span class="badge badge-gray">관리자</span>
           {% endif %}
         </td>
         {% endif %}
-        <td class="center">
+
+        {# 상태 셀 - 관리자는 인라인 상태 변경 가능 #}
+        {% if request.user.is_admin %}
+        <td class="center" style="padding:10px 10px;position:relative"
+            x-data="statusPopover({{ order.pk }}, '{{ order.status }}', '{{ order.carrier|default:'' }}', '{{ order.tracking_no|default:'' }}')"
+            @click.outside="open = false">
+          <button type="button"
+                  class="badge {% if order.status == 'pending' %}badge-blue{% elif order.status == 'shipping' %}badge-orange{% elif order.status == 'delivered' %}badge-green{% else %}badge-gray{% endif %}"
+                  style="cursor:pointer;border:none;font-family:inherit"
+                  :id="'status-badge-' + orderId"
+                  @click="open = !open">
+            {% if order.status == 'pending' %}접수{% elif order.status == 'shipping' %}발송중{% elif order.status == 'delivered' %}발송완료{% elif order.status == 'cancelled' %}취소{% endif %}
+          </button>
+
+          <!-- 상태 변경 팝오버 -->
+          <div x-show="open" x-cloak x-transition.opacity
+               style="position:absolute;top:100%;left:50%;transform:translateX(-50%);z-index:50;
+                      background:#fff;border:1px solid #e2e8f0;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.12);
+                      padding:12px;min-width:220px;text-align:left;margin-top:4px">
+
+            {% if order.status == 'pending' %}
+            <div style="font-size:12px;font-weight:600;color:#334155;margin-bottom:8px">발송 처리</div>
+            <div style="margin-bottom:6px">
+              <label style="font-size:11px;color:#64748b;display:block;margin-bottom:2px;background:none;padding:0">택배사</label>
+              <select x-model="carrier" style="width:100%;padding:4px 6px;border:1px solid #cbd5e1;border-radius:4px;font-size:12px">
+                <option value="한진택배">한진택배</option>
+                <option value="직접배송">직접배송</option>
+              </select>
+            </div>
+            <div style="margin-bottom:8px">
+              <label style="font-size:11px;color:#64748b;display:block;margin-bottom:2px;background:none;padding:0">운송장번호</label>
+              <input type="text" x-model="trackingNo" placeholder="운송장번호 입력"
+                     style="width:100%;padding:4px 6px;border:1px solid #cbd5e1;border-radius:4px;font-size:12px">
+            </div>
+            <button class="btn btn-blue btn-sm" style="width:100%" @click="submitShip()" :disabled="loading">
+              <span x-show="!loading">발송처리</span>
+              <span x-show="loading">처리중...</span>
+            </button>
+
+            {% elif order.status == 'shipping' %}
+            <div style="font-size:12px;font-weight:600;color:#334155;margin-bottom:8px">배송 완료 처리</div>
+            <p style="font-size:11px;color:#64748b;margin-bottom:8px">이 주문을 배송완료로 변경합니다.</p>
+            <button class="btn btn-green btn-sm" style="width:100%" @click="submitDeliver()" :disabled="loading">
+              <span x-show="!loading">배송완료</span>
+              <span x-show="loading">처리중...</span>
+            </button>
+
+            {% else %}
+            <p style="font-size:12px;color:#94a3b8;margin:0">상태 변경 불가</p>
+            {% endif %}
+          </div>
+        </td>
+        {% else %}
+        <td class="center" style="padding:10px 10px">
           {% if order.status == 'pending' %}<span class="badge badge-blue">접수</span>
           {% elif order.status == 'shipping' %}<span class="badge badge-orange">발송중</span>
           {% elif order.status == 'delivered' %}<span class="badge badge-green">발송완료</span>
           {% elif order.status == 'cancelled' %}<span class="badge badge-gray">취소</span>
           {% endif %}
         </td>
-        <td style="font-size:11px">{{ order.ordered_at|date:"Y-m-d H:i" }}</td>
-        <td class="center" style="white-space:nowrap">
-          <a href="{% url 'order_detail' order.pk %}" class="btn btn-sm btn-outline">상세</a>
-          {% if not request.user.is_teacher %}
-          <a href="{% url 'order_invoice' order.pk %}" target="_blank" class="btn btn-sm btn-dark" style="padding:1px 5px;font-size:10px">명세서</a>
-          <a href="{% url 'order_quote' order.pk %}" target="_blank" class="btn btn-sm btn-outline" style="padding:1px 5px;font-size:10px">견적서</a>
-          {% endif %}
+        {% endif %}
+
+        <td style="font-size:11px;padding:10px 10px">{{ order.ordered_at|date:"Y-m-d H:i" }}</td>
+
+        {# 컨텍스트 액션 메뉴 #}
+        <td class="center" style="padding:10px 6px;position:relative"
+            x-data="{ menuOpen: false }" @click.outside="menuOpen = false">
+          <button type="button" @click="menuOpen = !menuOpen"
+                  style="background:none;border:none;cursor:pointer;font-size:18px;color:#64748b;padding:2px 6px;line-height:1;font-family:inherit"
+                  aria-label="주문 메뉴">&#8942;</button>
+          <div x-show="menuOpen" x-cloak x-transition.opacity
+               style="position:absolute;right:0;top:100%;z-index:40;
+                      background:#fff;border:1px solid #e2e8f0;border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,0.1);
+                      min-width:130px;padding:4px 0;margin-top:2px">
+            <a href="{% url 'order_detail' order.pk %}" style="display:block;padding:7px 14px;font-size:12px;color:#334155;text-decoration:none"
+               onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background=''">상세 보기</a>
+            {% if not request.user.is_teacher %}
+            <a href="{% url 'order_invoice' order.pk %}" target="_blank" style="display:block;padding:7px 14px;font-size:12px;color:#334155;text-decoration:none"
+               onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background=''">거래명세서</a>
+            <a href="{% url 'order_quote' order.pk %}" target="_blank" style="display:block;padding:7px 14px;font-size:12px;color:#334155;text-decoration:none"
+               onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background=''">견적서</a>
+            <a href="{% url 'order_copy' order.pk %}" style="display:block;padding:7px 14px;font-size:12px;color:#334155;text-decoration:none"
+               onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background=''">주문 복사</a>
+            {% endif %}
+            {% if request.user.is_admin %}
+            <div style="border-top:1px solid #e2e8f0;margin:4px 0"></div>
+            <a href="#" onclick="event.preventDefault();deleteOrder({{ order.pk }}, '{{ order.order_no }}')" style="display:block;padding:7px 14px;font-size:12px;color:#dc2626;text-decoration:none"
+               onmouseover="this.style.background='#fef2f2'" onmouseout="this.style.background=''">삭제</a>
+            {% endif %}
+          </div>
         </td>
       </tr>
       {% empty %}
@@ -135,7 +216,7 @@
   </table>
 </div>
 
-<!-- 페이지네이션 (3-4) -->
+<!-- 페이지네이션 -->
 {% if page_obj.has_other_pages %}
 <nav class="pagination" aria-label="페이지 탐색">
   {% if page_obj.has_previous %}
@@ -162,23 +243,170 @@
 </form>
 {% endif %}
 
-{% if not request.user.is_teacher %}
+<style>
+  [x-cloak] { display: none !important; }
+</style>
+
 <script>
+/* ── CSRF 토큰 ── */
+function getCsrf() {
+  return document.cookie.split(';').map(function(c){ return c.trim(); }).find(function(c){ return c.startsWith('csrftoken='); })?.split('=')[1] ||
+         document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+}
+
+/* ── Alpine.js 상태 팝오버 컴포넌트 ── */
+function statusPopover(orderId, currentStatus, currentCarrier, currentTrackingNo) {
+  return {
+    orderId: orderId,
+    status: currentStatus,
+    carrier: currentCarrier || '한진택배',
+    trackingNo: currentTrackingNo || '',
+    open: false,
+    loading: false,
+
+    submitShip: function() {
+      var self = this;
+      self.loading = true;
+      fetch('/orders/api/quick-ship/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': getCsrf()
+        },
+        body: JSON.stringify({
+          order_id: self.orderId,
+          carrier: self.carrier,
+          tracking_no: self.trackingNo
+        })
+      })
+      .then(function(res) {
+        if (!res.ok) throw new Error('요청 실패');
+        return res.json();
+      })
+      .then(function() {
+        var badge = document.getElementById('status-badge-' + self.orderId);
+        if (badge) {
+          badge.textContent = '발송중';
+          badge.className = 'badge badge-orange';
+          badge.style.cssText = 'cursor:pointer;border:none;font-family:inherit';
+        }
+        self.status = 'shipping';
+        self.open = false;
+        showToast('발송 처리되었습니다.');
+        setTimeout(function(){ location.reload(); }, 800);
+      })
+      .catch(function(err) {
+        showToast('발송 처리에 실패했습니다: ' + err.message, 'error');
+      })
+      .finally(function() {
+        self.loading = false;
+      });
+    },
+
+    submitDeliver: function() {
+      var self = this;
+      self.loading = true;
+      fetch('/orders/api/quick-deliver/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': getCsrf()
+        },
+        body: JSON.stringify({
+          order_id: self.orderId
+        })
+      })
+      .then(function(res) {
+        if (!res.ok) throw new Error('요청 실패');
+        return res.json();
+      })
+      .then(function() {
+        var badge = document.getElementById('status-badge-' + self.orderId);
+        if (badge) {
+          badge.textContent = '발송완료';
+          badge.className = 'badge badge-green';
+          badge.style.cssText = 'cursor:pointer;border:none;font-family:inherit';
+        }
+        self.status = 'delivered';
+        self.open = false;
+        showToast('배송완료 처리되었습니다.');
+        setTimeout(function(){ location.reload(); }, 800);
+      })
+      .catch(function(err) {
+        showToast('배송완료 처리에 실패했습니다: ' + err.message, 'error');
+      })
+      .finally(function() {
+        self.loading = false;
+      });
+    }
+  };
+}
+
+/* ── 체크박스: 전체 선택 ── */
 function toggleAll(el) {
   document.querySelectorAll('.order-chk').forEach(function(cb) { cb.checked = el.checked; });
+  updateBulkCount();
 }
+
+/* ── 체크박스: 선택 건수 표시 ── */
+function updateBulkCount() {
+  var count = document.querySelectorAll('.order-chk:checked').length;
+  var el = document.getElementById('bulk-count');
+  if (el) {
+    if (count > 0) {
+      el.textContent = count + '건 선택됨';
+      el.style.display = '';
+    } else {
+      el.style.display = 'none';
+    }
+  }
+  var checkAll = document.getElementById('check-all');
+  if (checkAll) {
+    var total = document.querySelectorAll('.order-chk').length;
+    checkAll.checked = total > 0 && count === total;
+    checkAll.indeterminate = count > 0 && count < total;
+  }
+}
+
+/* ── 체크박스: Shift+Click 범위 선택 ── */
+var _lastCheckedIdx = null;
+function handleCheckboxClick(e, cb) {
+  var boxes = Array.from(document.querySelectorAll('.order-chk'));
+  var idx = boxes.indexOf(cb);
+  if (e.shiftKey && _lastCheckedIdx !== null) {
+    var start = Math.min(_lastCheckedIdx, idx);
+    var end = Math.max(_lastCheckedIdx, idx);
+    var checked = cb.checked;
+    for (var i = start; i <= end; i++) {
+      boxes[i].checked = checked;
+    }
+  }
+  _lastCheckedIdx = idx;
+  updateBulkCount();
+}
+
+/* ── 체크박스 변경 시 카운트 갱신 ── */
+document.addEventListener('DOMContentLoaded', function() {
+  document.querySelectorAll('.order-chk').forEach(function(cb) {
+    cb.addEventListener('change', updateBulkCount);
+  });
+});
+
+/* ── 일괄 인쇄 ── */
 function bulkPrint() {
   var ids = [];
   document.querySelectorAll('.order-chk:checked').forEach(function(cb) { ids.push(cb.value); });
   if (ids.length === 0) { alert('인쇄할 주문을 선택해주세요.'); return; }
   window.open('{% url "order_invoice_bulk" %}?ids=' + ids.join(','), '_blank');
 }
+
 function bulkQuote() {
   var ids = [];
   document.querySelectorAll('.order-chk:checked').forEach(function(cb) { ids.push(cb.value); });
   if (ids.length === 0) { alert('견적서를 인쇄할 주문을 선택해주세요.'); return; }
   window.open('{% url "order_quote_bulk" %}?ids=' + ids.join(','), '_blank');
 }
+
 function bulkDelete() {
   var ids = [];
   document.querySelectorAll('.order-chk:checked').forEach(function(cb) { ids.push(cb.value); });
@@ -193,6 +421,72 @@ function bulkDelete() {
   });
   form.submit();
 }
+
+/* ── 단건 삭제 ── */
+function deleteOrder(pk, orderNo) {
+  if (!confirm('주문 ' + orderNo + '을(를) 삭제하시겠습니까?\n(24시간 내 복구 가능)')) return;
+  var form = document.getElementById('bulkDeleteForm');
+  form.querySelectorAll('input[name=ids]').forEach(function(el) { el.remove(); });
+  var input = document.createElement('input');
+  input.type = 'hidden'; input.name = 'ids'; input.value = pk;
+  form.appendChild(input);
+  form.submit();
+}
+
+/* ── localStorage 필터 저장/복원 ── */
+(function() {
+  var STORAGE_KEY = 'orderListFilters';
+  var filterForm = document.getElementById('filterForm');
+  var filterFields = ['status', 'source', 'date_from', 'date_to'];
+
+  // URL에 파라미터가 있는지 확인
+  var urlParams = new URLSearchParams(window.location.search);
+  var hasUrlParams = false;
+  filterFields.concat(['q', 'delivery']).forEach(function(k) {
+    if (urlParams.get(k)) hasUrlParams = true;
+  });
+
+  // URL 파라미터 없으면 localStorage에서 복원
+  if (!hasUrlParams && !urlParams.has('page')) {
+    try {
+      var saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+      if (saved) {
+        var hasAny = false;
+        filterFields.forEach(function(k) {
+          if (saved[k]) hasAny = true;
+        });
+        if (hasAny) {
+          var params = new URLSearchParams();
+          filterFields.forEach(function(k) {
+            if (saved[k]) params.set(k, saved[k]);
+          });
+          window.location.search = params.toString();
+        }
+      }
+    } catch(e) {}
+  }
+
+  // 폼 제출 시 필터 저장
+  if (filterForm) {
+    filterForm.addEventListener('submit', function() {
+      var data = {};
+      filterFields.forEach(function(k) {
+        var el = filterForm.querySelector('[name="' + k + '"]');
+        if (el && el.value) data[k] = el.value;
+      });
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      } catch(e) {}
+    });
+  }
+
+  // 초기화 버튼 클릭 시 localStorage도 삭제
+  var resetBtn = document.getElementById('filterReset');
+  if (resetBtn) {
+    resetBtn.addEventListener('click', function() {
+      try { localStorage.removeItem(STORAGE_KEY); } catch(e) {}
+    });
+  }
+})();
 </script>
-{% endif %}
 {% endblock %}

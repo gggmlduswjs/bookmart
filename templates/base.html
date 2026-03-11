@@ -4,8 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}북마트 주문시스템{% endblock %}</title>
+  <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/collapse@3.14.1/dist/cdn.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js"></script>
   <style>
+    [x-cloak] { display: none !important; }
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
@@ -42,6 +44,58 @@
     }
     #logo span { display: block; font-size: 11px; color: #94a3b8; font-weight: 400; margin-top: 3px; letter-spacing: 0; }
 
+    /* ── 아코디언 사이드바 ── */
+    .sidebar-group {}
+    .sidebar-group-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 16px;
+      font-weight: 600;
+      font-size: 13px;
+      color: #475569;
+      cursor: pointer;
+      border-bottom: 1px solid #f1f5f9;
+      transition: background 0.15s ease, color 0.15s ease;
+      user-select: none;
+    }
+    .sidebar-group-header:hover {
+      background: #f8fafc;
+      color: #1e40af;
+    }
+    .sidebar-group-header.group-active {
+      color: #1e40af;
+      background: #f0f5ff;
+    }
+    .sidebar-group-header .chevron {
+      font-size: 10px;
+      transition: transform 0.2s ease;
+      color: #94a3b8;
+      flex-shrink: 0;
+    }
+    .sidebar-group-header:hover .chevron { color: #1e40af; }
+
+    /* Direct link group (no sub-items) */
+    a.sidebar-group-header {
+      text-decoration: none;
+      color: #475569;
+    }
+    a.sidebar-group-header:hover {
+      color: #1e40af;
+      text-decoration: none;
+    }
+    a.sidebar-group-header.group-active {
+      color: #1e40af;
+      background: #eff6ff;
+      border-left: 3px solid #1e40af;
+      padding-left: 13px;
+    }
+
+    .sidebar-group-items {
+      overflow: hidden;
+      transition: max-height 0.25s ease;
+    }
+
     .sidebar-section {
       padding: 16px 16px 6px;
       font-weight: 600;
@@ -67,6 +121,31 @@
       border-left-color: #93c5fd;
     }
     .sidebar-menu a.active {
+      color: #1e40af;
+      background: #eff6ff;
+      border-left-color: #1e40af;
+      font-weight: 600;
+    }
+
+    /* Accordion sub-menu items */
+    .accordion-items {
+      background: #fafbfd;
+    }
+    .accordion-items a {
+      display: block;
+      padding: 7px 16px 7px 28px;
+      font-size: 13px;
+      color: #64748b;
+      border-left: 3px solid transparent;
+      transition: all 0.15s ease;
+      text-decoration: none;
+    }
+    .accordion-items a:hover {
+      color: #1e40af;
+      background: #f0f5ff;
+      border-left-color: #93c5fd;
+    }
+    .accordion-items a.active {
       color: #1e40af;
       background: #eff6ff;
       border-left-color: #1e40af;
@@ -115,6 +194,110 @@
     }
     .topbar-user a { color: #93c5fd; font-size: 13px; }
     .topbar-user a:hover { color: #fff; }
+
+    /* ── Ctrl+K 뱃지 ── */
+    .kbd-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 6px;
+      font-size: 10px;
+      font-family: monospace;
+      background: rgba(255,255,255,0.1);
+      color: #94a3b8;
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+    .kbd-badge:hover {
+      background: rgba(255,255,255,0.2);
+      color: #e2e8f0;
+    }
+
+    /* ── Command Palette ── */
+    .cmd-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15,23,42,0.6);
+      z-index: 10000;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding-top: 120px;
+    }
+    .cmd-palette {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 25px 60px rgba(0,0,0,0.3);
+      width: 520px;
+      max-width: calc(100vw - 32px);
+      max-height: 480px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .cmd-input-wrap {
+      display: flex;
+      align-items: center;
+      padding: 12px 16px;
+      border-bottom: 1px solid #e2e8f0;
+      gap: 10px;
+    }
+    .cmd-input-wrap .search-icon {
+      color: #94a3b8;
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+    .cmd-input {
+      flex: 1;
+      border: none;
+      outline: none;
+      font-size: 15px;
+      font-family: inherit;
+      color: #1e293b;
+      background: transparent;
+    }
+    .cmd-input::placeholder { color: #cbd5e1; }
+    .cmd-esc {
+      font-size: 10px;
+      color: #94a3b8;
+      border: 1px solid #e2e8f0;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: monospace;
+    }
+    .cmd-results {
+      overflow-y: auto;
+      padding: 8px 0;
+      flex: 1;
+    }
+    .cmd-item {
+      display: flex;
+      align-items: center;
+      padding: 10px 16px;
+      cursor: pointer;
+      transition: background 0.1s;
+      text-decoration: none;
+      color: #334155;
+      font-size: 14px;
+      gap: 10px;
+    }
+    .cmd-item:hover, .cmd-item.cmd-active {
+      background: #eff6ff;
+      color: #1e40af;
+    }
+    .cmd-item .cmd-label { flex: 1; }
+    .cmd-item .cmd-group {
+      font-size: 11px;
+      color: #94a3b8;
+    }
+    .cmd-empty {
+      padding: 24px 16px;
+      text-align: center;
+      color: #94a3b8;
+      font-size: 13px;
+    }
 
     /* ── 본문 ── */
     #content {
@@ -521,6 +704,10 @@
       /* 버튼 터치 영역 확대 */
       .btn { padding: 10px 18px; font-size: 13px; }
       .btn-sm { padding: 7px 14px; font-size: 12px; }
+
+      /* Command palette 모바일 */
+      .cmd-overlay { padding-top: 60px; }
+      .cmd-palette { width: calc(100vw - 16px); }
     }
   </style>
   {% block extra_css %}{% endblock %}
@@ -534,25 +721,36 @@
 <button id="menu-toggle" onclick="document.getElementById('sidebar').classList.toggle('open');document.getElementById('sidebar-overlay').classList.toggle('open');">&#9776;</button>
 <div id="sidebar-overlay" onclick="document.getElementById('sidebar').classList.remove('open');this.classList.remove('open');"></div>
 
-<!-- 사이드바 -->
+<!-- 사이드바 (아코디언) -->
 <div id="sidebar">
   <div id="logo">북마트<span>주문관리시스템</span></div>
 
   {% if user.is_admin %}
-    {# 대시보드 탭 #}
-    {% if cur == 'dashboard' %}
-      <div class="sidebar-section">빠른 메뉴</div>
-      <div class="sidebar-menu">
-        <a href="{% url 'inbox_list' %}">수신함</a>
-        <a href="{% url 'order_list' %}">주문현황</a>
-        <a href="{% url 'order_create_admin' %}">주문 입력</a>
-        <a href="{% url 'call_order_upload' %}">통화주문</a>
-        <a href="{% url 'purchase_order' %}">발주 집계</a>
+  {# ── 관리자 아코디언 사이드바 ── #}
+  <div x-data="{
+    open: {% if cur == 'dashboard' %}'dashboard'
+          {% elif cur == 'order_list' or cur == 'order_detail' or cur == 'order_ship' or cur == 'order_deliver' or cur == 'order_cancel' or cur == 'order_create_admin' or cur == 'return_list' or cur == 'return_detail' or cur == 'return_confirm' or cur == 'return_reject' or cur == 'inbox_list' or cur == 'inbox_process' or cur == 'call_order_upload' or cur == 'call_order_confirm' or cur == 'call_inbox' or cur == 'call_recording_process' %}'orders'
+          {% elif cur == 'delivery_manage' %}'delivery'
+          {% elif cur == 'book_list' or cur == 'book_create' or cur == 'book_edit' or cur == 'book_toggle' or cur == 'book_import' or cur == 'publisher_list' or cur == 'publisher_create' or cur == 'publisher_edit' or cur == 'purchase_order' or cur == 'export_purchase' %}'books'
+          {% elif cur == 'ledger' or cur == 'sales_report' or cur == 'payment_create' or cur == 'export_ledger' or cur == 'export_sales' %}'finance'
+          {% elif cur == 'agency_list' or cur == 'agency_create' or cur == 'agency_toggle' or cur == 'agency_import' %}'agencies'
+          {% else %}''{% endif %}
+  }">
+
+    {# 대시보드 - 직접 링크 #}
+    <a href="{% url 'dashboard' %}"
+       class="sidebar-group-header {% if cur == 'dashboard' %}group-active{% endif %}">
+      대시보드
+    </a>
+
+    {# 주문관리 #}
+    <div class="sidebar-group">
+      <div class="sidebar-group-header {% if open === 'orders' %}group-active{% endif %}"
+           @click="open = open === 'orders' ? '' : 'orders'">
+        <span>주문관리</span>
+        <span class="chevron" x-text="open === 'orders' ? '&#9662;' : '&#9656;'"></span>
       </div>
-    {# 주문관리 탭 #}
-    {% elif cur == 'order_list' or cur == 'order_detail' or cur == 'order_ship' or cur == 'order_deliver' or cur == 'order_cancel' or cur == 'order_create_admin' or cur == 'return_list' or cur == 'return_detail' or cur == 'return_confirm' or cur == 'return_reject' or cur == 'inbox_list' or cur == 'inbox_process' or cur == 'call_order_upload' or cur == 'call_order_confirm' or cur == 'call_inbox' or cur == 'call_recording_process' %}
-      <div class="sidebar-section">주문관리</div>
-      <div class="sidebar-menu">
+      <div class="accordion-items" x-show="open === 'orders'" x-collapse x-cloak>
         <a href="{% url 'inbox_list' %}" class="{% if cur == 'inbox_list' or cur == 'inbox_process' %}active{% endif %}">수신함</a>
         <a href="{% url 'order_list' %}" class="{% if cur == 'order_list' or cur == 'order_detail' or cur == 'order_ship' or cur == 'order_deliver' %}active{% endif %}">주문현황</a>
         <a href="{% url 'order_create_admin' %}" class="{% if cur == 'order_create_admin' %}active{% endif %}">주문 입력</a>
@@ -560,153 +758,191 @@
         <a href="{% url 'call_inbox' %}" class="{% if cur == 'call_inbox' or cur == 'call_recording_process' %}active{% endif %}">통화 수신함</a>
         <a href="{% url 'return_list' %}" class="{% if cur == 'return_list' or cur == 'return_detail' or cur == 'return_confirm' or cur == 'return_reject' %}active{% endif %}">반품현황</a>
       </div>
-    {# 배송관리 탭 #}
-    {% elif cur == 'delivery_manage' %}
-      <div class="sidebar-section">배송관리</div>
-      <div class="sidebar-menu">
-        <a href="{% url 'delivery_manage' %}?tab=pending" class="active">발송 대기</a>
-        <a href="{% url 'delivery_manage' %}?tab=shipping">배송중</a>
+    </div>
+
+    {# 배송관리 - 직접 링크 #}
+    <a href="{% url 'delivery_manage' %}"
+       class="sidebar-group-header {% if cur == 'delivery_manage' %}group-active{% endif %}">
+      배송관리
+    </a>
+
+    {# 교재관리 #}
+    <div class="sidebar-group">
+      <div class="sidebar-group-header {% if open === 'books' %}group-active{% endif %}"
+           @click="open = open === 'books' ? '' : 'books'">
+        <span>교재관리</span>
+        <span class="chevron" x-text="open === 'books' ? '&#9662;' : '&#9656;'"></span>
       </div>
-    {# 교재관리 탭 #}
-    {% elif cur == 'book_list' or cur == 'book_create' or cur == 'book_edit' or cur == 'book_toggle' or cur == 'book_import' or cur == 'publisher_list' or cur == 'publisher_create' or cur == 'publisher_edit' or cur == 'purchase_order' or cur == 'export_purchase' %}
-      <div class="sidebar-section">교재관리</div>
-      <div class="sidebar-menu">
+      <div class="accordion-items" x-show="open === 'books'" x-collapse x-cloak>
         <a href="{% url 'book_list' %}" class="{% if cur == 'book_list' or cur == 'book_create' or cur == 'book_edit' or cur == 'book_toggle' %}active{% endif %}">교재 목록</a>
         <a href="{% url 'book_import' %}" class="{% if cur == 'book_import' %}active{% endif %}">교재 일괄등록</a>
         <a href="{% url 'publisher_list' %}" class="{% if cur == 'publisher_list' or cur == 'publisher_create' or cur == 'publisher_edit' %}active{% endif %}">출판사 관리</a>
         <a href="{% url 'purchase_order' %}" class="{% if cur == 'purchase_order' or cur == 'export_purchase' %}active{% endif %}">발주 집계</a>
       </div>
-    {# 정산관리 탭 #}
-    {% elif cur == 'ledger' or cur == 'sales_report' or cur == 'payment_create' or cur == 'export_ledger' or cur == 'export_sales' %}
-      <div class="sidebar-section">정산관리</div>
-      <div class="sidebar-menu">
+    </div>
+
+    {# 정산관리 #}
+    <div class="sidebar-group">
+      <div class="sidebar-group-header {% if open === 'finance' %}group-active{% endif %}"
+           @click="open = open === 'finance' ? '' : 'finance'">
+        <span>정산관리</span>
+        <span class="chevron" x-text="open === 'finance' ? '&#9662;' : '&#9656;'"></span>
+      </div>
+      <div class="accordion-items" x-show="open === 'finance'" x-collapse x-cloak>
         <a href="{% url 'ledger' %}" class="{% if cur == 'ledger' or cur == 'export_ledger' %}active{% endif %}">거래내역</a>
         <a href="{% url 'sales_report' %}" class="{% if cur == 'sales_report' or cur == 'export_sales' %}active{% endif %}">판매현황</a>
         <a href="{% url 'payment_create' %}" class="{% if cur == 'payment_create' %}active{% endif %}">입금 등록</a>
       </div>
-    {# 업체관리 탭 #}
-    {% elif cur == 'agency_list' or cur == 'agency_create' or cur == 'agency_toggle' or cur == 'agency_import' %}
-      <div class="sidebar-section">업체관리</div>
-      <div class="sidebar-menu">
+    </div>
+
+    {# 업체관리 #}
+    <div class="sidebar-group">
+      <div class="sidebar-group-header {% if open === 'agencies' %}group-active{% endif %}"
+           @click="open = open === 'agencies' ? '' : 'agencies'">
+        <span>업체관리</span>
+        <span class="chevron" x-text="open === 'agencies' ? '&#9662;' : '&#9656;'"></span>
+      </div>
+      <div class="accordion-items" x-show="open === 'agencies'" x-collapse x-cloak>
         <a href="{% url 'agency_list' %}" class="{% if cur == 'agency_list' %}active{% endif %}">업체 목록</a>
         <a href="{% url 'agency_create' %}" class="{% if cur == 'agency_create' %}active{% endif %}">업체 추가</a>
         <a href="{% url 'agency_import' %}" class="{% if cur == 'agency_import' %}active{% endif %}">업체 일괄등록</a>
       </div>
-    {# 기타 (credential 등) — 기본: 빠른 메뉴 #}
-    {% else %}
-      <div class="sidebar-section">빠른 메뉴</div>
-      <div class="sidebar-menu">
-        <a href="{% url 'dashboard' %}">대시보드</a>
-        <a href="{% url 'order_list' %}">주문현황</a>
-        <a href="{% url 'return_list' %}">반품현황</a>
-      </div>
-    {% endif %}
+    </div>
+
+  </div>
 
   {% elif user.is_agency %}
     {% if user.is_individual %}
-    {# ── 개인선생님 사이드바 ── #}
-    {% if cur == 'individual_order_create' %}
-      <div class="sidebar-section">도서주문</div>
-      <div class="sidebar-menu">
-        <a href="{% url 'individual_order_create' %}" class="active">주문 입력</a>
+    {# ── 개인선생님 아코디언 사이드바 ── #}
+    <div x-data="{
+      open: {% if cur == 'individual_order_create' %}'order'
+            {% elif cur == 'order_list' or cur == 'order_detail' or cur == 'order_cancel' or cur == 'return_list' or cur == 'return_detail' %}'status'
+            {% elif cur == 'delivery_list' or cur == 'delivery_create' %}'delivery'
+            {% elif cur == 'ledger' or cur == 'export_ledger' %}'ledger'
+            {% else %}''{% endif %}
+    }">
+      <a href="{% url 'individual_order_create' %}"
+         class="sidebar-group-header {% if cur == 'individual_order_create' %}group-active{% endif %}">
+        도서주문
+      </a>
+
+      <div class="sidebar-group">
+        <div class="sidebar-group-header {% if open === 'status' %}group-active{% endif %}"
+             @click="open = open === 'status' ? '' : 'status'">
+          <span>주문/반품</span>
+          <span class="chevron" x-text="open === 'status' ? '&#9662;' : '&#9656;'"></span>
+        </div>
+        <div class="accordion-items" x-show="open === 'status'" x-collapse x-cloak>
+          <a href="{% url 'order_list' %}" class="{% if cur == 'order_list' or cur == 'order_detail' %}active{% endif %}">주문현황</a>
+          <a href="{% url 'return_list' %}" class="{% if cur == 'return_list' or cur == 'return_detail' %}active{% endif %}">반품현황</a>
+        </div>
       </div>
-    {% elif cur == 'order_list' or cur == 'order_detail' or cur == 'order_cancel' or cur == 'return_list' or cur == 'return_detail' %}
-      <div class="sidebar-section">주문/반품</div>
-      <div class="sidebar-menu">
-        <a href="{% url 'order_list' %}" class="{% if cur == 'order_list' or cur == 'order_detail' %}active{% endif %}">주문현황</a>
-        <a href="{% url 'return_list' %}" class="{% if cur == 'return_list' or cur == 'return_detail' %}active{% endif %}">반품현황</a>
+
+      <div class="sidebar-group">
+        <div class="sidebar-group-header {% if open === 'delivery' %}group-active{% endif %}"
+             @click="open = open === 'delivery' ? '' : 'delivery'">
+          <span>배송지관리</span>
+          <span class="chevron" x-text="open === 'delivery' ? '&#9662;' : '&#9656;'"></span>
+        </div>
+        <div class="accordion-items" x-show="open === 'delivery'" x-collapse x-cloak>
+          <a href="{% url 'delivery_list' %}" class="{% if cur == 'delivery_list' %}active{% endif %}">배송지 목록</a>
+          <a href="{% url 'delivery_create' %}" class="{% if cur == 'delivery_create' %}active{% endif %}">배송지 등록</a>
+        </div>
       </div>
-    {% elif cur == 'delivery_list' or cur == 'delivery_create' %}
-      <div class="sidebar-section">배송지관리</div>
-      <div class="sidebar-menu">
-        <a href="{% url 'delivery_list' %}" class="{% if cur == 'delivery_list' %}active{% endif %}">배송지 목록</a>
-        <a href="{% url 'delivery_create' %}" class="{% if cur == 'delivery_create' %}active{% endif %}">배송지 등록</a>
-      </div>
-    {% elif cur == 'ledger' or cur == 'export_ledger' %}
-      <div class="sidebar-section">거래내역</div>
-      <div class="sidebar-menu">
-        <a href="{% url 'ledger' %}" class="active">거래내역</a>
-      </div>
+
+      <a href="{% url 'ledger' %}"
+         class="sidebar-group-header {% if cur == 'ledger' or cur == 'export_ledger' %}group-active{% endif %}">
+        거래내역
+      </a>
+    </div>
+
     {% else %}
-      <div class="sidebar-section">빠른 메뉴</div>
-      <div class="sidebar-menu">
-        <a href="{% url 'individual_order_create' %}">도서주문</a>
-        <a href="{% url 'order_list' %}">주문현황</a>
+    {# ── 일반 업체 아코디언 사이드바 ── #}
+    <div x-data="{
+      open: {% if cur == 'agency_dashboard' %}'dashboard'
+            {% elif cur == 'order_list' or cur == 'order_detail' or cur == 'order_cancel' or cur == 'return_list' or cur == 'return_detail' %}'orders'
+            {% elif cur == 'delivery_list' or cur == 'delivery_create' %}'schools'
+            {% elif cur == 'teacher_list' or cur == 'teacher_create' or cur == 'teacher_reset_password' or cur == 'teacher_toggle' %}'teachers'
+            {% elif cur == 'agency_link' %}'link'
+            {% elif cur == 'ledger' or cur == 'export_ledger' %}'ledger'
+            {% else %}''{% endif %}
+    }">
+      <a href="{% url 'agency_dashboard' %}"
+         class="sidebar-group-header {% if cur == 'agency_dashboard' %}group-active{% endif %}">
+        대시보드
+      </a>
+
+      <div class="sidebar-group">
+        <div class="sidebar-group-header {% if open === 'orders' %}group-active{% endif %}"
+             @click="open = open === 'orders' ? '' : 'orders'">
+          <span>주문/반품</span>
+          <span class="chevron" x-text="open === 'orders' ? '&#9662;' : '&#9656;'"></span>
+        </div>
+        <div class="accordion-items" x-show="open === 'orders'" x-collapse x-cloak>
+          <a href="{% url 'order_list' %}" class="{% if cur == 'order_list' or cur == 'order_detail' %}active{% endif %}">주문현황</a>
+          <a href="{% url 'return_list' %}" class="{% if cur == 'return_list' or cur == 'return_detail' %}active{% endif %}">반품현황</a>
+        </div>
       </div>
-    {% endif %}
-    {% else %}
-    {# ── 일반 업체 사이드바 ── #}
-    {# 대시보드 탭 #}
-    {% if cur == 'agency_dashboard' %}
-      <div class="sidebar-section">대시보드</div>
-      <div class="sidebar-menu">
-        <a href="{% url 'agency_dashboard' %}" class="active">현황 요약</a>
-        <a href="{% url 'order_list' %}">주문현황</a>
-        <a href="{% url 'return_list' %}">반품현황</a>
+
+      <div class="sidebar-group">
+        <div class="sidebar-group-header {% if open === 'schools' %}group-active{% endif %}"
+             @click="open = open === 'schools' ? '' : 'schools'">
+          <span>학교관리</span>
+          <span class="chevron" x-text="open === 'schools' ? '&#9662;' : '&#9656;'"></span>
+        </div>
+        <div class="accordion-items" x-show="open === 'schools'" x-collapse x-cloak>
+          <a href="{% url 'delivery_list' %}" class="{% if cur == 'delivery_list' %}active{% endif %}">학교 목록</a>
+          <a href="{% url 'delivery_create' %}" class="{% if cur == 'delivery_create' %}active{% endif %}">학교 등록</a>
+        </div>
       </div>
-    {# 주문/반품 탭 #}
-    {% elif cur == 'order_list' or cur == 'order_detail' or cur == 'order_cancel' or cur == 'return_list' or cur == 'return_detail' %}
-      <div class="sidebar-section">주문/반품</div>
-      <div class="sidebar-menu">
-        <a href="{% url 'order_list' %}" class="{% if cur == 'order_list' or cur == 'order_detail' %}active{% endif %}">주문현황</a>
-        <a href="{% url 'return_list' %}" class="{% if cur == 'return_list' or cur == 'return_detail' %}active{% endif %}">반품현황</a>
+
+      <div class="sidebar-group">
+        <div class="sidebar-group-header {% if open === 'teachers' %}group-active{% endif %}"
+             @click="open = open === 'teachers' ? '' : 'teachers'">
+          <span>선생님관리</span>
+          <span class="chevron" x-text="open === 'teachers' ? '&#9662;' : '&#9656;'"></span>
+        </div>
+        <div class="accordion-items" x-show="open === 'teachers'" x-collapse x-cloak>
+          <a href="{% url 'teacher_list' %}" class="{% if cur == 'teacher_list' %}active{% endif %}">선생님 목록</a>
+          <a href="{% url 'teacher_create' %}" class="{% if cur == 'teacher_create' %}active{% endif %}">선생님 등록</a>
+        </div>
       </div>
-    {# 학교관리 탭 #}
-    {% elif cur == 'delivery_list' or cur == 'delivery_create' %}
-      <div class="sidebar-section">학교관리</div>
-      <div class="sidebar-menu">
-        <a href="{% url 'delivery_list' %}" class="{% if cur == 'delivery_list' %}active{% endif %}">학교 목록</a>
-        <a href="{% url 'delivery_create' %}" class="{% if cur == 'delivery_create' %}active{% endif %}">학교 등록</a>
-      </div>
-    {# 선생님관리 탭 #}
-    {% elif cur == 'teacher_list' or cur == 'teacher_create' or cur == 'teacher_reset_password' or cur == 'teacher_toggle' %}
-      <div class="sidebar-section">선생님관리</div>
-      <div class="sidebar-menu">
-        <a href="{% url 'teacher_list' %}" class="{% if cur == 'teacher_list' %}active{% endif %}">선생님 목록</a>
-        <a href="{% url 'teacher_create' %}" class="{% if cur == 'teacher_create' %}active{% endif %}">선생님 등록</a>
-      </div>
-    {# 간편주문 링크 탭 #}
-    {% elif cur == 'agency_link' %}
-      <div class="sidebar-section">간편주문 링크</div>
-      <div class="sidebar-menu">
-        <a href="{% url 'agency_link' %}" class="active">내 링크 관리</a>
-      </div>
-    {# 거래내역 탭 #}
-    {% elif cur == 'ledger' or cur == 'export_ledger' %}
-      <div class="sidebar-section">거래내역</div>
-      <div class="sidebar-menu">
-        <a href="{% url 'ledger' %}" class="active">거래내역</a>
-      </div>
-    {% else %}
-      <div class="sidebar-section">주문/반품</div>
-      <div class="sidebar-menu">
-        <a href="{% url 'order_list' %}">주문현황</a>
-        <a href="{% url 'return_list' %}">반품현황</a>
-      </div>
-    {% endif %}
+
+      <a href="{% url 'agency_link' %}"
+         class="sidebar-group-header {% if cur == 'agency_link' %}group-active{% endif %}">
+        간편주문 링크
+      </a>
+
+      <a href="{% url 'ledger' %}"
+         class="sidebar-group-header {% if cur == 'ledger' or cur == 'export_ledger' %}group-active{% endif %}">
+        거래내역
+      </a>
+    </div>
     {% endif %}
 
   {% elif user.is_teacher %}
-    {# 도서주문 탭 #}
-    {% if cur == 'order_create' %}
-      <div class="sidebar-section">도서주문</div>
-      <div class="sidebar-menu">
-        <a href="{% url 'order_create' %}" class="active">주문 입력</a>
+    {# ── 선생님 아코디언 사이드바 ── #}
+    <div x-data="{}">
+      <a href="{% url 'order_create' %}"
+         class="sidebar-group-header {% if cur == 'order_create' %}group-active{% endif %}">
+        도서주문
+      </a>
+      <a href="{% url 'return_create' %}"
+         class="sidebar-group-header {% if cur == 'return_create' %}group-active{% endif %}">
+        반품신청
+      </a>
+      <div class="sidebar-group" x-data="{ open: {% if cur == 'order_list' or cur == 'order_detail' or cur == 'return_list' or cur == 'return_detail' %}true{% else %}false{% endif %} }">
+        <div class="sidebar-group-header" :class="open ? 'group-active' : ''"
+             @click="open = !open">
+          <span>현황</span>
+          <span class="chevron" x-text="open ? '&#9662;' : '&#9656;'"></span>
+        </div>
+        <div class="accordion-items" x-show="open" x-collapse x-cloak>
+          <a href="{% url 'order_list' %}" class="{% if cur == 'order_list' or cur == 'order_detail' %}active{% endif %}">주문현황</a>
+          <a href="{% url 'return_list' %}" class="{% if cur == 'return_list' or cur == 'return_detail' %}active{% endif %}">반품현황</a>
+        </div>
       </div>
-    {# 반품신청 탭 #}
-    {% elif cur == 'return_create' %}
-      <div class="sidebar-section">반품신청</div>
-      <div class="sidebar-menu">
-        <a href="{% url 'return_create' %}" class="active">반품 입력</a>
-      </div>
-    {# 현황 탭 #}
-    {% else %}
-      <div class="sidebar-section">현황</div>
-      <div class="sidebar-menu">
-        <a href="{% url 'order_list' %}" class="{% if cur == 'order_list' or cur == 'order_detail' %}active{% endif %}">주문현황</a>
-        <a href="{% url 'return_list' %}" class="{% if cur == 'return_list' or cur == 'return_detail' %}active{% endif %}">반품현황</a>
-      </div>
-    {% endif %}
+    </div>
   {% endif %}
 </div>
 
@@ -759,6 +995,7 @@
   {% endif %}
 
   <div class="topbar-user">
+    {% if user.is_admin %}<span class="kbd-badge" onclick="document.dispatchEvent(new CustomEvent('open-cmd-palette'))">Ctrl+K</span>{% endif %}
     {{ user.name }}
     <a href="{% url 'password_change' %}">비밀번호변경</a>
     <form method="post" action="{% url 'logout' %}" style="display:inline">{% csrf_token %}<button type="submit" style="background:none;border:none;color:#93c5fd;font-size:13px;cursor:pointer;padding:0;font-family:inherit">로그아웃</button></form>
@@ -766,6 +1003,35 @@
 </div>
 
 {% endwith %}
+{% endif %}
+
+{% if user.is_authenticated and user.is_admin %}
+<!-- Command Palette (Ctrl+K) -->
+<div x-data="commandPalette()" x-cloak
+     @open-cmd-palette.document="openPalette()"
+     @keydown.window="handleGlobalKey($event)">
+  <div class="cmd-overlay" x-show="isOpen" x-transition.opacity @click.self="closePalette()">
+    <div class="cmd-palette" @keydown.escape="closePalette()" @keydown.arrow-down.prevent="moveDown()" @keydown.arrow-up.prevent="moveUp()" @keydown.enter.prevent="selectCurrent()">
+      <div class="cmd-input-wrap">
+        <span class="search-icon">&#128269;</span>
+        <input class="cmd-input" type="text" placeholder="페이지 검색..." x-model="query" x-ref="cmdInput" @input="filterCommands()">
+        <span class="cmd-esc">ESC</span>
+      </div>
+      <div class="cmd-results">
+        <template x-if="filtered.length === 0">
+          <div class="cmd-empty">검색 결과가 없습니다</div>
+        </template>
+        <template x-for="(cmd, idx) in filtered" :key="cmd.url">
+          <a :href="cmd.url" class="cmd-item" :class="{ 'cmd-active': idx === activeIdx }"
+             @mouseenter="activeIdx = idx" @click="closePalette()">
+            <span class="cmd-label" x-text="cmd.label"></span>
+            <span class="cmd-group" x-text="cmd.group"></span>
+          </a>
+        </template>
+      </div>
+    </div>
+  </div>
+</div>
 {% endif %}
 
 <!-- Toast 알림 컨테이너 (2-3) -->
@@ -794,10 +1060,11 @@
 {% block extra_js %}{% endblock %}
 <script>
 // 모바일: 사이드바 메뉴 클릭 시 자동 닫기
-document.querySelectorAll('.sidebar-menu a').forEach(function(a){
+document.querySelectorAll('#sidebar a').forEach(function(a){
   a.addEventListener('click',function(){
     document.getElementById('sidebar').classList.remove('open');
-    document.getElementById('sidebar-overlay').classList.remove('open');
+    var overlay = document.getElementById('sidebar-overlay');
+    if (overlay) overlay.classList.remove('open');
   });
 });
 
@@ -871,6 +1138,77 @@ function copyToClipboard(text, btn) {
       btn.style.color = '';
     }, 1500);
   });
+}
+
+// ── Command Palette (Ctrl+K) ──
+function commandPalette() {
+  return {
+    isOpen: false,
+    query: '',
+    activeIdx: 0,
+    commands: [
+      { label: '대시보드', url: '/dashboard/', group: '' },
+      { label: '수신함', url: '/inbox/', group: '주문관리' },
+      { label: '주문현황', url: '/orders/', group: '주문관리' },
+      { label: '주문 입력', url: '/orders/admin-create/', group: '주문관리' },
+      { label: '통화주문', url: '/orders/call/', group: '주문관리' },
+      { label: '통화 수신함', url: '/orders/call/inbox/', group: '주문관리' },
+      { label: '배송관리', url: '/orders/delivery/', group: '배송' },
+      { label: '반품현황', url: '/returns/', group: '주문관리' },
+      { label: '교재 목록', url: '/books/', group: '교재관리' },
+      { label: '교재 일괄등록', url: '/books/import/', group: '교재관리' },
+      { label: '출판사 관리', url: '/books/publishers/', group: '교재관리' },
+      { label: '발주 집계', url: '/purchase/', group: '교재관리' },
+      { label: '거래내역', url: '/ledger/', group: '정산관리' },
+      { label: '판매현황', url: '/sales/', group: '정산관리' },
+      { label: '입금 등록', url: '/payments/new/', group: '정산관리' },
+      { label: '업체 목록', url: '/accounts/agencies/', group: '업체관리' },
+      { label: '업체 추가', url: '/accounts/agencies/create/', group: '업체관리' },
+      { label: '업체 일괄등록', url: '/accounts/agencies/import/', group: '업체관리' }
+    ],
+    filtered: [],
+    init() {
+      this.filtered = this.commands;
+    },
+    openPalette() {
+      this.isOpen = true;
+      this.query = '';
+      this.activeIdx = 0;
+      this.filtered = this.commands;
+      this.$nextTick(() => { this.$refs.cmdInput && this.$refs.cmdInput.focus(); });
+    },
+    closePalette() {
+      this.isOpen = false;
+    },
+    handleGlobalKey(e) {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        if (this.isOpen) { this.closePalette(); } else { this.openPalette(); }
+      }
+    },
+    filterCommands() {
+      var q = this.query.trim().toLowerCase();
+      if (!q) { this.filtered = this.commands; }
+      else {
+        this.filtered = this.commands.filter(function(c) {
+          return c.label.toLowerCase().indexOf(q) !== -1 || c.group.toLowerCase().indexOf(q) !== -1;
+        });
+      }
+      this.activeIdx = 0;
+    },
+    moveDown() {
+      if (this.activeIdx < this.filtered.length - 1) this.activeIdx++;
+    },
+    moveUp() {
+      if (this.activeIdx > 0) this.activeIdx--;
+    },
+    selectCurrent() {
+      if (this.filtered.length > 0 && this.filtered[this.activeIdx]) {
+        window.location.href = this.filtered[this.activeIdx].url;
+        this.closePalette();
+      }
+    }
+  };
 }
 </script>
 </body>

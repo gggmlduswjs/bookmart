@@ -120,6 +120,14 @@
 
   <!-- 오른쪽: 주문 입력 폼 -->
   <div style="flex:1">
+    <div x-data="{ show: {{ parsed_json }} !== null }" x-show="show"
+         style="margin-bottom:10px;padding:10px 14px;background:#eff6ff;border:1px solid #93c5fd;border-radius:6px;display:flex;align-items:center;gap:8px">
+      <span style="font-size:18px">🤖</span>
+      <div style="font-size:12px;color:#1e40af">
+        <strong>AI 자동 파싱됨</strong> — 확인 후 주문 등록하세요.
+        <span style="color:#6b7280">confidence가 낮은 항목은 노란색으로 표시됩니다.</span>
+      </div>
+    </div>
     <form method="post" x-data="inboxOrderForm()">
       {% csrf_token %}
       <input type="hidden" name="agency_id" :value="agencyId">
@@ -236,7 +244,7 @@
           </thead>
           <tbody>
             <template x-for="(row, index) in rows" :key="index">
-              <tr :style="row.is_custom ? 'background:#fff8f0' : ''">
+              <tr :style="row._lowConf ? 'background:#fefce8;border-left:3px solid #eab308' : row.is_custom ? 'background:#fff8f0' : ''">
                 <template x-if="!row.is_custom">
                   <td>
                     <select x-model="row.series" @change="row.book_id='';row.unit_price=0">
@@ -319,6 +327,7 @@
 const BOOKS = {{ books_json|safe }};
 const ALL_TEACHERS = {{ teachers_json|safe }};
 const ALL_AGENCIES = {{ agencies_json|safe }};
+const PARSED = {{ parsed_json|safe }};
 
 function inboxOrderForm() {
   return {
@@ -331,6 +340,75 @@ function inboxOrderForm() {
     acIdx: { agency: -1, teacher: -1 },
     excelLoading: false, excelUnmatched: [],
     rows: [{ series: '', book_id: '', qty: 1, unit_price: 0 }],
+    lowConfidenceFields: {},
+
+    init() {
+      if (!PARSED) return;
+      // 1. 업체 매칭
+      if (PARSED.agency_id) {
+        const found = ALL_AGENCIES.find(a => a.id === PARSED.agency_id);
+        if (found) this.agencyId = String(found.id);
+      }
+      if (!this.agencyId && PARSED.agency_name) {
+        const found = ALL_AGENCIES.find(a => a.name.includes(PARSED.agency_name) || PARSED.agency_name.includes(a.name));
+        if (found) this.agencyId = String(found.id);
+      }
+      // 2. 선생님 매칭
+      if (PARSED.teacher_id) {
+        const found = ALL_TEACHERS.find(t => t.id === PARSED.teacher_id);
+        if (found) {
+          if (!this.agencyId) this.agencyId = String(found.agency_id);
+          this.selectTeacher(found);
+        }
+      } else if (PARSED.teacher_name) {
+        let candidates = ALL_TEACHERS.filter(t => t.name === PARSED.teacher_name);
+        if (this.agencyId) {
+          const byAgency = candidates.filter(t => String(t.agency_id) === this.agencyId);
+          if (byAgency.length) candidates = byAgency;
+        }
+        if (candidates.length >= 1) {
+          if (!this.agencyId) this.agencyId = String(candidates[0].agency_id);
+          this.selectTeacher(candidates[0]);
+        } else {
+          this.teacherQuery = PARSED.teacher_name;
+        }
+      }
+      // 3. 배송지
+      if (PARSED.school_name && !this.deliverySchool) this.deliverySchool = PARSED.school_name;
+      if (PARSED.address && !this.deliveryAddr) this.deliveryAddr = PARSED.address;
+      if (PARSED.phone && !this.deliveryPhone) this.deliveryPhone = PARSED.phone;
+      // 4. 교재 자동 추가
+      if (PARSED.items && PARSED.items.length > 0) {
+        this.rows = [];
+        for (const item of PARSED.items) {
+          if (item.book_id) {
+            const book = BOOKS.find(b => b.id === item.book_id);
+            if (book) {
+              this.rows.push({
+                series: book.series || '', book_id: String(book.id),
+                qty: item.qty || 1, unit_price: book.unit_price,
+                is_custom: false, _lowConf: item.confidence === 'low',
+              });
+              continue;
+            }
+          }
+          // book_id 매칭 실패 시 직접입력으로 추가
+          if (item.name) {
+            this.rows.push({
+              is_custom: true, custom_name: item.name,
+              qty: item.qty || 1, unit_price: 0,
+              _lowConf: true,
+            });
+          }
+        }
+        if (!this.rows.length) this.rows.push({ series: '', book_id: '', qty: 1, unit_price: 0 });
+      }
+      // 5. 메모
+      if (PARSED.memo) {
+        const memoInput = document.querySelector('input[name="memo"]');
+        if (memoInput && !memoInput.value) memoInput.value = PARSED.memo;
+      }
+    },
 
     openPostcode() {
       const self = this;
