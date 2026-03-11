@@ -22,9 +22,11 @@ jobs:
             pip install -r requirements.txt
             python manage.py migrate --noinput
             python manage.py collectstatic --noinput
-            # GOOGLE_DRIVE_FOLDER_ID 설정 (빈 값이거나 없으면 덮어쓰기)
+            # 환경변수 설정 (빈 값이거나 없으면 덮어쓰기)
             sed -i '/^GOOGLE_DRIVE_FOLDER_ID/d' .env 2>/dev/null || true
             echo 'GOOGLE_DRIVE_FOLDER_ID=10xR4x8zjeXCiLqGOXMSD8IRpyWgXlN75' >> .env
+            sed -i '/^OPENAI_API_KEY/d' .env 2>/dev/null || true
+            echo 'OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}' >> .env
             sudo systemctl restart bookmart
             # Drive 동기화 실행
             python manage.py sync_call_recordings --process 2>&1 || true
