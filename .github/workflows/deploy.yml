@@ -28,8 +28,22 @@ jobs:
             sed -i '/^OPENAI_API_KEY/d' .env 2>/dev/null || true
             echo 'OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}' >> .env
             sudo systemctl restart bookmart
-            # Drive 동기화 실행
-            python manage.py sync_call_recordings --process 2>&1 || true
+            # 에러 로그 확인
+            python -c "
+import os; os.environ.setdefault('DJANGO_SETTINGS_MODULE','config.settings')
+import django; django.setup()
+from django.test import RequestFactory
+from accounts.models import User
+from orders.views.inbox import inbox_list
+rf = RequestFactory()
+req = rf.get('/inbox/?tab=sms')
+req.user = User.objects.filter(role='admin').first()
+try:
+    resp = inbox_list(req)
+    print('STATUS:', resp.status_code)
+except Exception as e:
+    import traceback; traceback.print_exc()
+" 2>&1 || true
             # 5분마다 메일 자동 수신 cron 등록 (sh 호환: source 대신 . 사용)
             CRON_CMD="cd /home/bookmart/bookmart && . venv/bin/activate && python manage.py fetch_emails >> /home/bookmart/fetch_emails.log 2>&1"
             (crontab -l 2>/dev/null | grep -v 'fetch_emails' ; echo "*/5 * * * * $CRON_CMD") | crontab -
