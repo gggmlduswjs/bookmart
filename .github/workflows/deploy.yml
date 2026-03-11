@@ -22,6 +22,8 @@ jobs:
             pip install -r requirements.txt
             python manage.py migrate --noinput
             python manage.py collectstatic --noinput
+            # GOOGLE_DRIVE_FOLDER_ID 설정 (.env에 없으면 추가)
+            grep -q 'GOOGLE_DRIVE_FOLDER_ID' .env 2>/dev/null || echo 'GOOGLE_DRIVE_FOLDER_ID=10xR4x8zjeXCiLqGOXMSD8IRpyWgXlN75' >> .env
             sudo systemctl restart bookmart
             # 5분마다 메일 자동 수신 cron 등록 (sh 호환: source 대신 . 사용)
             CRON_CMD="cd /home/bookmart/bookmart && . venv/bin/activate && python manage.py fetch_emails >> /home/bookmart/fetch_emails.log 2>&1"
