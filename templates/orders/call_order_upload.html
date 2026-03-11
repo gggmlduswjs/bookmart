@@ -1,0 +1,303 @@
+{% extends 'base.html' %}
+{% block title %}통화주문{% endblock %}
+
+{% block extra_css %}
+<style>
+  .mode-tabs {
+    display: flex; gap: 0; max-width: 600px; margin: 0 auto 20px;
+    border-bottom: 2px solid #e2e8f0;
+  }
+  .mode-tab {
+    flex: 1; padding: 12px 16px; text-align: center; cursor: pointer;
+    font-size: 14px; font-weight: 500; color: #64748b; background: none; border: none;
+    border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all .2s;
+  }
+  .mode-tab:hover { color: #334155; background: #f8fafc; }
+  .mode-tab.active { color: #1e40af; border-bottom-color: #3b82f6; }
+  .mode-panel { display: none; max-width: 600px; margin: 0 auto; }
+  .mode-panel.active { display: block; }
+
+  /* 브라우저 녹음 */
+  .rec-area { text-align: center; padding: 30px 20px; }
+  .rec-btn {
+    width: 100px; height: 100px; border-radius: 50%; border: none; cursor: pointer;
+    font-size: 14px; font-weight: bold; color: #fff; transition: all .2s;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .rec-btn.ready { background: #ef4444; }
+  .rec-btn.ready:hover { background: #dc2626; transform: scale(1.05); }
+  .rec-btn.recording { background: #dc2626; animation: pulse-rec 1.2s infinite; }
+  .rec-btn.done { background: #059669; }
+  @keyframes pulse-rec {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(220,38,38,0.4); }
+    50% { box-shadow: 0 0 0 16px rgba(220,38,38,0); }
+  }
+  .rec-timer { font-size: 28px; font-weight: bold; color: #334155; margin: 16px 0 8px; font-variant-numeric: tabular-nums; }
+  .rec-hint { font-size: 12px; color: #94a3b8; }
+  .rec-preview { margin-top: 16px; }
+  .rec-preview audio { width: 100%; max-width: 400px; }
+
+  /* 텍스트 입력 */
+  .text-area {
+    width: 100%; min-height: 180px; padding: 14px; border: 1px solid #cbd5e1;
+    border-radius: 8px; font-size: 13px; line-height: 1.6; resize: vertical;
+    font-family: inherit;
+  }
+  .text-area:focus { border-color: #3b82f6; outline: none; box-shadow: 0 0 0 2px rgba(59,130,246,0.15); }
+  .text-hint { font-size: 12px; color: #94a3b8; margin-top: 6px; }
+
+  /* 파일 업로드 */
+  .upload-zone {
+    border: 2px dashed #cbd5e1; border-radius: 12px;
+    padding: 40px 20px; text-align: center; cursor: pointer;
+    transition: all .2s; background: #fff;
+  }
+  .upload-zone:hover, .upload-zone.dragover { border-color: #3b82f6; background: #eff6ff; }
+  .upload-zone .icon { font-size: 40px; color: #94a3b8; margin-bottom: 8px; }
+  .upload-zone p { color: #64748b; font-size: 14px; margin: 4px 0; }
+  .upload-zone .sub { font-size: 12px; color: #94a3b8; }
+  .file-info {
+    margin-top: 12px; padding: 10px 14px; background: #f0fdf4;
+    border: 1px solid #86efac; border-radius: 6px; font-size: 13px; display: none;
+  }
+  .transcript-box {
+    background: #fff; border: 1px solid #e2e8f0; border-radius: 8px;
+    padding: 16px; margin-top: 16px; white-space: pre-wrap; font-size: 13px;
+    line-height: 1.6; max-height: 400px; overflow-y: auto;
+  }
+  .submit-wrap { text-align: center; margin-top: 20px; }
+  .submit-wrap .btn { padding: 12px 40px; font-size: 15px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-title">
+  통화주문
+  <span class="subtitle">전화 받으면서 바로 녹음하거나, 내용을 입력하면 AI가 주문을 파싱합니다</span>
+</div>
+
+<!-- 탭 -->
+<div class="mode-tabs">
+  <button type="button" class="mode-tab active" data-mode="record">바로 녹음</button>
+  <button type="button" class="mode-tab" data-mode="text">텍스트 입력</button>
+  <button type="button" class="mode-tab" data-mode="file">파일 업로드</button>
+</div>
+
+<!-- ① 바로 녹음 -->
+<div class="mode-panel active" id="panel-record">
+  <form method="post" enctype="multipart/form-data" id="recForm">
+    {% csrf_token %}
+    <input type="hidden" name="input_mode" value="record">
+    <div class="rec-area">
+      <div class="rec-hint" id="recHintTop">전화 올 때 스피커폰 켜고 녹음 버튼을 누르세요</div>
+      <div class="rec-timer" id="recTimer">00:00</div>
+      <button type="button" class="rec-btn ready" id="recBtn" onclick="toggleRec()">녹음</button>
+      <div class="rec-hint" id="recHint" style="margin-top:12px">마이크 권한이 필요합니다</div>
+      <div class="rec-preview" id="recPreview" style="display:none">
+        <audio id="recAudio" controls></audio>
+      </div>
+    </div>
+    <div class="submit-wrap">
+      <button type="submit" class="btn btn-orange" id="recSubmit" style="display:none">AI 주문 파싱 시작</button>
+    </div>
+  </form>
+</div>
+
+<!-- ② 텍스트 입력 -->
+<div class="mode-panel" id="panel-text">
+  <form method="post" id="textForm">
+    {% csrf_token %}
+    <input type="hidden" name="input_mode" value="text">
+    <textarea name="transcript_text" class="text-area" placeholder="통화 내용을 여기에 입력하세요.&#10;&#10;예) 김영희 선생님, 한빛초등학교&#10;수학 기본 3-1 10권, 수학 익힘 3-1 10권&#10;국어 기본 3-1 5권"></textarea>
+    <div class="text-hint">선생님 이름, 학교명, 교재명, 수량 등을 자유롭게 적어주세요. AI가 알아서 파싱합니다.</div>
+    <div class="submit-wrap">
+      <button type="submit" class="btn btn-orange" id="textSubmit">AI 주문 파싱 시작</button>
+    </div>
+  </form>
+</div>
+
+<!-- ③ 파일 업로드 -->
+<div class="mode-panel" id="panel-file">
+  <form method="post" enctype="multipart/form-data" id="fileForm">
+    {% csrf_token %}
+    <input type="hidden" name="input_mode" value="file">
+    <div class="upload-zone" id="dropZone" onclick="document.getElementById('audioInput').click()">
+      <div class="icon">&#127908;</div>
+      <p>통화 녹음 파일을 끌어다 놓거나 클릭하세요</p>
+      <p class="sub">지원 형식: MP3, M4A, WAV, OGG, WEBM (최대 25MB)</p>
+      <input type="file" id="audioInput" name="audio" accept="audio/*,.mp3,.m4a,.wav,.ogg,.webm"
+             style="display:none" onchange="showFile(this)">
+    </div>
+    <div class="file-info" id="fileInfo">
+      <strong id="fileName"></strong>
+      <span id="fileSize" style="color:#64748b;margin-left:8px"></span>
+    </div>
+    <div class="submit-wrap">
+      <button type="submit" class="btn btn-orange" id="fileSubmit" style="display:none">AI 주문 파싱 시작</button>
+    </div>
+  </form>
+</div>
+
+{% if transcript %}
+<div style="max-width:600px;margin:20px auto 0">
+  <h3 style="font-size:14px;color:#334155;margin-bottom:8px">변환된 텍스트 (파싱 실패 - 수동으로 주문해주세요)</h3>
+  <div class="transcript-box">{{ transcript }}</div>
+  <div style="text-align:center;margin-top:12px">
+    <a href="{% url 'order_create_admin' %}" class="btn btn-blue">수동 주문 입력</a>
+  </div>
+</div>
+{% endif %}
+
+<script>
+// ── 탭 전환 ──
+document.querySelectorAll('.mode-tab').forEach(function(tab) {
+  tab.addEventListener('click', function() {
+    document.querySelectorAll('.mode-tab').forEach(function(t){ t.classList.remove('active'); });
+    document.querySelectorAll('.mode-panel').forEach(function(p){ p.classList.remove('active'); });
+    tab.classList.add('active');
+    document.getElementById('panel-' + tab.dataset.mode).classList.add('active');
+  });
+});
+
+// ── 브라우저 녹음 (MediaRecorder) ──
+var mediaRecorder = null;
+var audioChunks = [];
+var recStartTime = null;
+var recTimerInterval = null;
+var recBlob = null;
+
+function toggleRec() {
+  var btn = document.getElementById('recBtn');
+  if (btn.classList.contains('ready') || btn.classList.contains('done')) {
+    startRec();
+  } else if (btn.classList.contains('recording')) {
+    stopRec();
+  }
+}
+
+function startRec() {
+  audioChunks = [];
+  recBlob = null;
+  document.getElementById('recPreview').style.display = 'none';
+  document.getElementById('recSubmit').style.display = 'none';
+
+  navigator.mediaDevices.getUserMedia({ audio: true }).then(function(stream) {
+    mediaRecorder = new MediaRecorder(stream, { mimeType: getSupportedMime() });
+    mediaRecorder.ondataavailable = function(e) {
+      if (e.data.size > 0) audioChunks.push(e.data);
+    };
+    mediaRecorder.onstop = function() {
+      stream.getTracks().forEach(function(t){ t.stop(); });
+      recBlob = new Blob(audioChunks, { type: mediaRecorder.mimeType });
+      var url = URL.createObjectURL(recBlob);
+      var audio = document.getElementById('recAudio');
+      audio.src = url;
+      document.getElementById('recPreview').style.display = 'block';
+      document.getElementById('recSubmit').style.display = 'inline-block';
+
+      var btn = document.getElementById('recBtn');
+      btn.classList.remove('recording');
+      btn.classList.add('done');
+      btn.textContent = '다시 녹음';
+      document.getElementById('recHint').textContent = '녹음 완료! 확인 후 파싱을 시작하세요.';
+    };
+    mediaRecorder.start(1000);
+
+    var btn = document.getElementById('recBtn');
+    btn.classList.remove('ready', 'done');
+    btn.classList.add('recording');
+    btn.textContent = '중지';
+    document.getElementById('recHint').textContent = '녹음 중... 통화가 끝나면 중지를 누르세요';
+    document.getElementById('recHintTop').textContent = '통화 내용을 녹음하고 있습니다';
+
+    recStartTime = Date.now();
+    recTimerInterval = setInterval(updateTimer, 500);
+  }).catch(function(err) {
+    document.getElementById('recHint').textContent = '마이크 접근이 거부되었습니다. 브라우저 설정에서 허용해주세요.';
+  });
+}
+
+function stopRec() {
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+    mediaRecorder.stop();
+  }
+  clearInterval(recTimerInterval);
+}
+
+function updateTimer() {
+  var elapsed = Math.floor((Date.now() - recStartTime) / 1000);
+  var m = String(Math.floor(elapsed / 60)).padStart(2, '0');
+  var s = String(elapsed % 60).padStart(2, '0');
+  document.getElementById('recTimer').textContent = m + ':' + s;
+}
+
+function getSupportedMime() {
+  var types = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/mp4'];
+  for (var i = 0; i < types.length; i++) {
+    if (MediaRecorder.isTypeSupported(types[i])) return types[i];
+  }
+  return '';
+}
+
+// 녹음 폼 제출 시 Blob → File로 변환
+document.getElementById('recForm').addEventListener('submit', function(e) {
+  if (!recBlob) { e.preventDefault(); return; }
+  e.preventDefault();
+  var ext = recBlob.type.includes('webm') ? 'webm' : recBlob.type.includes('ogg') ? 'ogg' : 'mp4';
+  var file = new File([recBlob], 'recording.' + ext, { type: recBlob.type });
+  var dt = new DataTransfer();
+  dt.items.add(file);
+
+  var input = document.createElement('input');
+  input.type = 'file'; input.name = 'audio'; input.style.display = 'none';
+  input.files = dt.files;
+  this.appendChild(input);
+
+  var btn = document.getElementById('recSubmit');
+  btn.textContent = 'AI가 분석 중... (30초~1분 소요)';
+  btn.classList.add('loading');
+  btn.disabled = true;
+  this.submit();
+});
+
+// ── 텍스트 폼 ──
+document.getElementById('textForm').addEventListener('submit', function() {
+  var btn = document.getElementById('textSubmit');
+  btn.textContent = 'AI가 분석 중...';
+  btn.classList.add('loading');
+  btn.disabled = true;
+});
+
+// ── 파일 업로드 ──
+var dropZone = document.getElementById('dropZone');
+var audioInput = document.getElementById('audioInput');
+
+['dragenter','dragover'].forEach(function(e){
+  dropZone.addEventListener(e, function(ev){ ev.preventDefault(); dropZone.classList.add('dragover'); });
+});
+['dragleave','drop'].forEach(function(e){
+  dropZone.addEventListener(e, function(ev){ ev.preventDefault(); dropZone.classList.remove('dragover'); });
+});
+dropZone.addEventListener('drop', function(e){
+  var files = e.dataTransfer.files;
+  if (files.length > 0) { audioInput.files = files; showFile(audioInput); }
+});
+
+function showFile(input) {
+  if (input.files.length > 0) {
+    var f = input.files[0];
+    document.getElementById('fileName').textContent = f.name;
+    document.getElementById('fileSize').textContent = (f.size / 1024 / 1024).toFixed(1) + 'MB';
+    document.getElementById('fileInfo').style.display = 'block';
+    document.getElementById('fileSubmit').style.display = 'inline-block';
+  }
+}
+
+document.getElementById('fileForm').addEventListener('submit', function() {
+  var btn = document.getElementById('fileSubmit');
+  btn.textContent = 'AI가 분석 중... (30초~1분 소요)';
+  btn.classList.add('loading');
+  btn.disabled = true;
+});
+</script>
+{% endblock %}

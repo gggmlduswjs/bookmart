@@ -1,12 +1,15 @@
 import io
 import json
+import logging
 import math
 from datetime import date, datetime
+
+logger = logging.getLogger(__name__)
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db.models import Sum, Q, Count
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.utils import timezone
 
@@ -18,7 +21,7 @@ from .services import get_order_queryset, get_return_queryset, get_delivery_quer
 from .sms import send_ship_notification, send_delivery_notification, send_sms
 from django.contrib.contenttypes.models import ContentType
 from django.core.paginator import Paginator
-from .models import AuditLog, OrderStatusLog
+from .models import AuditLog, OrderStatusLog, CallRecording
 
 
 def _audit(request, action, target=None, detail=''):
@@ -2379,6 +2382,37 @@ def inbox_process(request, pk):
 
     attachments = inbox_msg.attachments.all()
 
+    # AI 이메일 파싱
+    parsed_json = 'null'
+    if inbox_msg.content and not inbox_msg.is_processed:
+        try:
+            from .call_order import parse_order_from_email
+            books_data = [{
+                'id': b.id, 'series': b.series or '기타', 'name': b.name,
+                'publisher': b.publisher.name,
+                'unit_price': math.floor(b.list_price * float(b.publisher.supply_rate) / 100),
+            } for b in books]
+            agencies_data = [{'id': a.pk, 'name': a.name} for a in agencies]
+            teachers_data = [{
+                'id': t.pk, 'name': t.name, 'agency_id': t.agency_id,
+                'agency_name': t.agency.name if t.agency else '',
+                'delivery_name': t.delivery_address.name if t.delivery_address else '',
+            } for t in teachers]
+            parsed, err = parse_order_from_email(
+                sender=inbox_msg.sender or '',
+                subject=inbox_msg.subject or '',
+                body=inbox_msg.content,
+                book_list=books_data,
+                agencies=agencies_data,
+                teachers=teachers_data,
+            )
+            if parsed and not err:
+                parsed_json = json.dumps(parsed, ensure_ascii=False)
+            elif err:
+                logger.warning('이메일 AI 파싱 실패: %s', err)
+        except Exception:
+            logger.exception('이메일 AI 파싱 오류')
+
     return render(request, 'orders/inbox_process.html', {
         'inbox_msg': inbox_msg,
         'agencies': agencies,
@@ -2388,6 +2422,7 @@ def inbox_process(request, pk):
         'books_json': books_json,
         'attachments': attachments,
         'next_unprocessed': next_unprocessed,
+        'parsed_json': parsed_json,
     })
 
 
@@ -2774,20 +2809,29 @@ def export_purchase(request):
 
 @role_required('admin')
 def call_order_upload(request):
-    """통화녹음 파일 업로드 → 텍스트 변환 → 주문 파싱"""
+    """통화녹음/텍스트 → 주문 파싱 (3가지 입력: 브라우저 녹음, 텍스트, 파일 업로드)"""
     from .call_order import transcribe_audio, parse_order_from_text
 
     if request.method == 'POST':
-        audio = request.FILES.get('audio')
-        if not audio:
-            messages.error(request, '녹음 파일을 선택해주세요.')
-            return redirect('call_order_upload')
+        input_mode = request.POST.get('input_mode', 'file')
+        transcript = None
 
-        # 1단계: 음성 → 텍스트
-        transcript, err = transcribe_audio(audio)
-        if err:
-            messages.error(request, err)
-            return redirect('call_order_upload')
+        if input_mode == 'text':
+            # 텍스트 직접 입력
+            transcript = request.POST.get('transcript_text', '').strip()
+            if not transcript:
+                messages.error(request, '통화 내용을 입력해주세요.')
+                return redirect('call_order_upload')
+        else:
+            # 파일 업로드 또는 브라우저 녹음 (둘 다 audio 필드)
+            audio = request.FILES.get('audio')
+            if not audio:
+                messages.error(request, '녹음 파일을 선택해주세요.')
+                return redirect('call_order_upload')
+            transcript, err = transcribe_audio(audio)
+            if err:
+                messages.error(request, err)
+                return redirect('call_order_upload')
 
         # 교재 목록 준비
         books = Book.objects.filter(is_active=True).select_related('publisher')
@@ -2799,7 +2843,7 @@ def call_order_upload(request):
             'unit_price': math.floor(b.list_price * float(b.publisher.supply_rate) / 100),
         } for b in books]
 
-        # 2단계: 텍스트 → 주문 파싱
+        # 텍스트 → 주문 파싱
         parsed, err = parse_order_from_text(transcript, book_list)
         if err:
             messages.error(request, err)
@@ -2986,7 +3030,7 @@ def call_order_confirm(request):
             teacher=teacher,
             delivery=teacher.delivery_address,
             memo=(request.POST.get('memo', '') + '\n[통화녹음 주문]').strip(),
-            source=Order.Source.ADMIN,
+            source=Order.Source.CALL,
         )
         for item in items:
             if 'book_id' in item:
@@ -3004,6 +3048,13 @@ def call_order_confirm(request):
             changed_by=request.user, memo='통화녹음에서 주문 생성',
         )
         _audit(request, AuditLog.Action.ORDER_CREATE, order, f'[통화녹음] 주문 {order.order_no} 생성')
+
+        # CallRecording 연결
+        recording_id = data.get('recording_id')
+        if recording_id:
+            CallRecording.objects.filter(pk=recording_id).update(
+                order=order, status=CallRecording.Status.ORDERED,
+            )
 
         request.session.pop('call_order_data', None)
         messages.success(request, f'통화 주문 등록 완료! 주문번호: {order.order_no}')
@@ -3024,3 +3075,278 @@ def call_order_confirm(request):
         'school_name': parsed.get('school_name', ''),
         'memo': parsed.get('memo', ''),
     })
+
+
+# ── 통화 녹음 수신함 ─────────────────────────────────────────────────────────
+
+@role_required('admin')
+def call_inbox(request):
+    """통화 녹음 수신함 - 자동 수집된 녹음 목록"""
+    from pathlib import Path
+
+    qs = CallRecording.objects.all()
+
+    status_filter = request.GET.get('status', '')
+    if status_filter:
+        qs = qs.filter(status=status_filter)
+
+    paginator = Paginator(qs, 30)
+    page = paginator.get_page(request.GET.get('page'))
+
+    # 상태별 카운트
+    counts = dict(CallRecording.objects.values_list('status').annotate(c=Count('id')).values_list('status', 'c'))
+
+    # Google Drive 연동 상태
+    from django.conf import settings as conf
+    token_path = Path(conf.BASE_DIR) / 'gdrive_token.json'
+    gdrive_connected = token_path.exists()
+
+    return render(request, 'orders/call_inbox.html', {
+        'page': page,
+        'status_filter': status_filter,
+        'counts': counts,
+        'gdrive_connected': gdrive_connected,
+    })
+
+
+@role_required('admin')
+def call_recording_process(request, pk):
+    """개별 녹음 처리 - 파싱 결과 확인 후 주문 생성"""
+    rec = get_object_or_404(CallRecording, pk=pk)
+
+    # 아직 파싱 안 됐으면 지금 파싱
+    if rec.status == CallRecording.Status.PENDING:
+        from .call_order import transcribe_audio, parse_order_from_text
+        from .management.commands.sync_call_recordings import process_pending_recordings
+
+        rec.status = CallRecording.Status.PROCESSING
+        rec.save(update_fields=['status'])
+
+        if not rec.transcript:
+            rec.audio_file.open('rb')
+            transcript, err = transcribe_audio(rec.audio_file)
+            rec.audio_file.close()
+            if err:
+                rec.status = CallRecording.Status.FAILED
+                rec.error_msg = err[:300]
+                rec.save(update_fields=['status', 'error_msg'])
+                messages.error(request, f'음성 변환 실패: {err}')
+                return redirect('call_inbox')
+            rec.transcript = transcript
+            rec.save(update_fields=['transcript'])
+
+        books = Book.objects.filter(is_active=True).select_related('publisher')
+        book_list = [{
+            'id': b.id, 'series': b.series or '기타', 'name': b.name,
+            'publisher': b.publisher.name,
+            'unit_price': math.floor(b.list_price * float(b.publisher.supply_rate) / 100),
+        } for b in books]
+
+        parsed, err = parse_order_from_text(rec.transcript, book_list)
+        if err:
+            rec.status = CallRecording.Status.FAILED
+            rec.error_msg = err[:300]
+            rec.save(update_fields=['status', 'error_msg'])
+            messages.error(request, f'주문 파싱 실패: {err}')
+            return redirect('call_inbox')
+
+        rec.parsed_data = parsed
+        rec.status = CallRecording.Status.PARSED
+        rec.save(update_fields=['parsed_data', 'status'])
+
+    if rec.status not in (CallRecording.Status.PARSED, CallRecording.Status.ORDERED):
+        messages.error(request, f'이 녹음은 처리할 수 없는 상태입니다: {rec.get_status_display()}')
+        return redirect('call_inbox')
+
+    # call_order_confirm과 동일한 흐름으로 세션에 저장하고 리다이렉트
+    # 단, recording_id도 함께 저장해서 주문 생성 시 연결
+    request.session['call_order_data'] = {
+        'transcript': rec.transcript,
+        'parsed': rec.parsed_data,
+        'recording_id': rec.pk,
+    }
+    return redirect('call_order_confirm')
+
+
+@role_required('admin')
+def call_recording_skip(request, pk):
+    """녹음 건너뛰기"""
+    rec = get_object_or_404(CallRecording, pk=pk)
+    rec.status = CallRecording.Status.SKIPPED
+    rec.save(update_fields=['status'])
+    messages.success(request, '건너뛰었습니다.')
+    return redirect('call_inbox')
+
+
+@role_required('admin')
+def call_recording_retry(request, pk):
+    """실패한 녹음 재시도"""
+    rec = get_object_or_404(CallRecording, pk=pk)
+    rec.status = CallRecording.Status.PENDING
+    rec.error_msg = ''
+    rec.save(update_fields=['status', 'error_msg'])
+    messages.success(request, '재처리 대기 상태로 변경했습니다.')
+    return redirect('call_recording_process', pk=rec.pk)
+
+
+@role_required('admin')
+def call_sync_drive(request):
+    """Google Drive 수동 동기화 트리거"""
+    from .management.commands.sync_call_recordings import sync_from_drive, process_pending_recordings
+    try:
+        new = sync_from_drive()
+        processed = process_pending_recordings()
+        messages.success(request, f'동기화 완료: 새 녹음 {new}건, 파싱 {processed}건')
+    except Exception as e:
+        messages.error(request, f'동기화 오류: {str(e)}')
+    return redirect('call_inbox')
+
+
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_POST
+
+
+@csrf_exempt
+@require_POST
+def call_recording_webhook(request):
+    """외부에서 녹음 파일을 전송하는 웹훅 엔드포인트
+
+    인증: Authorization: Bearer <CALL_RECORDING_API_TOKEN>
+    요청: multipart/form-data
+      - audio: 녹음 파일 (필수)
+      - caller_phone: 발신번호 (선택)
+      - recorded_at: 녹음일시 ISO format (선택)
+      - auto_process: "true"이면 즉시 파싱 (선택)
+    """
+    from django.conf import settings as conf
+
+    token = conf.CALL_RECORDING_API_TOKEN
+    if not token:
+        return JsonResponse({'error': 'webhook not configured'}, status=503)
+
+    auth = request.headers.get('Authorization', '')
+    if auth != f'Bearer {token}':
+        return JsonResponse({'error': 'unauthorized'}, status=401)
+
+    audio = request.FILES.get('audio')
+    if not audio:
+        return JsonResponse({'error': 'audio file required'}, status=400)
+
+    rec = CallRecording(
+        file_name=audio.name,
+        caller_phone=request.POST.get('caller_phone', ''),
+        source='webhook',
+    )
+    rec.audio_file.save(audio.name, audio, save=False)
+
+    recorded_at = request.POST.get('recorded_at', '')
+    if recorded_at:
+        try:
+            from datetime import datetime as dt
+            rec.recorded_at = dt.fromisoformat(recorded_at)
+        except (ValueError, TypeError):
+            pass
+
+    rec.save()
+
+    # 즉시 처리 요청이면 파싱까지 수행
+    if request.POST.get('auto_process') == 'true':
+        from .management.commands.sync_call_recordings import process_pending_recordings
+        process_pending_recordings()
+        rec.refresh_from_db()
+
+    return JsonResponse({
+        'ok': True,
+        'id': rec.pk,
+        'status': rec.status,
+    })
+
+
+# ── Google Drive OAuth (웹 기반) ────────────────────────────────────────────
+
+@role_required('admin')
+def gdrive_auth_start(request):
+    """Google Drive 연동 시작 - Google 로그인 페이지로 리다이렉트"""
+    from google_auth_oauthlib.flow import Flow
+    from django.conf import settings as conf
+    from pathlib import Path
+
+    client_json = conf.GOOGLE_OAUTH_CLIENT_JSON
+    if not client_json or not Path(client_json).exists():
+        messages.error(request, 'Google OAuth 클라이언트 JSON 파일이 없습니다.')
+        return redirect('call_inbox')
+
+    # 현재 도메인으로 콜백 URI 생성
+    scheme = 'https' if request.is_secure() else 'http'
+    redirect_uri = f'{scheme}://{request.get_host()}/orders/call/gdrive-callback/'
+
+    flow = Flow.from_client_secrets_file(
+        client_json,
+        scopes=['https://www.googleapis.com/auth/drive.readonly'],
+        redirect_uri=redirect_uri,
+    )
+
+    auth_url, state = flow.authorization_url(
+        access_type='offline',
+        prompt='consent',
+    )
+
+    request.session['gdrive_oauth_state'] = state
+    request.session['gdrive_redirect_uri'] = redirect_uri
+    return redirect(auth_url)
+
+
+@role_required('admin')
+def gdrive_auth_callback(request):
+    """Google OAuth 콜백 - 토큰 저장"""
+    from google_auth_oauthlib.flow import Flow
+    from django.conf import settings as conf
+    from pathlib import Path
+
+    client_json = conf.GOOGLE_OAUTH_CLIENT_JSON
+    state = request.session.get('gdrive_oauth_state')
+    redirect_uri = request.session.get('gdrive_redirect_uri')
+
+    if not state or not redirect_uri:
+        messages.error(request, 'OAuth 세션이 만료되었습니다. 다시 시도해주세요.')
+        return redirect('call_inbox')
+
+    flow = Flow.from_client_secrets_file(
+        client_json,
+        scopes=['https://www.googleapis.com/auth/drive.readonly'],
+        state=state,
+        redirect_uri=redirect_uri,
+    )
+
+    # 현재 요청 URL에서 인증 코드 추출
+    authorization_response = request.build_absolute_uri()
+    # HTTPS 강제 (프록시 뒤에서 HTTP로 올 수 있음)
+    if authorization_response.startswith('http://') and 'bookmart' in authorization_response:
+        authorization_response = authorization_response.replace('http://', 'https://', 1)
+
+    try:
+        flow.fetch_token(authorization_response=authorization_response)
+    except Exception as e:
+        messages.error(request, f'Google 인증 실패: {str(e)}')
+        messages.error(request, 'Google Cloud Console에서 리디렉트 URI를 확인해주세요: ' + redirect_uri)
+        return redirect('call_inbox')
+
+    creds = flow.credentials
+    token_path = Path(conf.BASE_DIR) / 'gdrive_token.json'
+    import json
+    token_data = {
+        'token': creds.token,
+        'refresh_token': creds.refresh_token,
+        'token_uri': creds.token_uri,
+        'client_id': creds.client_id,
+        'client_secret': creds.client_secret,
+        'scopes': list(creds.scopes) if creds.scopes else [],
+    }
+    token_path.write_text(json.dumps(token_data, indent=2))
+
+    # 세션 정리
+    request.session.pop('gdrive_oauth_state', None)
+    request.session.pop('gdrive_redirect_uri', None)
+
+    messages.success(request, 'Google Drive 연동 완료! 이제 통화 녹음이 자동으로 동기화됩니다.')
+    return redirect('call_inbox')

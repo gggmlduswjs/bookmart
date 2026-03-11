@@ -120,3 +120,104 @@ def parse_order_from_text(transcript, book_list):
     except Exception as e:
         logger.exception('Claude API error')
         return None, f'주문 파싱 오류: {str(e)}'
+
+
+def parse_order_from_email(sender, subject, body, book_list, agencies, teachers):
+    """이메일 내용에서 주문 정보 추출 (Anthropic Claude API)"""
+    api_key = settings.ANTHROPIC_API_KEY
+    if not api_key:
+        return None, 'ANTHROPIC_API_KEY가 설정되지 않았습니다.'
+
+    books_summary = '\n'.join(
+        f'- [{b["id"]}] {b["publisher"]} / {b["series"]} / {b["name"]} (단가 {b["unit_price"]}원)'
+        for b in book_list[:500]
+    )
+
+    agencies_summary = '\n'.join(
+        f'- [{a["id"]}] {a["name"]}' for a in agencies
+    )
+
+    teachers_summary = '\n'.join(
+        f'- [{t["id"]}] {t["name"]} (업체: {t["agency_name"]}, 학교: {t["delivery_name"]})'
+        for t in teachers[:500]
+    )
+
+    prompt = f"""아래는 도서 주문 이메일입니다. 이메일에서 주문 정보를 추출해주세요.
+
+## 이메일 정보
+- 발신자: {sender}
+- 제목: {subject}
+
+## 이메일 본문
+{body}
+
+## 등록된 업체 목록
+{agencies_summary}
+
+## 등록된 선생님 목록
+{teachers_summary}
+
+## 등록된 교재 목록
+{books_summary}
+
+## 추출 규칙
+1. 발신자 이메일/이름에서 업체를 매칭해주세요. 업체 목록에서 가장 유사한 업체의 id를 찾아주세요.
+2. 선생님 이름을 찾고, 선생님 목록에서 매칭되는 id를 찾아주세요.
+3. 학교명, 배송지 주소, 연락처를 찾아주세요.
+4. 주문한 교재와 수량을 교재 목록에서 매칭해주세요. 교재명이 정확하지 않아도 가장 유사한 교재를 매칭해주세요.
+5. 확신도가 낮은 항목은 confidence를 "low"로 표시해주세요.
+6. 정보가 없는 필드는 빈 문자열로 남겨주세요.
+
+## 반드시 아래 JSON 형식으로만 응답하세요 (다른 텍스트 없이):
+{{
+  "agency_id": 업체ID(숫자) 또는 null,
+  "agency_name": "매칭된 업체명 또는 빈문자열",
+  "teacher_id": 선생님ID(숫자) 또는 null,
+  "teacher_name": "선생님 이름 또는 빈문자열",
+  "school_name": "학교명 또는 빈문자열",
+  "phone": "연락처 또는 빈문자열",
+  "address": "배송지 주소 또는 빈문자열",
+  "memo": "특이사항/메모",
+  "items": [
+    {{"book_id": 교재ID(숫자), "name": "교재명", "qty": 수량(숫자), "confidence": "high|low"}}
+  ],
+  "raw_mentions": ["이메일에서 언급된 교재명 원문 목록"]
+}}"""
+
+    try:
+        resp = requests.post(
+            'https://api.anthropic.com/v1/messages',
+            headers={
+                'x-api-key': api_key,
+                'anthropic-version': '2023-06-01',
+                'content-type': 'application/json',
+            },
+            json={
+                'model': 'claude-sonnet-4-20250514',
+                'max_tokens': 2000,
+                'messages': [{'role': 'user', 'content': prompt}],
+            },
+            timeout=60,
+        )
+
+        if resp.status_code != 200:
+            error_msg = resp.json().get('error', {}).get('message', resp.text[:200])
+            return None, f'Claude API 오류: {error_msg}'
+
+        content = resp.json()['content'][0]['text'].strip()
+
+        if content.startswith('```'):
+            content = content.split('\n', 1)[1]
+            content = content.rsplit('```', 1)[0]
+        content = content.strip()
+
+        parsed = json.loads(content)
+        return parsed, None
+
+    except json.JSONDecodeError:
+        return None, '이메일 파싱 결과를 해석할 수 없습니다.'
+    except requests.Timeout:
+        return None, '이메일 파싱 시간 초과.'
+    except Exception as e:
+        logger.exception('Claude API error (email parsing)')
+        return None, f'이메일 파싱 오류: {str(e)}'

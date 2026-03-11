@@ -1,0 +1,166 @@
+{% extends 'base.html' %}
+{% block title %}통화 수신함{% endblock %}
+
+{% block extra_css %}
+<style>
+  .status-tabs {
+    display: flex; gap: 0; margin-bottom: 16px; border-bottom: 2px solid #e2e8f0;
+  }
+  .status-tab {
+    padding: 8px 16px; font-size: 13px; color: #64748b; text-decoration: none;
+    border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all .15s;
+  }
+  .status-tab:hover { color: #334155; background: #f8fafc; }
+  .status-tab.active { color: #1e40af; border-bottom-color: #3b82f6; font-weight: 600; }
+  .status-tab .cnt { background: #e2e8f0; padding: 1px 6px; border-radius: 8px; font-size: 11px; margin-left: 4px; }
+  .status-tab.active .cnt { background: #dbeafe; color: #1e40af; }
+
+  .rec-card {
+    background: #fff; border: 1px solid #e2e8f0; border-radius: 8px;
+    padding: 14px 16px; margin-bottom: 8px; display: flex; align-items: center; gap: 14px;
+    transition: all .15s;
+  }
+  .rec-card:hover { border-color: #93c5fd; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
+  .rec-icon { font-size: 24px; flex-shrink: 0; }
+  .rec-info { flex: 1; min-width: 0; }
+  .rec-title { font-size: 13px; font-weight: 600; color: #334155; }
+  .rec-meta { font-size: 11px; color: #94a3b8; margin-top: 2px; }
+  .rec-meta span { margin-right: 10px; }
+  .rec-preview { font-size: 12px; color: #64748b; margin-top: 4px; max-height: 40px; overflow: hidden; }
+  .rec-actions { display: flex; gap: 6px; flex-shrink: 0; }
+
+  .badge-status {
+    display: inline-block; padding: 2px 8px; font-size: 11px; border-radius: 4px;
+    font-weight: 500;
+  }
+  .badge-pending { background: #fef3c7; color: #92400e; }
+  .badge-processing { background: #dbeafe; color: #1e40af; }
+  .badge-parsed { background: #d1fae5; color: #065f46; }
+  .badge-ordered { background: #e0e7ff; color: #3730a3; }
+  .badge-skipped { background: #f1f5f9; color: #64748b; }
+  .badge-failed { background: #fee2e2; color: #991b1b; }
+
+  .sync-bar {
+    display: flex; align-items: center; gap: 12px; margin-bottom: 16px;
+    padding: 10px 14px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;
+  }
+  .sync-bar .info { flex: 1; font-size: 12px; color: #64748b; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-title">
+  통화 수신함
+  <span class="subtitle">자동 수집된 통화 녹음을 확인하고 주문으로 변환하세요</span>
+</div>
+
+<!-- 동기화 바 -->
+<div class="sync-bar">
+  {% if gdrive_connected %}
+  <div class="info">
+    <span style="color:#059669;font-weight:600">Google Drive 연동됨</span> —
+    통화 녹음이 자동으로 수집됩니다.
+    {% if last_sync %}마지막 동기화: {{ last_sync }}{% endif %}
+  </div>
+  <a href="{% url 'call_sync_drive' %}" class="btn btn-blue btn-sm">수동 동기화</a>
+  {% else %}
+  <div class="info">
+    Google Drive를 연동하면 엄마 폰 통화 녹음이 자동으로 수집됩니다.
+  </div>
+  <a href="{% url 'gdrive_auth_start' %}" class="btn btn-green btn-sm">Google Drive 연동</a>
+  {% endif %}
+  <a href="{% url 'call_order_upload' %}" class="btn btn-orange btn-sm">직접 입력</a>
+</div>
+
+<!-- 상태 필터 -->
+<div class="status-tabs">
+  <a href="{% url 'call_inbox' %}" class="status-tab {% if not status_filter %}active{% endif %}">
+    전체 <span class="cnt">{{ page.paginator.count }}</span>
+  </a>
+  <a href="{% url 'call_inbox' %}?status=pending" class="status-tab {% if status_filter == 'pending' %}active{% endif %}">
+    대기 <span class="cnt">{{ counts.pending|default:"0" }}</span>
+  </a>
+  <a href="{% url 'call_inbox' %}?status=parsed" class="status-tab {% if status_filter == 'parsed' %}active{% endif %}">
+    파싱완료 <span class="cnt">{{ counts.parsed|default:"0" }}</span>
+  </a>
+  <a href="{% url 'call_inbox' %}?status=ordered" class="status-tab {% if status_filter == 'ordered' %}active{% endif %}">
+    주문생성 <span class="cnt">{{ counts.ordered|default:"0" }}</span>
+  </a>
+  <a href="{% url 'call_inbox' %}?status=failed" class="status-tab {% if status_filter == 'failed' %}active{% endif %}">
+    실패 <span class="cnt">{{ counts.failed|default:"0" }}</span>
+  </a>
+</div>
+
+<!-- 녹음 목록 -->
+{% for rec in page %}
+<div class="rec-card">
+  <div class="rec-icon">
+    {% if rec.status == 'ordered' %}&#9989;{% elif rec.status == 'parsed' %}&#128269;{% elif rec.status == 'failed' %}&#10060;{% elif rec.status == 'processing' %}&#9203;{% elif rec.status == 'skipped' %}&#9199;{% else %}&#127908;{% endif %}
+  </div>
+  <div class="rec-info">
+    <div class="rec-title">
+      {{ rec.file_name|default:"녹음" }}
+      <span class="badge-status badge-{{ rec.status }}">{{ rec.get_status_display }}</span>
+    </div>
+    <div class="rec-meta">
+      {% if rec.caller_phone %}<span>&#128222; {{ rec.caller_phone }}</span>{% endif %}
+      {% if rec.recorded_at %}<span>&#128197; {{ rec.recorded_at|date:"Y-m-d H:i" }}</span>{% endif %}
+      <span>&#128193; {{ rec.get_source_display|default:rec.source }}</span>
+      <span>{{ rec.created_at|date:"Y-m-d H:i" }} 수신</span>
+    </div>
+    {% if rec.transcript %}
+    <div class="rec-preview">{{ rec.transcript|truncatechars:120 }}</div>
+    {% endif %}
+    {% if rec.error_msg %}
+    <div class="rec-preview" style="color:#dc2626">{{ rec.error_msg }}</div>
+    {% endif %}
+    {% if rec.order %}
+    <div class="rec-preview" style="color:#059669">
+      주문 <a href="{% url 'order_detail' pk=rec.order.pk %}" style="color:#059669;font-weight:600">{{ rec.order.order_no }}</a> 생성됨
+    </div>
+    {% endif %}
+    {% if rec.parsed_data %}
+    <div class="rec-preview">
+      {% if rec.parsed_data.teacher_name %}{{ rec.parsed_data.teacher_name }} 선생님{% endif %}
+      {% if rec.parsed_data.school_name %} / {{ rec.parsed_data.school_name }}{% endif %}
+      {% if rec.parsed_data.items %} / 교재 {{ rec.parsed_data.items|length }}건{% endif %}
+    </div>
+    {% endif %}
+  </div>
+  <div class="rec-actions">
+    {% if rec.status == 'pending' or rec.status == 'parsed' %}
+    <a href="{% url 'call_recording_process' pk=rec.pk %}" class="btn btn-orange btn-sm">
+      {% if rec.status == 'parsed' %}주문 생성{% else %}파싱 시작{% endif %}
+    </a>
+    {% endif %}
+    {% if rec.status == 'failed' %}
+    <a href="{% url 'call_recording_retry' pk=rec.pk %}" class="btn btn-blue btn-sm">재시도</a>
+    {% endif %}
+    {% if rec.status != 'ordered' and rec.status != 'skipped' %}
+    <a href="{% url 'call_recording_skip' pk=rec.pk %}" class="btn btn-gray btn-sm">건너뛰기</a>
+    {% endif %}
+  </div>
+</div>
+{% empty %}
+<div class="empty-state">
+  <div style="font-size:40px;margin-bottom:8px">&#127908;</div>
+  <div>수신된 통화 녹음이 없습니다</div>
+  <div style="font-size:12px;color:#94a3b8;margin-top:4px">
+    Google Drive 동기화를 설정하거나, 직접 입력을 사용하세요
+  </div>
+</div>
+{% endfor %}
+
+<!-- 페이지네이션 -->
+{% if page.has_other_pages %}
+<nav class="pagination" style="margin-top:16px">
+  {% if page.has_previous %}
+  <a href="?{% if status_filter %}status={{ status_filter }}&{% endif %}page={{ page.previous_page_number }}">&laquo; 이전</a>
+  {% endif %}
+  <span class="current">{{ page.number }} / {{ page.paginator.num_pages }}</span>
+  {% if page.has_next %}
+  <a href="?{% if status_filter %}status={{ status_filter }}&{% endif %}page={{ page.next_page_number }}">다음 &raquo;</a>
+  {% endif %}
+</nav>
+{% endif %}
+{% endblock %}

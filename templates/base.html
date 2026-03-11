@@ -546,15 +546,18 @@
         <a href="{% url 'inbox_list' %}">수신함</a>
         <a href="{% url 'order_list' %}">주문현황</a>
         <a href="{% url 'order_create_admin' %}">주문 입력</a>
+        <a href="{% url 'call_order_upload' %}">통화주문</a>
         <a href="{% url 'purchase_order' %}">발주 집계</a>
       </div>
     {# 주문관리 탭 #}
-    {% elif cur == 'order_list' or cur == 'order_detail' or cur == 'order_ship' or cur == 'order_deliver' or cur == 'order_cancel' or cur == 'order_create_admin' or cur == 'return_list' or cur == 'return_detail' or cur == 'return_confirm' or cur == 'return_reject' or cur == 'inbox_list' or cur == 'inbox_process' %}
+    {% elif cur == 'order_list' or cur == 'order_detail' or cur == 'order_ship' or cur == 'order_deliver' or cur == 'order_cancel' or cur == 'order_create_admin' or cur == 'return_list' or cur == 'return_detail' or cur == 'return_confirm' or cur == 'return_reject' or cur == 'inbox_list' or cur == 'inbox_process' or cur == 'call_order_upload' or cur == 'call_order_confirm' or cur == 'call_inbox' or cur == 'call_recording_process' %}
       <div class="sidebar-section">주문관리</div>
       <div class="sidebar-menu">
         <a href="{% url 'inbox_list' %}" class="{% if cur == 'inbox_list' or cur == 'inbox_process' %}active{% endif %}">수신함</a>
         <a href="{% url 'order_list' %}" class="{% if cur == 'order_list' or cur == 'order_detail' or cur == 'order_ship' or cur == 'order_deliver' %}active{% endif %}">주문현황</a>
         <a href="{% url 'order_create_admin' %}" class="{% if cur == 'order_create_admin' %}active{% endif %}">주문 입력</a>
+        <a href="{% url 'call_order_upload' %}" class="{% if cur == 'call_order_upload' or cur == 'call_order_confirm' %}active{% endif %}">통화주문</a>
+        <a href="{% url 'call_inbox' %}" class="{% if cur == 'call_inbox' or cur == 'call_recording_process' %}active{% endif %}">통화 수신함</a>
         <a href="{% url 'return_list' %}" class="{% if cur == 'return_list' or cur == 'return_detail' or cur == 'return_confirm' or cur == 'return_reject' %}active{% endif %}">반품현황</a>
       </div>
     {# 배송관리 탭 #}
@@ -713,7 +716,7 @@
     <a href="{% url 'dashboard' %}"
        class="tab-item {% if cur == 'dashboard' %}active{% endif %}">대시보드</a>
     <a href="{% url 'order_list' %}"
-       class="tab-item {% if cur == 'order_list' or cur == 'order_detail' or cur == 'order_ship' or cur == 'order_deliver' or cur == 'order_cancel' or cur == 'order_create_admin' or cur == 'return_list' or cur == 'return_detail' or cur == 'return_confirm' or cur == 'return_reject' or cur == 'inbox_list' or cur == 'inbox_process' %}active{% endif %}">주문관리{% if pending_order_count %} <span class="tab-badge">{{ pending_order_count }}</span>{% endif %}</a>
+       class="tab-item {% if cur == 'order_list' or cur == 'order_detail' or cur == 'order_ship' or cur == 'order_deliver' or cur == 'order_cancel' or cur == 'order_create_admin' or cur == 'return_list' or cur == 'return_detail' or cur == 'return_confirm' or cur == 'return_reject' or cur == 'inbox_list' or cur == 'inbox_process' or cur == 'call_order_upload' or cur == 'call_order_confirm' or cur == 'call_inbox' or cur == 'call_recording_process' %}active{% endif %}">주문관리{% if pending_order_count %} <span class="tab-badge">{{ pending_order_count }}</span>{% endif %}</a>
     <a href="{% url 'delivery_manage' %}"
        class="tab-item {% if cur == 'delivery_manage' %}active{% endif %}">배송관리</a>
     <a href="{% url 'book_list' %}"

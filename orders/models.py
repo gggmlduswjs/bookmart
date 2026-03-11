@@ -44,6 +44,7 @@ class Order(models.Model):
         SIMPLE  = 'simple',  '간편주문'
         INBOX   = 'inbox',   '수신함'
         ADMIN   = 'admin',   '관리자'
+        CALL    = 'call',    '통화주문'
 
     class Carrier(models.TextChoices):
         HANJIN = 'hanjin', '한진택배'
@@ -529,3 +530,45 @@ class OrderStatusLog(models.Model):
 
     def __str__(self):
         return f'{self.order.order_no}: {self.old_status} → {self.new_status}'
+
+
+class CallRecording(models.Model):
+    """통화 녹음 자동 수신/처리"""
+    class Status(models.TextChoices):
+        PENDING     = 'pending',     '대기'
+        PROCESSING  = 'processing',  '처리중'
+        PARSED      = 'parsed',      '파싱완료'
+        ORDERED     = 'ordered',     '주문생성'
+        SKIPPED     = 'skipped',     '건너뜀'
+        FAILED      = 'failed',      '실패'
+
+    audio_file = models.FileField(upload_to='call_recordings/%Y%m/', verbose_name='녹음파일')
+    file_name = models.CharField(max_length=200, blank=True, verbose_name='원본파일명')
+    caller_phone = models.CharField(max_length=20, blank=True, verbose_name='발신번호')
+    duration_sec = models.IntegerField(null=True, blank=True, verbose_name='통화시간(초)')
+    recorded_at = models.DateTimeField(null=True, blank=True, verbose_name='녹음일시')
+    status = models.CharField(
+        max_length=12, choices=Status.choices, default=Status.PENDING,
+        verbose_name='처리상태'
+    )
+    transcript = models.TextField(blank=True, verbose_name='변환 텍스트')
+    parsed_data = models.JSONField(null=True, blank=True, verbose_name='파싱 결과')
+    order = models.ForeignKey(
+        Order, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='call_recordings', verbose_name='생성된 주문'
+    )
+    error_msg = models.CharField(max_length=300, blank=True, verbose_name='오류메시지')
+    source = models.CharField(max_length=30, blank=True, verbose_name='수신경로',
+                              help_text='gdrive, webhook, browser 등')
+    gdrive_file_id = models.CharField(max_length=100, blank=True, verbose_name='Google Drive 파일ID')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'call_recordings'
+        verbose_name = '통화 녹음'
+        verbose_name_plural = '통화 녹음 목록'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'{self.file_name or "녹음"} ({self.get_status_display()})'

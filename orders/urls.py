@@ -74,4 +74,12 @@ urlpatterns = [
     # ── 통화녹음 주문 ────────────────────────────────────────────────────────
     path('orders/call/', views.call_order_upload, name='call_order_upload'),
     path('orders/call/confirm/', views.call_order_confirm, name='call_order_confirm'),
+    path('orders/call/inbox/', views.call_inbox, name='call_inbox'),
+    path('orders/call/inbox/<int:pk>/', views.call_recording_process, name='call_recording_process'),
+    path('orders/call/inbox/<int:pk>/skip/', views.call_recording_skip, name='call_recording_skip'),
+    path('orders/call/inbox/<int:pk>/retry/', views.call_recording_retry, name='call_recording_retry'),
+    path('orders/call/sync/', views.call_sync_drive, name='call_sync_drive'),
+    path('orders/call/gdrive-auth/', views.gdrive_auth_start, name='gdrive_auth_start'),
+    path('orders/call/gdrive-callback/', views.gdrive_auth_callback, name='gdrive_auth_callback'),
+    path('webhook/call-recording/', views.call_recording_webhook, name='call_recording_webhook'),
 ]

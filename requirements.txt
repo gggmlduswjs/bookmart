@@ -43,3 +43,9 @@ urllib3==2.6.3
     # via requests
 whitenoise==6.12.0
     # via bookmart
+google-auth==2.40.3
+    # via bookmart (Google Drive 통화녹음 동기화)
+google-auth-oauthlib==1.3.0
+    # via bookmart
+google-api-python-client==2.178.0
+    # via bookmart

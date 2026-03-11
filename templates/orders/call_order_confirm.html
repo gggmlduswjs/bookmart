@@ -1,0 +1,307 @@
+{% extends 'base.html' %}
+{% block title %}통화 주문 확인{% endblock %}
+
+{% block extra_css %}
+<style>
+  .order-row-wrap select, .order-row-wrap input[type=number] {
+    padding: 3px 5px; border: 1px solid #bbb; font-size: 12px; font-family: inherit; height: 26px;
+  }
+  .order-row-wrap select { width: 100%; }
+  .order-row-wrap input[type=number] { width: 60px; text-align: center; }
+  .ac-wrap { position: relative; display: inline-block; }
+  .ac-wrap input[type=text] { width: 240px; padding: 4px 8px; border: 1px solid #bbb; font-size: 12px; }
+  .ac-list {
+    position: absolute; top: 100%; left: 0; right: 0; z-index: 100;
+    background: #fff; border: 1px solid #ccc; border-top: none;
+    max-height: 200px; overflow-y: auto; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  }
+  .ac-list div { padding: 6px 10px; font-size: 12px; cursor: pointer; }
+  .ac-list div:hover, .ac-list div.active { background: #e8f0fe; }
+  .ac-list div .sub { color: #888; font-size: 11px; }
+  .new-fields { margin-top: 8px; padding: 10px; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 6px; }
+  .new-fields .form-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .new-fields label { font-size: 11px; color: #666; width: 60px; flex-shrink: 0; }
+  .new-fields input { flex: 1; padding: 4px 8px; border: 1px solid #bbb; font-size: 12px; }
+  .transcript-toggle {
+    cursor: pointer; color: #3b82f6; font-size: 12px; text-decoration: underline;
+  }
+  .transcript-box {
+    background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px;
+    padding: 12px; margin-top: 8px; font-size: 12px; line-height: 1.6;
+    max-height: 200px; overflow-y: auto; white-space: pre-wrap;
+  }
+  .confidence-low { background: #fffbeb; border-left: 3px solid #f59e0b; }
+  .parsed-badge {
+    display: inline-block; padding: 2px 6px; font-size: 10px;
+    border-radius: 4px; color: #fff; font-weight: 500; margin-left: 4px;
+  }
+  .parsed-badge.high { background: #059669; }
+  .parsed-badge.low { background: #f59e0b; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-title">
+  통화 주문 확인
+  <span class="subtitle">AI가 파싱한 결과를 확인하고 수정한 뒤 주문을 등록하세요</span>
+</div>
+
+<!-- 통화 원문 토글 -->
+<div class="content-box" style="padding:12px 16px;margin-bottom:16px" x-data="{show:false}">
+  <span class="transcript-toggle" @click="show=!show" x-text="show ? '통화 내용 접기' : '통화 내용 보기'"></span>
+  <div class="transcript-box" x-show="show" x-cloak>{{ transcript }}</div>
+</div>
+
+<!-- AI 파싱 요약 -->
+{% if parsed.raw_mentions %}
+<div class="content-box" style="padding:12px 16px;margin-bottom:16px">
+  <div style="font-size:12px;color:#64748b;margin-bottom:4px">AI가 통화에서 감지한 교재 언급:</div>
+  <div style="font-size:13px">
+    {% for m in parsed.raw_mentions %}
+    <span style="display:inline-block;background:#e2e8f0;padding:2px 8px;border-radius:4px;margin:2px;font-size:12px">{{ m }}</span>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<form method="post" x-data="callOrderForm()">
+  {% csrf_token %}
+  <input type="hidden" name="agency_id" :value="agencyId">
+  <input type="hidden" name="teacher_id" :value="teacherId">
+  <input type="hidden" name="new_teacher_name" :value="newTeacherName">
+  <input type="hidden" name="new_teacher_phone" :value="newTeacherPhone">
+
+  <!-- 업체/선생님 선택 -->
+  <div class="content-box" style="padding:12px 16px;margin-bottom:16px">
+    <table class="form-table" style="width:auto">
+      <tr>
+        <th style="width:80px">업체<span class="required-mark">*</span></th>
+        <td>
+          <div class="ac-wrap">
+            <input type="text" x-model="agencyQuery" @input="filterAgencies()" @focus="showAgencyList=true"
+                   placeholder="업체 검색..." aria-label="업체 검색">
+            <div class="ac-list" x-show="showAgencyList && filteredAgencies.length" x-cloak>
+              <template x-for="a in filteredAgencies" :key="a.id">
+                <div @click="selectAgency(a)" x-text="a.name"></div>
+              </template>
+            </div>
+          </div>
+          <span style="margin-left:8px;font-size:12px;color:#059669" x-show="agencyId" x-text="'선택: '+agencyName" x-cloak></span>
+        </td>
+      </tr>
+      <tr>
+        <th>선생님<span class="required-mark">*</span></th>
+        <td>
+          <div class="ac-wrap">
+            <input type="text" x-model="teacherQuery" @input="filterTeachers()" @focus="showTeacherList=true"
+                   placeholder="선생님 검색..." aria-label="선생님 검색">
+            <div class="ac-list" x-show="showTeacherList && filteredTeachers.length" x-cloak>
+              <template x-for="t in filteredTeachers" :key="t.id">
+                <div @click="selectTeacher(t)">
+                  <span x-text="t.name"></span>
+                  <span class="sub" x-text="t.delivery_name ? ' — '+t.delivery_name : ''"></span>
+                </div>
+              </template>
+            </div>
+          </div>
+          <span style="margin-left:8px;font-size:12px;color:#059669" x-show="teacherId" x-text="'선택: '+teacherName" x-cloak></span>
+          <!-- 신규 입력 -->
+          <div class="new-fields" x-show="!teacherId && (newTeacherName || teacherQuery)" x-cloak>
+            <div style="font-size:11px;color:#888;margin-bottom:4px">기존 선생님이 없으면 아래에 새로 입력:</div>
+            <div class="form-row">
+              <label>이름</label>
+              <input type="text" x-model="newTeacherName" placeholder="선생님 이름">
+            </div>
+            <div class="form-row">
+              <label>연락처</label>
+              <input type="text" x-model="newTeacherPhone" placeholder="010-0000-0000">
+            </div>
+          </div>
+        </td>
+      </tr>
+      <tr>
+        <th>배송지<span class="required-mark">*</span></th>
+        <td>
+          <div class="form-row" style="display:flex;gap:8px;align-items:center">
+            <input type="text" name="delivery_school" :value="deliverySchool" @input="deliverySchool=$event.target.value"
+                   placeholder="학교명" style="width:150px" aria-label="학교명">
+            <input type="text" name="delivery_address" :value="deliveryAddress" @input="deliveryAddress=$event.target.value"
+                   placeholder="주소" style="width:200px" aria-label="주소">
+            <input type="text" name="delivery_phone" :value="deliveryPhone" @input="deliveryPhone=$event.target.value"
+                   placeholder="연락처" style="width:130px" aria-label="배송지 연락처">
+          </div>
+        </td>
+      </tr>
+      <tr>
+        <th>메모</th>
+        <td>
+          <input type="text" name="memo" value="{{ memo }}" style="width:100%;max-width:400px" placeholder="메모" aria-label="메모">
+        </td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- 주문 품목 -->
+  <div style="margin-bottom:8px;display:flex;align-items:center;gap:8px">
+    <strong style="font-size:14px">주문 품목</strong>
+    <button type="button" class="btn btn-outline btn-sm" @click="addRow()">+ 교재 추가</button>
+  </div>
+
+  <div class="order-row-wrap">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th style="width:120px">시리즈</th>
+          <th>교재명</th>
+          <th style="width:80px">단가</th>
+          <th style="width:60px">수량</th>
+          <th style="width:80px">금액</th>
+          <th style="width:50px">확신</th>
+          <th style="width:40px"></th>
+        </tr>
+      </thead>
+      <tbody>
+        <template x-for="(row, idx) in rows" :key="idx">
+          <tr :class="row.confidence === 'low' ? 'confidence-low' : ''">
+            <td>
+              <select :name="'series_'+idx" x-model="row.series" @change="row.book_id='';row.unit_price=0">
+                <option value="">-- 시리즈 --</option>
+                {% for s in series_list %}
+                <option value="{{ s }}">{{ s }}</option>
+                {% endfor %}
+              </select>
+            </td>
+            <td>
+              <template x-if="!row.is_custom">
+                <select :name="'book_'+idx" x-model="row.book_id" @change="updatePrice(idx)">
+                  <option value="">-- 교재 선택 --</option>
+                  <template x-for="b in filteredBooks(row.series)" :key="b.id">
+                    <option :value="b.id" x-text="b.publisher+' / '+b.name" :selected="b.id==row.book_id"></option>
+                  </template>
+                </select>
+              </template>
+              <template x-if="row.is_custom">
+                <span>
+                  <input type="text" :name="'custom_name_'+idx" x-model="row.custom_name" style="width:180px" placeholder="교재명">
+                  <input type="number" :name="'custom_price_'+idx" x-model.number="row.unit_price" style="width:70px" placeholder="단가">
+                </span>
+              </template>
+              <button type="button" style="font-size:10px;background:none;border:none;color:#3b82f6;cursor:pointer;margin-left:4px"
+                      @click="row.is_custom=!row.is_custom" x-text="row.is_custom ? '목록' : '직접'"></button>
+            </td>
+            <td class="right" x-text="row.unit_price ? row.unit_price.toLocaleString()+'원' : '-'"></td>
+            <td><input type="number" :name="'qty_'+idx" x-model.number="row.qty" min="1"></td>
+            <td class="right" style="font-weight:bold" x-text="(row.unit_price*row.qty).toLocaleString()+'원'"></td>
+            <td class="center">
+              <span class="parsed-badge" :class="row.confidence" x-text="row.confidence==='low'?'?':'OK'" x-show="row.confidence"></span>
+            </td>
+            <td class="center">
+              <button type="button" class="btn btn-red btn-sm" @click="rows.splice(idx,1)" style="padding:2px 6px">X</button>
+            </td>
+          </tr>
+        </template>
+      </tbody>
+      <tfoot>
+        <tr>
+          <td colspan="4" class="right" style="background:#f0f0f0;font-weight:bold">합계</td>
+          <td class="right" style="background:#f0f0f0;font-weight:bold;font-size:14px;color:#1e40af"
+              x-text="totalAmount().toLocaleString()+'원'"></td>
+          <td colspan="2"></td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+
+  <div style="text-align:center;margin-top:16px;display:flex;gap:12px;justify-content:center">
+    <a href="{% url 'call_order_upload' %}" class="btn btn-gray">다시 업로드</a>
+    <button type="submit" class="btn btn-orange" style="padding:12px 40px;font-size:15px">주문 등록</button>
+  </div>
+</form>
+
+<script>
+var AGENCIES = {{ agencies_json|safe }};
+var TEACHERS = {{ teachers_json|safe }};
+var BOOKS = {{ books_json|safe }};
+var PREFILL = {{ prefill_rows|safe }};
+
+function callOrderForm() {
+  return {
+    agencyId: '', agencyName: '', agencyQuery: '',
+    teacherId: '{{ matched_teacher_id }}', teacherName: '', teacherQuery: '{{ teacher_name }}',
+    newTeacherName: '{{ teacher_name }}', newTeacherPhone: '{{ teacher_phone }}',
+    deliverySchool: '{{ school_name }}', deliveryAddress: '', deliveryPhone: '',
+    showAgencyList: false, showTeacherList: false,
+    filteredAgencies: [], filteredTeachers: [],
+    rows: PREFILL.length ? PREFILL : [],
+
+    init() {
+      var self = this;
+      // 매칭된 선생님이 있으면 자동 선택
+      if (this.teacherId) {
+        var t = TEACHERS.find(function(t){ return t.id == self.teacherId; });
+        if (t) {
+          this.selectTeacher(t);
+        }
+      }
+      // 외부 클릭 시 드롭다운 닫기
+      document.addEventListener('click', function(e){
+        if (!e.target.closest('.ac-wrap')) {
+          self.showAgencyList = false;
+          self.showTeacherList = false;
+        }
+      });
+    },
+
+    filterAgencies() {
+      var q = this.agencyQuery.toLowerCase();
+      this.filteredAgencies = q ? AGENCIES.filter(function(a){ return a.name.toLowerCase().includes(q); }).slice(0,10) : AGENCIES.slice(0,10);
+      this.showAgencyList = true;
+    },
+    selectAgency(a) {
+      this.agencyId = a.id; this.agencyName = a.name; this.agencyQuery = a.name;
+      this.showAgencyList = false;
+      this.teacherId = ''; this.teacherName = ''; this.teacherQuery = '';
+    },
+    filterTeachers() {
+      var q = this.teacherQuery.toLowerCase();
+      var aid = this.agencyId;
+      this.filteredTeachers = TEACHERS.filter(function(t){
+        if (aid && t.agency_id != aid) return false;
+        return !q || t.name.toLowerCase().includes(q) || (t.phone && t.phone.includes(q));
+      }).slice(0,10);
+      this.showTeacherList = true;
+    },
+    selectTeacher(t) {
+      this.teacherId = t.id; this.teacherName = t.name; this.teacherQuery = t.name;
+      this.showTeacherList = false;
+      this.newTeacherName = ''; this.newTeacherPhone = '';
+      if (!this.agencyId && t.agency_id) {
+        var a = AGENCIES.find(function(a){ return a.id == t.agency_id; });
+        if (a) { this.agencyId = a.id; this.agencyName = a.name; this.agencyQuery = a.name; }
+      }
+      if (t.has_delivery) {
+        this.deliverySchool = t.delivery_name;
+        this.deliveryAddress = t.delivery_address;
+        this.deliveryPhone = t.delivery_phone;
+      }
+    },
+
+    filteredBooks(series) {
+      if (!series) return BOOKS;
+      return BOOKS.filter(function(b){ return b.series === series; });
+    },
+    updatePrice(idx) {
+      var row = this.rows[idx];
+      var b = BOOKS.find(function(b){ return b.id == row.book_id; });
+      row.unit_price = b ? b.unit_price : 0;
+    },
+    addRow() {
+      this.rows.push({ series:'', book_id:'', qty:1, unit_price:0, is_custom:false, custom_name:'', confidence:'' });
+    },
+    totalAmount() {
+      return this.rows.reduce(function(s, r){ return s + (r.unit_price||0) * (r.qty||0); }, 0);
+    }
+  };
+}
+</script>
+{% endblock %}

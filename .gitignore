@@ -17,6 +17,10 @@ wheels/
 # 환경변수 (절대 커밋 금지)
 .env
 
+# Google OAuth (비밀 정보)
+client_secret_*.json
+gdrive_token.json
+
 # IDE
 .vscode/
 .idea/

@@ -139,6 +139,11 @@ OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '')
 # Anthropic (Claude 주문 파싱)
 ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY', '')
 
+# Google Drive 통화녹음 동기화
+GOOGLE_OAUTH_CLIENT_JSON = os.environ.get('GOOGLE_OAUTH_CLIENT_JSON', str(BASE_DIR / 'client_secret_881689725030-76lr7tcdmlrdtt785cf0eava273vvv14.apps.googleusercontent.com.json'))
+GOOGLE_DRIVE_FOLDER_ID = os.environ.get('GOOGLE_DRIVE_FOLDER_ID', '')  # 녹음파일 폴더 ID
+CALL_RECORDING_API_TOKEN = os.environ.get('CALL_RECORDING_API_TOKEN', '')  # 웹훅 인증 토큰
+
 # 네이버 메일 IMAP
 NAVER_EMAIL_1_ID = os.environ.get('NAVER_EMAIL_1_ID', '')
 NAVER_EMAIL_1_PW = os.environ.get('NAVER_EMAIL_1_PW', '')
