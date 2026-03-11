@@ -27,34 +27,8 @@ jobs:
             echo 'GOOGLE_DRIVE_FOLDER_ID=10xR4x8zjeXCiLqGOXMSD8IRpyWgXlN75' >> .env
             sudo systemctl restart bookmart
             # Drive 동기화 디버깅 (1회성)
-            python -c "
-import json, os
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
-import django; django.setup()
-from orders.management.commands.sync_call_recordings import get_drive_service
-from django.conf import settings
-print('FOLDER_ID:', settings.GOOGLE_DRIVE_FOLDER_ID)
-svc = get_drive_service()
-if svc:
-    try:
-        about = svc.about().get(fields='user').execute()
-        print('Authenticated as:', about['user']['emailAddress'])
-    except Exception as e:
-        print('About error:', e)
-    try:
-        r = svc.files().list(
-            q=\"'%s' in parents and trashed=false\" % settings.GOOGLE_DRIVE_FOLDER_ID,
-            fields='files(id,name,mimeType)',
-            pageSize=5,
-        ).execute()
-        print('Files found:', len(r.get('files',[])))
-        for f in r.get('files',[])[:3]:
-            print(' -', f['name'], f['mimeType'])
-    except Exception as e:
-        print('List error:', e)
-else:
-    print('No drive service (token missing)')
-" 2>&1 || true
+            python debug_drive.py 2>&1 || true
+            rm -f debug_drive.py
             # 5분마다 메일 자동 수신 cron 등록 (sh 호환: source 대신 . 사용)
             CRON_CMD="cd /home/bookmart/bookmart && . venv/bin/activate && python manage.py fetch_emails >> /home/bookmart/fetch_emails.log 2>&1"
             (crontab -l 2>/dev/null | grep -v 'fetch_emails' ; echo "*/5 * * * * $CRON_CMD") | crontab -
