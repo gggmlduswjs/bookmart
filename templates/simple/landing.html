@@ -44,18 +44,20 @@
       </div>
       <div class="form-group">
         <label>학교명 *</label>
-        <div style="display:flex;gap:6px">
-          <input type="text" id="school-input" name="school" value="{{ request.POST.school|default:'' }}" placeholder="OO초등학교" required style="flex:1">
-          <button type="button" class="btn btn-outline btn-sm" onclick="searchSchool()" style="white-space:nowrap">학교 검색</button>
+        <div style="display:flex;gap:6px;align-items:center">
+          <input type="text" id="school-search" placeholder="학교명 입력 (예: 백마초)" style="flex:1" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();searchSchool();}">
+          <button type="button" class="btn btn-primary btn-sm" onclick="searchSchool()" style="white-space:nowrap">학교 검색</button>
+        </div>
+        <input type="hidden" id="school-value" name="school" value="{{ request.POST.school|default:'' }}">
+        <div id="school-selected" style="display:none;margin-top:6px;padding:8px 12px;background:#eff6ff;border:1px solid #93c5fd;border-radius:6px;font-size:13px">
+          <span id="school-name-display" style="font-weight:600;color:#1e40af"></span>
+          <button type="button" onclick="clearSchool()" style="background:none;border:none;color:#dc2626;cursor:pointer;font-size:12px;margin-left:8px">변경</button>
         </div>
       </div>
       <div class="form-group">
         <label>배송주소 *</label>
-        <div style="display:flex;gap:6px;margin-bottom:6px">
-          <input type="text" id="postcode" name="postcode" value="{{ request.POST.postcode|default:'' }}" placeholder="우편번호" readonly style="width:100px;background:#f5f5f5;cursor:pointer" onclick="openPostcode()">
-          <button type="button" class="btn btn-outline btn-sm" onclick="openPostcode()">주소 검색</button>
-        </div>
-        <input type="text" id="address-main" name="address" value="{{ request.POST.address|default:'' }}" placeholder="학교명 입력 후 '학교 검색' 버튼을 눌러주세요" readonly style="background:#f5f5f5;cursor:pointer;margin-bottom:6px" onclick="openPostcode()" required>
+        <input type="hidden" id="postcode" name="postcode" value="{{ request.POST.postcode|default:'' }}">
+        <input type="text" id="address-main" name="address" value="{{ request.POST.address|default:'' }}" placeholder="위에서 학교를 검색하면 자동 입력됩니다" readonly style="background:#f5f5f5;margin-bottom:6px" required>
         <input type="text" id="address-detail" name="address_detail" value="{{ request.POST.address_detail|default:'' }}" placeholder="상세주소 (동/호수 등)">
       </div>
       <button type="submit" class="btn btn-primary btn-block" style="margin-top:8px">주문하기</button>
@@ -86,28 +88,32 @@
 <script src="//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
 <script>
 function searchSchool() {
-  var school = document.getElementById('school-input').value.trim();
-  if (!school) { alert('학교명을 입력해주세요.'); return; }
+  var q = document.getElementById('school-search').value.trim();
+  if (!q) { alert('학교명을 입력해주세요. (예: 백마초)'); document.getElementById('school-search').focus(); return; }
   new daum.Postcode({
     oncomplete: function(data) {
+      var schoolName = data.buildingName || q;
+      document.getElementById('school-value').value = schoolName;
+      document.getElementById('school-name-display').textContent = schoolName + ' (' + data.address + ')';
+      document.getElementById('school-selected').style.display = 'block';
+      document.getElementById('school-search').style.display = 'none';
+      document.getElementById('school-search').parentElement.querySelector('button').style.display = 'none';
       document.getElementById('postcode').value = data.zonecode;
       document.getElementById('address-main').value = data.address;
-      // 학교명 보정: 검색 결과의 건물명이 있으면 사용
-      if (data.buildingName) {
-        document.getElementById('school-input').value = data.buildingName;
-      }
       document.getElementById('address-detail').focus();
     }
-  }).open({ q: school });
+  }).open({ q: q });
 }
-function openPostcode() {
-  new daum.Postcode({
-    oncomplete: function(data) {
-      document.getElementById('postcode').value = data.zonecode;
-      document.getElementById('address-main').value = data.address;
-      document.getElementById('address-detail').focus();
-    }
-  }).open();
+function clearSchool() {
+  document.getElementById('school-value').value = '';
+  document.getElementById('school-selected').style.display = 'none';
+  document.getElementById('school-search').style.display = '';
+  document.getElementById('school-search').value = '';
+  document.getElementById('school-search').parentElement.querySelector('button').style.display = '';
+  document.getElementById('postcode').value = '';
+  document.getElementById('address-main').value = '';
+  document.getElementById('address-detail').value = '';
+  document.getElementById('school-search').focus();
 }
 function switchTab(tab) {
   document.getElementById('tab-new').classList.toggle('active', tab === 'new');
@@ -116,5 +122,15 @@ function switchTab(tab) {
   document.getElementById('panel-lookup').classList.toggle('active', tab === 'lookup');
 }
 {% if active_tab == 'lookup' %}switchTab('lookup');{% endif %}
+// POST 후 돌아왔을 때 학교명 복원
+(function(){
+  var saved = document.getElementById('school-value').value;
+  if (saved) {
+    document.getElementById('school-name-display').textContent = saved;
+    document.getElementById('school-selected').style.display = 'block';
+    document.getElementById('school-search').style.display = 'none';
+    document.getElementById('school-search').parentElement.querySelector('button').style.display = 'none';
+  }
+})();
 </script>
 {% endblock %}
