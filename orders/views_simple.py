@@ -76,7 +76,29 @@ def simple_landing(request, slug):
     if request.method == 'POST':
         mode = request.POST.get('mode', 'new')
 
-        if mode == 'lookup':
+        if mode == 'check':
+            # ── AJAX: 이름+전화번호로 기존 회원 확인 ──
+            check_name = request.POST.get('name', '').strip()
+            check_phone = request.POST.get('phone', '').strip()
+            if check_name and check_phone:
+                existing = User.objects.filter(
+                    phone=check_phone, name=check_name,
+                    role='teacher', agency=agency, is_active=True
+                ).first()
+                if existing:
+                    request.session['simple_teacher_id'] = existing.pk
+                    request.session['simple_agency_code'] = str(agency.agency_code)
+                    from django.urls import reverse
+                    return HttpResponse(
+                        json.dumps({'exists': True, 'redirect': reverse('simple_order', args=[slug])}),
+                        content_type='application/json'
+                    )
+            return HttpResponse(
+                json.dumps({'exists': False}),
+                content_type='application/json'
+            )
+
+        elif mode == 'lookup':
             # ── 주문내역 확인 모드: 이름+전화번호만으로 세션 복구 ──
             active_tab = 'lookup'
             lookup_name = request.POST.get('lookup_name', '').strip()
