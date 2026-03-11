@@ -487,6 +487,7 @@ def gdrive_auth_start(request):
 
     request.session['gdrive_oauth_state'] = state
     request.session['gdrive_redirect_uri'] = redirect_uri
+    request.session['gdrive_code_verifier'] = flow.code_verifier
     return redirect(auth_url)
 
 
@@ -511,6 +512,7 @@ def gdrive_auth_callback(request):
         state=state,
         redirect_uri=redirect_uri,
     )
+    flow.code_verifier = request.session.get('gdrive_code_verifier')
 
     authorization_response = request.build_absolute_uri()
     if authorization_response.startswith('http://') and 'bookmart' in authorization_response:
@@ -537,6 +539,7 @@ def gdrive_auth_callback(request):
 
     request.session.pop('gdrive_oauth_state', None)
     request.session.pop('gdrive_redirect_uri', None)
+    request.session.pop('gdrive_code_verifier', None)
 
     messages.success(request, 'Google Drive 연동 완료! 이제 통화 녹음이 자동으로 동기화됩니다.')
     return redirect('call_inbox')
