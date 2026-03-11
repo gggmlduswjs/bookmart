@@ -745,7 +745,7 @@
 
     {# 주문관리 #}
     <div class="sidebar-group">
-      <div class="sidebar-group-header {% if open === 'orders' %}group-active{% endif %}"
+      <div class="sidebar-group-header" :class="{'group-active': open === 'orders'}"
            @click="open = open === 'orders' ? '' : 'orders'">
         <span>주문관리</span>
         <span class="chevron" x-text="open === 'orders' ? '&#9662;' : '&#9656;'"></span>
@@ -768,7 +768,7 @@
 
     {# 교재관리 #}
     <div class="sidebar-group">
-      <div class="sidebar-group-header {% if open === 'books' %}group-active{% endif %}"
+      <div class="sidebar-group-header" :class="{'group-active': open === 'books'}"
            @click="open = open === 'books' ? '' : 'books'">
         <span>교재관리</span>
         <span class="chevron" x-text="open === 'books' ? '&#9662;' : '&#9656;'"></span>
@@ -783,7 +783,7 @@
 
     {# 정산관리 #}
     <div class="sidebar-group">
-      <div class="sidebar-group-header {% if open === 'finance' %}group-active{% endif %}"
+      <div class="sidebar-group-header" :class="{'group-active': open === 'finance'}"
            @click="open = open === 'finance' ? '' : 'finance'">
         <span>정산관리</span>
         <span class="chevron" x-text="open === 'finance' ? '&#9662;' : '&#9656;'"></span>
@@ -797,7 +797,7 @@
 
     {# 업체관리 #}
     <div class="sidebar-group">
-      <div class="sidebar-group-header {% if open === 'agencies' %}group-active{% endif %}"
+      <div class="sidebar-group-header" :class="{'group-active': open === 'agencies'}"
            @click="open = open === 'agencies' ? '' : 'agencies'">
         <span>업체관리</span>
         <span class="chevron" x-text="open === 'agencies' ? '&#9662;' : '&#9656;'"></span>
@@ -827,7 +827,7 @@
       </a>
 
       <div class="sidebar-group">
-        <div class="sidebar-group-header {% if open === 'status' %}group-active{% endif %}"
+        <div class="sidebar-group-header" :class="{'group-active': open === 'status'}"
              @click="open = open === 'status' ? '' : 'status'">
           <span>주문/반품</span>
           <span class="chevron" x-text="open === 'status' ? '&#9662;' : '&#9656;'"></span>
@@ -839,7 +839,7 @@
       </div>
 
       <div class="sidebar-group">
-        <div class="sidebar-group-header {% if open === 'delivery' %}group-active{% endif %}"
+        <div class="sidebar-group-header" :class="{'group-active': open === 'delivery'}"
              @click="open = open === 'delivery' ? '' : 'delivery'">
           <span>배송지관리</span>
           <span class="chevron" x-text="open === 'delivery' ? '&#9662;' : '&#9656;'"></span>
@@ -873,7 +873,7 @@
       </a>
 
       <div class="sidebar-group">
-        <div class="sidebar-group-header {% if open === 'orders' %}group-active{% endif %}"
+        <div class="sidebar-group-header" :class="{'group-active': open === 'orders'}"
              @click="open = open === 'orders' ? '' : 'orders'">
           <span>주문/반품</span>
           <span class="chevron" x-text="open === 'orders' ? '&#9662;' : '&#9656;'"></span>
@@ -885,7 +885,7 @@
       </div>
 
       <div class="sidebar-group">
-        <div class="sidebar-group-header {% if open === 'schools' %}group-active{% endif %}"
+        <div class="sidebar-group-header" :class="{'group-active': open === 'schools'}"
              @click="open = open === 'schools' ? '' : 'schools'">
           <span>학교관리</span>
           <span class="chevron" x-text="open === 'schools' ? '&#9662;' : '&#9656;'"></span>
@@ -897,7 +897,7 @@
       </div>
 
       <div class="sidebar-group">
-        <div class="sidebar-group-header {% if open === 'teachers' %}group-active{% endif %}"
+        <div class="sidebar-group-header" :class="{'group-active': open === 'teachers'}"
              @click="open = open === 'teachers' ? '' : 'teachers'">
           <span>선생님관리</span>
           <span class="chevron" x-text="open === 'teachers' ? '&#9662;' : '&#9656;'"></span>
