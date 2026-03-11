@@ -26,9 +26,8 @@ jobs:
             sed -i '/^GOOGLE_DRIVE_FOLDER_ID/d' .env 2>/dev/null || true
             echo 'GOOGLE_DRIVE_FOLDER_ID=10xR4x8zjeXCiLqGOXMSD8IRpyWgXlN75' >> .env
             sudo systemctl restart bookmart
-            # Drive 동기화 디버깅 (1회성)
-            python debug_drive.py 2>&1 || true
-            rm -f debug_drive.py
+            # Drive 동기화 실행
+            python manage.py sync_call_recordings --process 2>&1 || true
             # 5분마다 메일 자동 수신 cron 등록 (sh 호환: source 대신 . 사용)
             CRON_CMD="cd /home/bookmart/bookmart && . venv/bin/activate && python manage.py fetch_emails >> /home/bookmart/fetch_emails.log 2>&1"
             (crontab -l 2>/dev/null | grep -v 'fetch_emails' ; echo "*/5 * * * * $CRON_CMD") | crontab -

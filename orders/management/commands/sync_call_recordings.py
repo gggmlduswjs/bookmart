@@ -74,7 +74,7 @@ def sync_from_drive():
     # Drive에서 오디오 파일 목록 가져오기
     query = (
         f"'{folder_id}' in parents and trashed=false and "
-        f"(mimeType contains 'audio/' or mimeType contains 'video/mp4')"
+        f"(mimeType contains 'audio/' or mimeType contains 'video/')"
     )
     results = service.files().list(
         q=query,
