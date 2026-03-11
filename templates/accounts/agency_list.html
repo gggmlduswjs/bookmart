@@ -71,12 +71,15 @@
   <a href="{% url 'agency_create' %}" class="btn btn-orange btn-sm">+ 업체 추가</a>
 </div>
 
-<div style="margin-bottom:8px">
+<div style="margin-bottom:8px;display:flex;gap:6px;flex-wrap:wrap">
   {% if show_inactive %}
-  <a href="{% url 'agency_list' %}" class="btn btn-outline btn-sm">활성 업체만 보기</a>
+  <a href="{% url 'agency_list' %}{% if filter_type %}?type={{ filter_type }}{% endif %}" class="btn btn-outline btn-sm">활성 업체만 보기</a>
   {% else %}
-  <a href="{% url 'agency_list' %}?inactive=1" class="btn btn-outline btn-sm">비활성 업체 포함</a>
+  <a href="{% url 'agency_list' %}?inactive=1{% if filter_type %}&type={{ filter_type }}{% endif %}" class="btn btn-outline btn-sm">비활성 업체 포함</a>
   {% endif %}
+  <a href="{% url 'agency_list' %}{% if show_inactive %}?inactive=1{% endif %}" class="btn btn-sm {% if not filter_type %}btn-orange{% else %}btn-outline{% endif %}">전체</a>
+  <a href="{% url 'agency_list' %}?type=agency{% if show_inactive %}&inactive=1{% endif %}" class="btn btn-sm {% if filter_type == 'agency' %}btn-orange{% else %}btn-outline{% endif %}">업체만</a>
+  <a href="{% url 'agency_list' %}?type=individual{% if show_inactive %}&inactive=1{% endif %}" class="btn btn-sm {% if filter_type == 'individual' %}btn-orange{% else %}btn-outline{% endif %}">개인만</a>
 </div>
 
 <div class="content-box">
@@ -89,7 +92,7 @@
     <tbody>
       {% for agency in agencies %}
       <tr>
-        <td>{{ agency.name }}</td>
+        <td>{{ agency.name }}{% if agency.is_individual %} <span class="badge badge-blue" style="font-size:10px">개인</span>{% endif %}</td>
         <td>{{ agency.login_id }}</td>
         <td>{{ agency.phone }}</td>
         <td class="center">
@@ -100,11 +103,13 @@
           {% endif %}
         </td>
         <td class="center" style="white-space:nowrap">
-          <a href="{% url 'agency_edit' agency.pk %}" class="btn btn-outline btn-sm">수정</a>
+          <a href="{% url 'agency_edit' agency.pk %}" class="btn btn-outline btn-sm" aria-label="{{ agency.name }} 수정">수정</a>
           <button class="btn btn-sm btn-blue"
+            aria-label="{{ agency.name }} 문자양식"
             onclick="openMsgModal('{{ agency.name }}', '{{ agency.login_id }}', '{{ site_url }}/s/{{ agency.agency_code }}/', {{ agency.pk }}, '{{ agency.plain_password }}')">문자양식</button>
           <a href="{% url 'agency_toggle' agency.pk %}"
              class="btn btn-sm {% if agency.is_active %}btn-red{% else %}btn-outline{% endif %}"
+             aria-label="{{ agency.name }} {% if agency.is_active %}비활성화{% else %}활성화{% endif %}"
              onclick="return confirm('{% if agency.is_active %}비활성화{% else %}활성화{% endif %}하시겠습니까?')">
             {% if agency.is_active %}비활성화{% else %}활성화{% endif %}
           </a>
@@ -134,19 +139,17 @@
     <div class="msg-block">
       <div class="msg-block-label">
         업체에게 보낼 문자
-        <button class="btn btn-gray btn-sm" onclick="copyMsg('agency-msg-area', this)">복사</button>
+        <button class="btn btn-gray btn-sm" onclick="copyToClipboard(document.getElementById('agency-msg-area').textContent, this)">복사</button>
       </div>
       <pre id="agency-msg-area"></pre>
-      <textarea id="agency-msg-copy" style="position:absolute;left:-9999px"></textarea>
     </div>
 
     <div class="msg-block">
       <div class="msg-block-label">
         선생님 전달용 문자
-        <button class="btn btn-gray btn-sm" onclick="copyMsg('teacher-msg-area', this)">복사</button>
+        <button class="btn btn-gray btn-sm" onclick="copyToClipboard(document.getElementById('teacher-msg-area').textContent, this)">복사</button>
       </div>
       <pre id="teacher-msg-area"></pre>
-      <textarea id="teacher-msg-copy" style="position:absolute;left:-9999px"></textarea>
     </div>
 
     <div style="text-align:center;margin-top:16px">
@@ -208,23 +211,5 @@ function closeMsgModal() {
   document.getElementById('msg-modal').classList.remove('active');
 }
 
-function copyMsg(preId, btn) {
-  var text = document.getElementById(preId).textContent;
-  var copyId = preId.replace('-area', '-copy');
-  var ta = document.getElementById(copyId);
-  ta.value = text;
-  ta.style.position = 'static';
-  ta.select();
-  ta.setSelectionRange(0, 99999);
-  document.execCommand('copy');
-  ta.style.position = 'absolute';
-  ta.style.left = '-9999px';
-  btn.textContent = '복사됨 ✓';
-  btn.style.background = '#2e7d32';
-  setTimeout(function() {
-    btn.textContent = '복사';
-    btn.style.background = '';
-  }, 2000);
-}
 </script>
 {% endblock %}

@@ -21,6 +21,7 @@
 
 <form method="post" x-data="editOrderForm()">
   {% csrf_token %}
+  <input type="hidden" name="updated_at" value="{{ order.updated_at|date:'c' }}">
 
   <!-- 주문 정보 -->
   <div class="content-box" style="padding:12px 14px;margin-bottom:10px">

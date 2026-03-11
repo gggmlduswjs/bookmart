@@ -12,10 +12,11 @@
   {% if request.user.is_admin %}
   <a href="{% url 'order_copy' order.pk %}" class="btn btn-outline btn-sm">복사 주문</a>
   <a href="{% url 'order_edit' order.pk %}" class="btn btn-blue btn-sm">수정</a>
+  <a href="{% url 'return_create_from_order' order.pk %}" class="btn btn-outline btn-sm" style="color:#d97706;border-color:#d97706">이 주문 반품</a>
   {% endif %}
 </div>
 
-<div style="display:flex;gap:12px;align-items:flex-start">
+<div style="display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap">
   <!-- 주문 정보 -->
   <div class="content-box" style="width:260px;flex-shrink:0">
     <table class="form-table" style="width:100%">
@@ -68,25 +69,45 @@
       {% endwith %}
     </table>
 
+    <!-- 상태 변경 타임라인 (3-1) -->
+    {% if status_logs %}
+    <div class="timeline" style="border-top:1px solid #eee">
+      <div style="font-size:11px;font-weight:600;color:#64748b;margin-bottom:6px">상태 변경 이력</div>
+      {% for log in status_logs %}
+      <div class="timeline-item">
+        <div class="timeline-dot {{ log.new_status }}"></div>
+        <div class="timeline-content">
+          <strong>{{ log.get_new_status_display }}</strong>
+          {% if log.memo %}<span style="color:#64748b"> — {{ log.memo }}</span>{% endif %}
+          <div class="time">{{ log.created_at|date:"Y-m-d H:i" }}
+            {% if log.changed_by %} ({{ log.changed_by.name }}){% endif %}
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
     <!-- 총판 상태 변경 버튼 -->
     {% if can_ship %}
     <div style="padding:10px;border-top:1px solid #eee" x-data="{carrier:'hanjin'}">
       <form method="post" action="{% url 'order_ship' order.pk %}">
         {% csrf_token %}
         <div style="margin-bottom:6px;display:flex;gap:10px;font-size:12px">
-          <label style="cursor:pointer">
-            <input type="radio" name="carrier" value="hanjin" x-model="carrier"> 한진택배
+          <label style="cursor:pointer" for="carrier-hanjin">
+            <input type="radio" name="carrier" value="hanjin" id="carrier-hanjin" x-model="carrier"> 한진택배
           </label>
-          <label style="cursor:pointer">
-            <input type="radio" name="carrier" value="direct" x-model="carrier"> 직접배송
+          <label style="cursor:pointer" for="carrier-direct">
+            <input type="radio" name="carrier" value="direct" id="carrier-direct" x-model="carrier"> 직접배송
           </label>
         </div>
         <div style="margin-bottom:6px" x-show="carrier==='hanjin'">
           <input type="text" name="tracking_no" placeholder="운송장번호" maxlength="50"
+                 aria-label="운송장번호"
                  style="width:100%;padding:4px 6px;border:1px solid #bbb;font-size:12px;box-sizing:border-box">
         </div>
         <button type="submit" class="btn btn-orange" style="width:100%"
-                onclick="return confirm('발송 처리하시겠습니까?\\n선생님께 문자가 자동 발송됩니다.')">발송 처리 →</button>
+                onclick="return confirm('발송 처리하시겠습니까?\n선생님께 문자가 자동 발송됩니다.')">발송 처리</button>
       </form>
     </div>
     {% endif %}
@@ -94,14 +115,14 @@
     <div style="padding:10px;border-top:1px solid #eee">
       <form method="post" action="{% url 'order_deliver' order.pk %}">
         {% csrf_token %}
-        <button type="submit" class="btn btn-green" style="width:100%;background:#2e7d32;color:#fff" onclick="return confirm('배송완료 처리하시겠습니까?')">배송완료 처리 ✓</button>
+        <button type="submit" class="btn btn-green" style="width:100%" onclick="return confirm('배송완료 처리하시겠습니까?')">배송완료 처리</button>
       </form>
     </div>
     {% endif %}
   </div>
 
   <!-- 주문 품목 -->
-  <div style="flex:1">
+  <div style="flex:1;min-width:300px">
     <div class="content-box">
       <table class="data-table">
         <thead>
@@ -126,7 +147,7 @@
         <tfoot>
           <tr>
             <td colspan="4" class="right" style="padding:6px 8px;background:#f0f0f0;font-weight:bold">합계</td>
-            <td class="right" style="padding:6px 8px;background:#f0f0f0;font-weight:bold;font-size:14px;color:#e8720c">
+            <td class="right" style="padding:6px 8px;background:#f0f0f0;font-weight:bold;font-size:14px;color:#1e40af">
               {{ order.total_amount|floatformat:0 }}원
             </td>
           </tr>
@@ -134,7 +155,7 @@
       </table>
     </div>
 
-    <div style="text-align:right;display:flex;gap:8px;justify-content:flex-end">
+    <div style="text-align:right;display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">
       {% if can_cancel %}
       <form method="post" action="{% url 'order_cancel' order.pk %}" onsubmit="return confirm('주문을 취소하시겠습니까?')">
         {% csrf_token %}
@@ -142,9 +163,9 @@
       </form>
       {% endif %}
       {% if request.user.is_admin %}
-      <form method="post" action="{% url 'order_delete' order.pk %}" onsubmit="return confirm('주문을 완전히 삭제합니다. 복구할 수 없습니다.\n삭제하시겠습니까?')">
+      <form method="post" action="{% url 'order_delete' order.pk %}" onsubmit="return confirm('주문을 삭제합니다. (24시간 내 복구 가능)\n삭제하시겠습니까?')">
         {% csrf_token %}
-        <button type="submit" class="btn btn-outline btn-sm" style="color:#c00;border-color:#c00">삭제</button>
+        <button type="submit" class="btn btn-red btn-sm" style="background:#fff;color:#dc2626;border:1px solid #dc2626">삭제</button>
       </form>
       {% endif %}
     </div>

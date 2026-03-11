@@ -11,6 +11,8 @@ def home(request):
     if request.user.role == 'admin':
         return redirect('dashboard')
     elif request.user.role == 'agency':
+        if request.user.is_individual:
+            return redirect('individual_order_create')
         return redirect('agency_dashboard')
     return redirect('order_create')
 

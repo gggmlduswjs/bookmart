@@ -52,8 +52,8 @@
   <input type="hidden" name="action" value="ship">
 
   <div class="action-bar">
-    <label style="font-size:13px;color:#64748b;cursor:pointer">
-      <input type="checkbox" id="check-all-pending" onchange="toggleAll(this, 'pending-chk')"> 전체 선택
+    <label for="check-all-pending" style="font-size:13px;color:#64748b;cursor:pointer">
+      <input type="checkbox" id="check-all-pending" onchange="toggleAll(this, 'pending-chk')" aria-label="발송 대기 전체 선택"> 전체 선택
     </label>
     <button type="submit" class="btn btn-orange btn-sm" onclick="return confirm('선택한 주문을 발송 처리하시겠습니까?')">
       선택 발송 처리
@@ -61,7 +61,7 @@
     <span style="font-size:12px;color:#94a3b8">운송장번호를 입력하면 선생님에게 문자가 발송됩니다</span>
   </div>
 
-  <div class="content-box">
+  <div class="content-box scroll-hint">
     <table class="data-table">
       <thead>
         <tr>
@@ -81,7 +81,7 @@
       <tbody>
         {% for order in pending_orders %}
         <tr x-data="{carrier:'hanjin'}">
-          <td class="center"><input type="checkbox" class="pending-chk" name="ids" value="{{ order.pk }}"></td>
+          <td class="center"><input type="checkbox" class="pending-chk" name="ids" value="{{ order.pk }}" aria-label="{{ order.order_no }} 선택"></td>
           <td style="font-size:11px">{{ order.order_no }}</td>
           <td>{{ order.agency.name }}</td>
           <td>{{ order.teacher.name }}</td>
@@ -89,20 +89,20 @@
           <td class="center">{{ order.item_count }}</td>
           <td class="right" style="font-weight:600">{{ order.total_amt|floatformat:0 }}원</td>
           <td style="font-size:11px">
-            <select name="carrier_{{ order.pk }}" x-model="carrier" style="padding:2px 4px;border:1px solid #cbd5e1;font-size:11px;border-radius:3px">
+            <select name="carrier_{{ order.pk }}" x-model="carrier" aria-label="{{ order.order_no }} 배송방법" style="padding:2px 4px;border:1px solid #cbd5e1;font-size:11px;border-radius:3px">
               <option value="hanjin">한진택배</option>
               <option value="direct">직접배송</option>
             </select>
           </td>
           <td>
             <template x-if="carrier==='hanjin'">
-              <input type="text" name="tracking_{{ order.pk }}" class="tracking-input" placeholder="운송장번호">
+              <input type="text" name="tracking_{{ order.pk }}" class="tracking-input" placeholder="운송장번호" aria-label="{{ order.order_no }} 운송장번호">
             </template>
             <template x-if="carrier==='direct'">
               <span style="color:#94a3b8;font-size:11px">—</span>
             </template>
           </td>
-          <td style="font-size:11px;color:#64748b">{{ order.ordered_at|date:"m/d H:i" }}</td>
+          <td style="font-size:11px;color:#64748b">{{ order.ordered_at|date:"Y-m-d H:i" }}</td>
           <td class="center"><a href="{% url 'order_detail' order.pk %}" class="btn btn-sm btn-outline" style="padding:1px 6px;font-size:10px">상세</a></td>
         </tr>
         {% empty %}
@@ -120,15 +120,15 @@
   <input type="hidden" name="action" value="deliver">
 
   <div class="action-bar">
-    <label style="font-size:13px;color:#64748b;cursor:pointer">
-      <input type="checkbox" id="check-all-shipping" onchange="toggleAll(this, 'shipping-chk')"> 전체 선택
+    <label for="check-all-shipping" style="font-size:13px;color:#64748b;cursor:pointer">
+      <input type="checkbox" id="check-all-shipping" onchange="toggleAll(this, 'shipping-chk')" aria-label="배송중 전체 선택"> 전체 선택
     </label>
     <button type="submit" class="btn btn-sm" style="background:#059669;color:#fff;border:none" onclick="return confirm('선택한 주문을 배송완료 처리하시겠습니까?')">
       선택 배송완료 처리
     </button>
   </div>
 
-  <div class="content-box">
+  <div class="content-box scroll-hint">
     <table class="data-table">
       <thead>
         <tr>
@@ -147,7 +147,7 @@
       <tbody>
         {% for order in shipping_orders %}
         <tr>
-          <td class="center"><input type="checkbox" class="shipping-chk" name="ids" value="{{ order.pk }}"></td>
+          <td class="center"><input type="checkbox" class="shipping-chk" name="ids" value="{{ order.pk }}" aria-label="{{ order.order_no }} 선택"></td>
           <td style="font-size:11px">{{ order.order_no }}</td>
           <td>{{ order.agency.name }}</td>
           <td>{{ order.teacher.name }}</td>
@@ -164,7 +164,7 @@
               <span style="color:#94a3b8">한진택배</span>
             {% endif %}
           </td>
-          <td style="font-size:11px;color:#64748b">{{ order.ordered_at|date:"m/d H:i" }}</td>
+          <td style="font-size:11px;color:#64748b">{{ order.ordered_at|date:"Y-m-d H:i" }}</td>
           <td class="center"><a href="{% url 'order_detail' order.pk %}" class="btn btn-sm btn-outline" style="padding:1px 6px;font-size:10px">상세</a></td>
         </tr>
         {% empty %}
@@ -177,7 +177,7 @@
 
 {% else %}
 <!-- ═══ 배송완료 ═══ -->
-<div class="content-box">
+<div class="content-box scroll-hint">
   <table class="data-table">
     <thead>
       <tr>
@@ -211,7 +211,7 @@
             <span style="color:#94a3b8">한진택배</span>
           {% endif %}
         </td>
-        <td style="font-size:11px;color:#64748b">{{ order.ordered_at|date:"m/d H:i" }}</td>
+        <td style="font-size:11px;color:#64748b">{{ order.ordered_at|date:"Y-m-d H:i" }}</td>
         <td class="center"><a href="{% url 'order_detail' order.pk %}" class="btn btn-sm btn-outline" style="padding:1px 6px;font-size:10px">상세</a></td>
       </tr>
       {% empty %}

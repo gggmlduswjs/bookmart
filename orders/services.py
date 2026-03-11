@@ -2,7 +2,7 @@ from orders.models import DeliveryAddress, Order, Return
 
 
 def get_order_queryset(user):
-    qs = Order.objects.select_related('agency', 'teacher', 'delivery')
+    qs = Order.objects.select_related('agency', 'teacher', 'delivery').filter(is_deleted=False)
     if user.role == 'admin':
         return qs.all()
     elif user.role == 'agency':

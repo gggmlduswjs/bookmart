@@ -18,6 +18,7 @@ urlpatterns = [
     # ── 주문 ──────────────────────────────────────────────────────────────────
     path('orders/', views.order_list, name='order_list'),
     path('orders/create/', views.order_create, name='order_create'),
+    path('orders/individual-create/', views.individual_order_create, name='individual_order_create'),
     path('orders/admin-create/', views.order_create_admin, name='order_create_admin'),
     path('orders/parse-excel/', views.parse_order_excel, name='parse_order_excel'),
     path('orders/<int:pk>/', views.order_detail, name='order_detail'),
@@ -26,6 +27,8 @@ urlpatterns = [
     path('orders/<int:pk>/cancel/', views.order_cancel, name='order_cancel'),
     path('orders/<int:pk>/delete/', views.order_delete, name='order_delete'),
     path('orders/bulk-delete/', views.order_bulk_delete, name='order_bulk_delete'),
+    path('orders/<int:pk>/restore/', views.order_restore, name='order_restore'),
+    path('orders/<int:pk>/return/', views.return_create_from_order, name='return_create_from_order'),
     path('orders/<int:pk>/ship/', views.order_ship, name='order_ship'),
     path('orders/<int:pk>/deliver/', views.order_deliver, name='order_deliver'),
     path('orders/delivery/', views.delivery_manage, name='delivery_manage'),
@@ -66,4 +69,9 @@ urlpatterns = [
     path('ledger/export/', views.export_ledger, name='export_ledger'),
     path('sales/export/', views.export_sales, name='export_sales'),
     path('purchase/export/', views.export_purchase, name='export_purchase'),
+    path('orders/export/', views.export_orders, name='export_orders'),
+
+    # ── 통화녹음 주문 ────────────────────────────────────────────────────────
+    path('orders/call/', views.call_order_upload, name='call_order_upload'),
+    path('orders/call/confirm/', views.call_order_confirm, name='call_order_confirm'),
 ]

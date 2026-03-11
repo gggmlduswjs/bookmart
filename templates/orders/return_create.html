@@ -78,8 +78,18 @@
   </div>
 
   <div style="margin-top:10px;display:flex;align-items:center;gap:8px">
+    <label style="white-space:nowrap;background:#777;color:#fff;padding:3px 8px;font-size:12px">반품 사유</label>
+    <select name="reason" style="padding:4px 8px;border:1px solid #bbb;font-size:12px">
+      <option value="over_order">과주문</option>
+      <option value="damaged">파손</option>
+      <option value="wrong_item">오배송</option>
+      <option value="exchange">교체</option>
+      <option value="etc">기타</option>
+    </select>
+  </div>
+  <div style="margin-top:10px;display:flex;align-items:center;gap:8px">
     <label style="white-space:nowrap;background:#777;color:#fff;padding:3px 8px;font-size:12px">메모</label>
-    <input type="text" name="memo" style="flex:1;padding:4px 8px;border:1px solid #bbb;font-size:12px" placeholder="반품 사유">
+    <input type="text" name="memo" style="flex:1;padding:4px 8px;border:1px solid #bbb;font-size:12px" placeholder="메모 (선택)">
   </div>
   <div style="margin-top:12px">
     <button type="submit" class="btn btn-orange" style="padding:6px 30px">반품 신청</button>

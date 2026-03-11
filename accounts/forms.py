@@ -65,3 +65,27 @@ class DeliveryAddressForm(forms.Form):
     name = forms.CharField(label='학교명')
     address = forms.CharField(label='주소', required=False)
     phone = forms.CharField(label='전화번호', required=False)
+
+
+class IndividualRegisterForm(forms.Form):
+    name = forms.CharField(label='이름', max_length=100)
+    phone = forms.CharField(label='연락처', max_length=20)
+    login_id = forms.CharField(label='아이디', max_length=50)
+    password1 = forms.CharField(label='비밀번호', widget=forms.PasswordInput)
+    password2 = forms.CharField(label='비밀번호 확인', widget=forms.PasswordInput)
+
+    def clean_login_id(self):
+        login_id = self.cleaned_data['login_id']
+        if User.objects.filter(login_id=login_id).exists():
+            raise forms.ValidationError('이미 사용 중인 아이디입니다.')
+        return login_id
+
+    def clean(self):
+        cleaned_data = super().clean()
+        pw1 = cleaned_data.get('password1')
+        pw2 = cleaned_data.get('password2')
+        if pw1 and pw2 and pw1 != pw2:
+            self.add_error('password2', '비밀번호가 일치하지 않습니다.')
+        if pw1 and len(pw1) < 4:
+            self.add_error('password1', '비밀번호는 4자 이상이어야 합니다.')
+        return cleaned_data

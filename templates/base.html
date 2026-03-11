@@ -286,6 +286,82 @@
     .btn-blue   { background: #2563eb; color: #fff; }
     .btn-blue:hover { background: #1d4ed8; }
     .btn-sm { padding: 4px 12px; font-size: 11px; }
+    .btn-green { background: #059669; color: #fff; }
+    .btn-green:hover { background: #047857; }
+
+    /* ── 로딩 상태 (2-1) ── */
+    .btn.loading { pointer-events: none; opacity: 0.7; position: relative; }
+    .btn.loading::after {
+      content: ''; display: inline-block; width: 14px; height: 14px;
+      border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff;
+      border-radius: 50%; animation: spin .6s linear infinite;
+      margin-left: 6px; vertical-align: middle;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── 폼 유효성 (2-2) ── */
+    .field-error input, .field-error select, .field-error textarea {
+      border-color: #dc2626 !important;
+    }
+    .field-error-msg {
+      color: #dc2626; font-size: 11px; margin-top: 2px;
+    }
+    .required-mark { color: #dc2626; margin-left: 2px; }
+
+    /* ── 페이지네이션 (3-4) ── */
+    .pagination {
+      display: flex; gap: 4px; justify-content: center;
+      margin: 16px 0; flex-wrap: wrap;
+    }
+    .pagination a, .pagination span {
+      display: inline-block; padding: 6px 12px; font-size: 13px;
+      border: 1px solid #e2e8f0; border-radius: 4px;
+      color: #334155; text-decoration: none;
+    }
+    .pagination a:hover { background: #eff6ff; border-color: #3b82f6; }
+    .pagination .current {
+      background: #1e40af; color: #fff; border-color: #1e40af;
+    }
+    .pagination .disabled { color: #cbd5e1; pointer-events: none; }
+
+    /* ── 타임라인 (3-1) ── */
+    .timeline { padding: 12px 16px; }
+    .timeline-item {
+      display: flex; gap: 10px; align-items: flex-start;
+      padding: 6px 0; position: relative;
+    }
+    .timeline-item:not(:last-child)::before {
+      content: ''; position: absolute; left: 7px; top: 22px; bottom: -6px;
+      width: 2px; background: #e2e8f0;
+    }
+    .timeline-dot {
+      width: 16px; height: 16px; border-radius: 50%;
+      background: #3b82f6; flex-shrink: 0; margin-top: 2px;
+    }
+    .timeline-dot.pending { background: #3b82f6; }
+    .timeline-dot.shipping { background: #f59e0b; }
+    .timeline-dot.delivered { background: #059669; }
+    .timeline-dot.cancelled { background: #94a3b8; }
+    .timeline-content { font-size: 12px; color: #475569; }
+    .timeline-content strong { color: #1e293b; }
+    .timeline-content .time { color: #94a3b8; font-size: 11px; }
+
+    /* ── Empty State (2-5) ── */
+    .empty-state {
+      text-align: center; padding: 40px 20px; color: #94a3b8;
+    }
+    .empty-state .icon { font-size: 32px; margin-bottom: 8px; }
+    .empty-state p { font-size: 14px; margin-bottom: 12px; }
+
+    /* ── 모바일 스크롤 힌트 (6-2) ── */
+    .scroll-hint {
+      position: relative;
+    }
+    .scroll-hint::after {
+      content: ''; position: absolute; top: 0; right: 0; bottom: 0;
+      width: 30px; background: linear-gradient(to right, transparent, rgba(226,232,240,0.8));
+      pointer-events: none; display: none;
+    }
 
     /* ── 인풋 공통 ── */
     input[type=text], input[type=password], input[type=number], input[type=date], select, textarea {
@@ -424,8 +500,9 @@
 
       #footer { margin-left: 0; }
 
-      /* 테이블 가로 스크롤 */
-      .content-box { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+      /* 테이블 가로 스크롤 + 힌트 */
+      .content-box { overflow-x: auto; -webkit-overflow-scrolling: touch; position: relative; }
+      .scroll-hint::after { display: block; }
 
       table.data-table { min-width: 600px; }
 
@@ -437,6 +514,9 @@
       table.form-table input[type=text],
       table.form-table input[type=password],
       table.form-table select { width: 100%; }
+
+      /* 전화번호 필드 전체 너비 */
+      input[type=tel], input[name*=phone], input[name*=mobile] { width: 100%; }
 
       /* 버튼 터치 영역 확대 */
       .btn { padding: 10px 18px; font-size: 13px; }
@@ -520,6 +600,39 @@
     {% endif %}
 
   {% elif user.is_agency %}
+    {% if user.is_individual %}
+    {# ── 개인선생님 사이드바 ── #}
+    {% if cur == 'individual_order_create' %}
+      <div class="sidebar-section">도서주문</div>
+      <div class="sidebar-menu">
+        <a href="{% url 'individual_order_create' %}" class="active">주문 입력</a>
+      </div>
+    {% elif cur == 'order_list' or cur == 'order_detail' or cur == 'order_cancel' or cur == 'return_list' or cur == 'return_detail' %}
+      <div class="sidebar-section">주문/반품</div>
+      <div class="sidebar-menu">
+        <a href="{% url 'order_list' %}" class="{% if cur == 'order_list' or cur == 'order_detail' %}active{% endif %}">주문현황</a>
+        <a href="{% url 'return_list' %}" class="{% if cur == 'return_list' or cur == 'return_detail' %}active{% endif %}">반품현황</a>
+      </div>
+    {% elif cur == 'delivery_list' or cur == 'delivery_create' %}
+      <div class="sidebar-section">배송지관리</div>
+      <div class="sidebar-menu">
+        <a href="{% url 'delivery_list' %}" class="{% if cur == 'delivery_list' %}active{% endif %}">배송지 목록</a>
+        <a href="{% url 'delivery_create' %}" class="{% if cur == 'delivery_create' %}active{% endif %}">배송지 등록</a>
+      </div>
+    {% elif cur == 'ledger' or cur == 'export_ledger' %}
+      <div class="sidebar-section">거래내역</div>
+      <div class="sidebar-menu">
+        <a href="{% url 'ledger' %}" class="active">거래내역</a>
+      </div>
+    {% else %}
+      <div class="sidebar-section">빠른 메뉴</div>
+      <div class="sidebar-menu">
+        <a href="{% url 'individual_order_create' %}">도서주문</a>
+        <a href="{% url 'order_list' %}">주문현황</a>
+      </div>
+    {% endif %}
+    {% else %}
+    {# ── 일반 업체 사이드바 ── #}
     {# 대시보드 탭 #}
     {% if cur == 'agency_dashboard' %}
       <div class="sidebar-section">대시보드</div>
@@ -568,6 +681,7 @@
         <a href="{% url 'return_list' %}">반품현황</a>
       </div>
     {% endif %}
+    {% endif %}
 
   {% elif user.is_teacher %}
     {# 도서주문 탭 #}
@@ -609,6 +723,16 @@
     <a href="{% url 'agency_list' %}"
        class="tab-item {% if cur == 'agency_list' or cur == 'agency_create' or cur == 'agency_toggle' or cur == 'agency_import' %}active{% endif %}">업체관리</a>
   {% elif user.is_agency %}
+    {% if user.is_individual %}
+    <a href="{% url 'individual_order_create' %}"
+       class="tab-item {% if cur == 'individual_order_create' %}active{% endif %}">도서주문</a>
+    <a href="{% url 'order_list' %}"
+       class="tab-item {% if cur == 'order_list' or cur == 'order_detail' or cur == 'order_cancel' or cur == 'return_list' or cur == 'return_detail' %}active{% endif %}">주문/반품</a>
+    <a href="{% url 'delivery_list' %}"
+       class="tab-item {% if cur == 'delivery_list' or cur == 'delivery_create' %}active{% endif %}">배송지관리</a>
+    <a href="{% url 'ledger' %}"
+       class="tab-item {% if cur == 'ledger' %}active{% endif %}">거래내역</a>
+    {% else %}
     <a href="{% url 'agency_dashboard' %}"
        class="tab-item {% if cur == 'agency_dashboard' %}active{% endif %}">대시보드</a>
     <a href="{% url 'order_list' %}"
@@ -621,6 +745,7 @@
        class="tab-item {% if cur == 'agency_link' %}active{% endif %}">간편주문링크</a>
     <a href="{% url 'ledger' %}"
        class="tab-item {% if cur == 'ledger' %}active{% endif %}">거래내역</a>
+    {% endif %}
   {% elif user.is_teacher %}
     <a href="{% url 'order_create' %}"
        class="tab-item {% if cur == 'order_create' %}active{% endif %}">도서주문</a>
@@ -640,17 +765,20 @@
 {% endwith %}
 {% endif %}
 
+<!-- Toast 알림 컨테이너 (2-3) -->
+<div id="toast-container" style="position:fixed;top:56px;right:16px;z-index:9999;display:flex;flex-direction:column;gap:8px;max-width:400px;"></div>
+
 <!-- 본문 -->
 <div id="content">
   {% for message in messages %}
     {% if 'error' in message.tags %}
-      <div class="msg-box msg-error">{{ message }}</div>
+      <div class="msg-box msg-error toast-msg" role="alert">{{ message }}</div>
     {% elif 'success' in message.tags %}
-      <div class="msg-box msg-success">{{ message }}</div>
+      <div class="msg-box msg-success toast-msg" role="status">{{ message }}</div>
     {% elif 'warning' in message.tags %}
-      <div class="msg-box msg-warning">{{ message }}</div>
+      <div class="msg-box msg-warning toast-msg" role="alert">{{ message }}</div>
     {% else %}
-      <div class="msg-box msg-info">{{ message }}</div>
+      <div class="msg-box msg-info toast-msg" role="status">{{ message }}</div>
     {% endif %}
   {% endfor %}
 
@@ -669,6 +797,78 @@ document.querySelectorAll('.sidebar-menu a').forEach(function(a){
     document.getElementById('sidebar-overlay').classList.remove('open');
   });
 });
+
+// ── Toast 자동 사라짐 (2-3) ──
+document.querySelectorAll('.toast-msg').forEach(function(el){
+  var isError = el.classList.contains('msg-error');
+  el.style.transition = 'opacity 0.3s ease';
+  setTimeout(function(){
+    el.style.opacity = '0';
+    setTimeout(function(){ el.remove(); }, 300);
+  }, isError ? 6000 : 3000);
+});
+
+// Toast 전역 함수
+function showToast(msg, type) {
+  type = type || 'success';
+  var cls = type === 'error' ? 'msg-error' : type === 'warning' ? 'msg-warning' : 'msg-success';
+  var div = document.createElement('div');
+  div.className = 'msg-box ' + cls;
+  div.style.cssText = 'animation:fadeIn .3s;position:relative;cursor:pointer';
+  div.textContent = msg;
+  div.onclick = function(){ div.remove(); };
+  var cont = document.getElementById('toast-container');
+  if (cont) { cont.appendChild(div); }
+  else { document.querySelector('#content').prepend(div); }
+  setTimeout(function(){
+    div.style.transition = 'opacity 0.3s';
+    div.style.opacity = '0';
+    setTimeout(function(){ div.remove(); }, 300);
+  }, type === 'error' ? 6000 : 3000);
+}
+
+// ── 로딩 상태 + 중복 클릭 방지 (2-1) ──
+document.querySelectorAll('form').forEach(function(form){
+  form.addEventListener('submit', function(e){
+    var btn = form.querySelector('button[type=submit]:focus, button[type=submit]');
+    if (btn && !btn.classList.contains('loading')) {
+      // confirm() 다이얼로그에서 취소 시 로딩 방지
+      setTimeout(function(){
+        if (!e.defaultPrevented) {
+          btn.classList.add('loading');
+          btn.disabled = true;
+        }
+      }, 0);
+    }
+  });
+});
+
+// ── 전화번호 자동 포맷 (6-2) ──
+function formatPhone(input) {
+  var v = input.value.replace(/[^\d]/g, '');
+  if (v.length >= 11) v = v.slice(0, 11);
+  if (v.length >= 8) input.value = v.replace(/(\d{3})(\d{4})(\d{0,4})/, '$1-$2-$3');
+  else if (v.length >= 4) input.value = v.replace(/(\d{3})(\d{0,4})/, '$1-$2');
+  else input.value = v;
+}
+document.querySelectorAll('input[name*=phone], input[name*=mobile], input[type=tel]').forEach(function(el){
+  el.addEventListener('input', function(){ formatPhone(this); });
+});
+
+// ── 복사 버튼 피드백 통일 (4-3) ──
+function copyToClipboard(text, btn) {
+  navigator.clipboard.writeText(text).then(function(){
+    var orig = btn.textContent;
+    btn.textContent = '복사됨!';
+    btn.style.background = '#059669';
+    btn.style.color = '#fff';
+    setTimeout(function(){
+      btn.textContent = orig;
+      btn.style.background = '';
+      btn.style.color = '';
+    }, 1500);
+  });
+}
 </script>
 </body>
 </html>

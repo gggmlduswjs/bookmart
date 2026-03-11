@@ -16,6 +16,20 @@ from books.models import Book
 from .models import Order, OrderItem, Return, ReturnItem, Payment, DeliveryAddress, InboxMessage, InboxAttachment
 from .services import get_order_queryset, get_return_queryset, get_delivery_queryset
 from .sms import send_ship_notification, send_delivery_notification, send_sms
+from django.contrib.contenttypes.models import ContentType
+from django.core.paginator import Paginator
+from .models import AuditLog, OrderStatusLog
+
+
+def _audit(request, action, target=None, detail=''):
+    AuditLog.objects.create(
+        user=request.user if request.user.is_authenticated else None,
+        action=action,
+        target_type=ContentType.objects.get_for_model(target) if target else None,
+        target_id=target.pk if target else None,
+        detail=detail,
+        ip_address=request.META.get('REMOTE_ADDR'),
+    )
 
 
 # ── 대시보드 ──────────────────────────────────────────────────────────────────
@@ -130,6 +144,7 @@ def agency_dashboard(request):
 @login_required
 def order_list(request):
     qs = get_order_queryset(request.user)
+    qs = qs.filter(is_deleted=False)
 
     status = request.GET.get('status', '')
     date_from = request.GET.get('date_from', '')
@@ -153,7 +168,8 @@ def order_list(request):
             Q(order_no__icontains=q) |
             Q(teacher__name__icontains=q) |
             Q(delivery__name__icontains=q) |
-            Q(agency__name__icontains=q)
+            Q(agency__name__icontains=q) |
+            Q(tracking_no__icontains=q)
         )
 
     # 마감 시간 기준: 11:20 시내, 13:50 지방
@@ -165,8 +181,12 @@ def order_list(request):
 
     deliveries = get_delivery_queryset(request.user)
 
+    page_number = request.GET.get('page', 1)
+    paginator = Paginator(qs.order_by('-ordered_at'), 50)
+    page_obj = paginator.get_page(page_number)
+
     return render(request, 'orders/order_list.html', {
-        'orders': qs.order_by('-ordered_at')[:200],
+        'orders': page_obj, 'page_obj': page_obj,
         'deliveries': deliveries,
         'status_choices': Order.Status.choices,
         'filters': {
@@ -238,6 +258,11 @@ def order_create(request):
                     OrderItem(order=order, book=book, quantity=qty).save()
                 except Book.DoesNotExist:
                     pass
+            OrderStatusLog.objects.create(
+                order=order, old_status='', new_status='pending',
+                changed_by=user, memo='주문 생성',
+            )
+            _audit(request, AuditLog.Action.ORDER_CREATE, order, f'주문 {order.order_no} 생성')
             messages.success(request, f'주문 완료. 주문번호: {order.order_no}')
             return redirect('order_detail', pk=order.pk)
 
@@ -251,19 +276,123 @@ def order_create(request):
     })
 
 
+# ── 개인선생님 주문 ──────────────────────────────────────────────────────────────
+
+@role_required('agency')
+def individual_order_create(request):
+    """개인선생님이 직접 교재를 주문하는 뷰"""
+    user = request.user
+    if not user.is_individual:
+        messages.error(request, '개인선생님만 이용할 수 있습니다.')
+        return redirect('home')
+
+    teacher = user.individual_teacher
+    deliveries = DeliveryAddress.objects.filter(agency=user, is_active=True).order_by('name')
+
+    books = Book.objects.filter(is_active=True).select_related('publisher')
+    series_list = sorted(set(b.series for b in books if b.series))
+    # 개인선생님은 정가 판매 (list_price 그대로)
+    books_json = json.dumps([{
+        'id': b.id,
+        'series': b.series or '기타',
+        'name': b.name,
+        'publisher': b.publisher.name,
+        'unit_price': b.list_price,
+    } for b in books], ensure_ascii=False)
+
+    if request.method == 'POST':
+        # 배송지 처리
+        delivery_id = request.POST.get('delivery_id', '').strip()
+        new_delivery_name = request.POST.get('new_delivery_name', '').strip()
+        new_delivery_address = request.POST.get('new_delivery_address', '').strip()
+        new_delivery_phone = request.POST.get('new_delivery_phone', '').strip()
+
+        delivery = None
+        if delivery_id:
+            try:
+                delivery = DeliveryAddress.objects.get(pk=delivery_id, agency=user, is_active=True)
+            except DeliveryAddress.DoesNotExist:
+                messages.error(request, '선택한 배송지를 찾을 수 없습니다.')
+                return redirect('individual_order_create')
+        elif new_delivery_name:
+            delivery = DeliveryAddress.objects.create(
+                agency=user,
+                name=new_delivery_name,
+                address=new_delivery_address,
+                phone=new_delivery_phone,
+            )
+        else:
+            messages.error(request, '배송지를 선택하거나 새로 입력해 주세요.')
+            return redirect('individual_order_create')
+
+        # 교재 파싱
+        items = []
+        i = 0
+        while f'book_{i}' in request.POST:
+            book_id = request.POST.get(f'book_{i}', '').strip()
+            qty_str = request.POST.get(f'qty_{i}', '').strip()
+            if book_id and qty_str:
+                try:
+                    qty = int(qty_str)
+                    if qty > 0:
+                        items.append((int(book_id), qty))
+                except (ValueError, TypeError):
+                    pass
+            i += 1
+
+        if not items:
+            messages.error(request, '주문할 교재를 1권 이상 선택하세요.')
+        else:
+            # teacher에 delivery_address 설정
+            teacher.delivery_address = delivery
+            teacher.save(update_fields=['delivery_address'])
+
+            order = Order.objects.create(
+                order_no=Order.generate_order_no(),
+                agency=user,
+                teacher=teacher,
+                delivery=delivery,
+                memo=request.POST.get('memo', ''),
+                source=Order.Source.ADMIN,
+            )
+            for book_id, qty in items:
+                try:
+                    book = Book.objects.get(id=book_id, is_active=True)
+                    OrderItem(order=order, book=book, quantity=qty).save()
+                except Book.DoesNotExist:
+                    pass
+            OrderStatusLog.objects.create(
+                order=order, old_status='', new_status='pending',
+                changed_by=user, memo='개인선생님 주문',
+            )
+            _audit(request, AuditLog.Action.ORDER_CREATE, order, f'[개인] 주문 {order.order_no} 생성')
+            messages.success(request, f'주문 완료. 주문번호: {order.order_no}')
+            return redirect('order_detail', pk=order.pk)
+
+    return render(request, 'orders/individual_order_create.html', {
+        'deliveries': deliveries,
+        'series_list': series_list,
+        'books_json': books_json,
+    })
+
+
 # ── 주문 상세 ──────────────────────────────────────────────────────────────────
 
 @login_required
 def order_detail(request, pk):
     order = get_object_or_404(get_order_queryset(request.user), pk=pk)
     items = order.items.select_related('book', 'book__publisher')
+    status_logs = order.status_logs.select_related('changed_by')
     return render(request, 'orders/order_detail.html', {
         'order': order,
         'items': items,
+        'status_logs': status_logs,
         'can_cancel': (
             order.status == Order.Status.PENDING
-            and request.user.role == 'teacher'
-            and order.teacher == request.user
+            and (
+                (request.user.role == 'teacher' and order.teacher == request.user)
+                or (request.user.is_individual_agency and order.agency == request.user)
+            )
         ),
         'can_ship': (
             request.user.role == 'admin'
@@ -337,6 +466,18 @@ def order_edit(request, pk):
     } for item in items], ensure_ascii=False)
 
     if request.method == 'POST':
+        # Optimistic locking
+        submitted_updated_at = request.POST.get('updated_at', '')
+        if submitted_updated_at:
+            from datetime import datetime as dt
+            try:
+                submitted_ts = dt.fromisoformat(submitted_updated_at)
+                if order.updated_at and order.updated_at.replace(microsecond=0) > submitted_ts.replace(microsecond=0):
+                    messages.error(request, '다른 사용자가 이 주문을 수정했습니다. 새로고침 후 다시 시도해주세요.')
+                    return redirect('order_edit', pk=pk)
+            except (ValueError, TypeError):
+                pass
+
         # 메모 업데이트
         order.memo = request.POST.get('memo', '')
         # 운송장 업데이트
@@ -406,6 +547,7 @@ def order_edit(request, pk):
                         unit_price=item['custom_price'], quantity=item['qty'],
                     ).save()
             messages.success(request, '주문이 수정되었습니다.')
+            _audit(request, AuditLog.Action.ORDER_EDIT, order, f'주문 {order.order_no} 수정')
             return redirect('order_detail', pk=order.pk)
 
     return render(request, 'orders/order_edit.html', {
@@ -566,6 +708,11 @@ def order_create_admin(request):
                 else:
                     OrderItem(order=order, custom_book_name=item['custom_name'],
                               unit_price=item['custom_price'], quantity=item['qty']).save()
+            OrderStatusLog.objects.create(
+                order=order, old_status='', new_status='pending',
+                changed_by=request.user, memo='관리자 대리 주문',
+            )
+            _audit(request, AuditLog.Action.ORDER_CREATE, order, f'[대리] 주문 {order.order_no} 생성')
             messages.success(request, f'[{teacher.name}] 대리 주문 완료. 주문번호: {order.order_no}')
             return redirect('order_detail', pk=order.pk)
 
@@ -976,13 +1123,20 @@ def parse_order_excel(request):
 
 @role_required('teacher')
 def order_cancel(request, pk):
-    order = get_object_or_404(
-        get_order_queryset(request.user),
-        pk=pk, teacher=request.user, status=Order.Status.PENDING
-    )
+    qs = get_order_queryset(request.user).filter(pk=pk, status=Order.Status.PENDING)
+    if request.user.is_individual_agency:
+        qs = qs.filter(agency=request.user)
+    else:
+        qs = qs.filter(teacher=request.user)
+    order = get_object_or_404(qs)
     if request.method == 'POST':
         order.status = Order.Status.CANCELLED
         order.save(update_fields=['status'])
+        OrderStatusLog.objects.create(
+            order=order, old_status='pending', new_status='cancelled',
+            changed_by=request.user, memo='선생님 취소',
+        )
+        _audit(request, AuditLog.Action.ORDER_CANCEL, order, f'주문 {order.order_no} 취소')
         messages.success(request, f'주문 {order.order_no}이 취소되었습니다.')
         return redirect('order_list')
     return render(request, 'orders/order_cancel_confirm.html', {'order': order})
@@ -995,11 +1149,11 @@ def order_delete(request, pk):
     order = get_object_or_404(Order, pk=pk)
     if request.method == 'POST':
         order_no = order.order_no
-        # 연결된 수신함 메시지를 미처리로 되돌림
-        InboxMessage.objects.filter(order=order).update(is_processed=False, order=None)
-        order.items.all().delete()
-        order.delete()
-        messages.success(request, f'주문 {order_no}을 삭제했습니다.')
+        order.is_deleted = True
+        order.deleted_at = timezone.now()
+        order.save(update_fields=['is_deleted', 'deleted_at'])
+        _audit(request, AuditLog.Action.ORDER_DELETE, order, f'주문 {order_no} 삭제(soft)')
+        messages.success(request, f'주문 {order_no}을 삭제했습니다. (24시간 내 복구 가능)')
         return redirect('order_list')
     return redirect('order_detail', pk=pk)
 
@@ -1010,13 +1164,26 @@ def order_bulk_delete(request):
         return redirect('order_list')
     ids = request.POST.getlist('ids')
     if ids:
+        now = timezone.now()
         qs = Order.objects.filter(pk__in=ids)
         count = qs.count()
-        # 연결된 수신함 메시지를 미처리로 되돌림
-        InboxMessage.objects.filter(order__in=qs).update(is_processed=False, order=None)
-        OrderItem.objects.filter(order__in=qs).delete()
-        qs.delete()
-        messages.success(request, f'{count}건의 주문을 삭제했습니다.')
+        qs.update(is_deleted=True, deleted_at=now)
+        for order in Order.objects.filter(pk__in=ids):
+            _audit(request, AuditLog.Action.ORDER_DELETE, order, f'주문 {order.order_no} 일괄 삭제(soft)')
+        messages.success(request, f'{count}건의 주문을 삭제했습니다. (24시간 내 복구 가능)')
+    return redirect('order_list')
+
+
+@role_required('admin')
+def order_restore(request, pk):
+    """삭제된 주문 복구"""
+    order = get_object_or_404(Order, pk=pk, is_deleted=True)
+    if request.method == 'POST':
+        order.is_deleted = False
+        order.deleted_at = None
+        order.save(update_fields=['is_deleted', 'deleted_at'])
+        _audit(request, AuditLog.Action.ORDER_RESTORE, order, f'주문 {order.order_no} 복구')
+        messages.success(request, f'주문 {order.order_no}을 복구했습니다.')
     return redirect('order_list')
 
 
@@ -1031,6 +1198,11 @@ def order_ship(request, pk):
         order.tracking_no = request.POST.get('tracking_no', '').strip() if carrier == 'hanjin' else ''
         order.status = Order.Status.SHIPPING
         order.save(update_fields=['status', 'carrier', 'tracking_no'])
+        OrderStatusLog.objects.create(
+            order=order, old_status='pending', new_status='shipping',
+            changed_by=request.user, memo=f'발송 ({order.get_carrier_display()})',
+        )
+        _audit(request, AuditLog.Action.ORDER_SHIP, order, f'주문 {order.order_no} 발송 처리')
 
         # 문자 발송
         sms_ok = send_ship_notification(order)
@@ -1049,6 +1221,11 @@ def order_deliver(request, pk):
     if request.method == 'POST':
         order.status = Order.Status.DELIVERED
         order.save(update_fields=['status'])
+        OrderStatusLog.objects.create(
+            order=order, old_status='shipping', new_status='delivered',
+            changed_by=request.user,
+        )
+        _audit(request, AuditLog.Action.ORDER_DELIVER, order, f'주문 {order.order_no} 배송완료')
         send_delivery_notification(order)
         messages.success(request, f'주문 {order.order_no} → 발송완료 처리되었습니다.')
     return redirect('order_detail', pk=pk)
@@ -1076,6 +1253,10 @@ def delivery_manage(request):
                     order.tracking_no = tracking
                     order.status = Order.Status.SHIPPING
                     order.save(update_fields=['status', 'carrier', 'tracking_no'])
+                    OrderStatusLog.objects.create(
+                        order=order, old_status='pending', new_status='shipping',
+                        changed_by=request.user, memo=f'일괄 발송 ({order.get_carrier_display()})',
+                    )
                     send_ship_notification(order)
                     count += 1
                 messages.success(request, f'{count}건 발송 처리 완료.')
@@ -1087,6 +1268,10 @@ def delivery_manage(request):
                 for order in orders:
                     order.status = Order.Status.DELIVERED
                     order.save(update_fields=['status'])
+                    OrderStatusLog.objects.create(
+                        order=order, old_status='shipping', new_status='delivered',
+                        changed_by=request.user, memo='일괄 배송완료',
+                    )
                     send_delivery_notification(order)
                     count += 1
                 messages.success(request, f'{count}건 배송완료 처리.')
@@ -1208,8 +1393,12 @@ def return_list(request):
 
     deliveries = get_delivery_queryset(request.user)
 
+    page_number = request.GET.get('page', 1)
+    paginator = Paginator(qs.order_by('-requested_at'), 50)
+    page_obj = paginator.get_page(page_number)
+
     return render(request, 'orders/return_list.html', {
-        'returns': qs.order_by('-requested_at')[:200],
+        'returns': page_obj, 'page_obj': page_obj,
         'deliveries': deliveries,
         'status_choices': Return.Status.choices,
         'filters': {
@@ -1271,6 +1460,7 @@ def return_create(request):
                     ReturnItem(ret=ret, book=book, requested_qty=qty).save()
                 except Book.DoesNotExist:
                     pass
+            _audit(request, AuditLog.Action.RETURN_CREATE, ret, f'반품 {ret.return_no} 신청')
             messages.success(request, f'반품 신청 완료. 반품번호: {ret.return_no}')
             return redirect('return_detail', pk=ret.pk)
 
@@ -1278,6 +1468,79 @@ def return_create(request):
         'delivery': delivery,
         'series_list': series_list,
         'books_json': books_json,
+    })
+
+
+@role_required('admin')
+def return_create_from_order(request, pk):
+    """주문 상세에서 바로 반품 생성"""
+    order = get_object_or_404(Order, pk=pk)
+    items = order.items.select_related('book', 'book__publisher')
+
+    books = Book.objects.filter(is_active=True, is_returnable=True).select_related('publisher')
+    series_list = sorted(set(b.series for b in books if b.series))
+    books_json = json.dumps([{
+        'id': b.id,
+        'series': b.series or '기타',
+        'name': b.name,
+        'publisher': b.publisher.name,
+        'unit_price': math.floor(b.list_price * float(b.publisher.supply_rate) / 100),
+    } for b in books], ensure_ascii=False)
+
+    # Pre-fill from order items
+    prefill_items = json.dumps([{
+        'book_id': str(item.book_id) if item.book_id else '',
+        'series': item.book.series or '기타' if item.book else '',
+        'name': item.display_name,
+        'qty': item.quantity,
+        'unit_price': item.unit_price,
+    } for item in items if item.book and item.book.is_returnable], ensure_ascii=False)
+
+    if request.method == 'POST':
+        ret_items = []
+        i = 0
+        while f'book_{i}' in request.POST:
+            book_id = request.POST.get(f'book_{i}', '').strip()
+            qty_str = request.POST.get(f'qty_{i}', '').strip()
+            if book_id and qty_str:
+                try:
+                    qty = int(qty_str)
+                    if qty > 0:
+                        ret_items.append((int(book_id), qty))
+                except (ValueError, TypeError):
+                    pass
+            i += 1
+
+        if not ret_items:
+            messages.error(request, '반품할 교재를 1권 이상 선택하세요.')
+        else:
+            reason = request.POST.get('reason', 'etc')
+            ret = Return.objects.create(
+                return_no=Return.generate_return_no(),
+                agency=order.agency,
+                teacher=order.teacher,
+                delivery=order.delivery,
+                memo=request.POST.get('memo', ''),
+                reason=reason,
+                order=order,
+            )
+            for book_id, qty in ret_items:
+                try:
+                    book = Book.objects.get(id=book_id, is_active=True, is_returnable=True)
+                    ReturnItem(ret=ret, book=book, requested_qty=qty).save()
+                except Book.DoesNotExist:
+                    pass
+            _audit(request, AuditLog.Action.RETURN_CREATE, ret, f'주문 {order.order_no}에서 반품 {ret.return_no} 생성')
+            messages.success(request, f'반품 신청 완료. 반품번호: {ret.return_no}')
+            return redirect('return_detail', pk=ret.pk)
+
+    return render(request, 'orders/return_create_from_order.html', {
+        'order': order,
+        'items': items,
+        'series_list': series_list,
+        'books_json': books_json,
+        'prefill_items': prefill_items,
+        'reason_choices': Return.Reason.choices,
     })
 
 
@@ -1317,6 +1580,7 @@ def return_confirm(request, pk):
         ret.status = Return.Status.CONFIRMED
         ret.confirmed_at = timezone.now()
         ret.save(update_fields=['status', 'confirmed_at'])
+        _audit(request, AuditLog.Action.RETURN_CONFIRM, ret, f'반품 {ret.return_no} 확정')
         messages.success(request, f'반품 {ret.return_no} 확정 처리되었습니다.')
         return redirect('return_detail', pk=pk)
 
@@ -1332,6 +1596,7 @@ def return_reject(request, pk):
         ret.status = Return.Status.REJECTED
         ret.memo = request.POST.get('memo', ret.memo)
         ret.save(update_fields=['status', 'memo'])
+        _audit(request, AuditLog.Action.RETURN_REJECT, ret, f'반품 {ret.return_no} 거절')
         messages.success(request, f'반품 {ret.return_no} 거절 처리되었습니다.')
         return redirect('return_detail', pk=pk)
     return render(request, 'orders/return_reject.html', {'ret': ret})
@@ -1653,6 +1918,49 @@ def export_sales(request):
     filename = f'판매현황_{date_from}_{date_to}.xlsx'
     resp = HttpResponse(buf.read(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     resp['Content-Disposition'] = f'attachment; filename*=UTF-8\'\'{filename}'
+    return resp
+
+
+@login_required
+def export_orders(request):
+    """주문 목록 엑셀 내보내기"""
+    openpyxl, wb = _make_workbook()
+    if not wb:
+        messages.error(request, 'openpyxl 패키지가 필요합니다.')
+        return redirect('order_list')
+
+    qs = get_order_queryset(request.user).filter(is_deleted=False)
+    status = request.GET.get('status', '')
+    date_from = request.GET.get('date_from', '')
+    date_to = request.GET.get('date_to', '')
+    if status:
+        qs = qs.filter(status=status)
+    if date_from:
+        qs = qs.filter(ordered_at__date__gte=date_from)
+    if date_to:
+        qs = qs.filter(ordered_at__date__lte=date_to)
+
+    qs = qs.order_by('-ordered_at').prefetch_related('items__book__publisher')
+
+    ws = wb.active
+    ws.title = '주문목록'
+    ws.append(['주문번호', '업체', '선생님', '배송지', '상태', '주문일시', '교재명', '수량', '단가', '금액', '메모'])
+    for order in qs:
+        for item in order.items.all():
+            ws.append([
+                order.order_no, order.agency.name, order.teacher.name,
+                order.delivery.name, order.get_status_display(),
+                order.ordered_at.strftime('%Y-%m-%d %H:%M'),
+                item.display_name, item.quantity, item.unit_price, item.amount,
+                order.memo,
+            ])
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    filename = f'주문목록_{date.today()}.xlsx'
+    resp = HttpResponse(buf.read(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    resp['Content-Disposition'] = f"attachment; filename*=UTF-8''{filename}"
     return resp
 
 
@@ -2052,6 +2360,12 @@ def inbox_process(request, pk):
                 else:
                     OrderItem(order=order, custom_book_name=item['custom_name'],
                               unit_price=item['custom_price'], quantity=item['qty']).save()
+
+            OrderStatusLog.objects.create(
+                order=order, old_status='', new_status='pending',
+                changed_by=request.user, memo='수신함에서 주문 생성',
+            )
+            _audit(request, AuditLog.Action.ORDER_CREATE, order, f'[수신함] 주문 {order.order_no} 생성')
 
             inbox_msg.is_processed = True
             inbox_msg.order = order
@@ -2454,3 +2768,259 @@ def export_purchase(request):
     resp = HttpResponse(buf.read(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     resp['Content-Disposition'] = f'attachment; filename*=UTF-8\'\'{filename}'
     return resp
+
+
+# ── 통화녹음 → 주문 ─────────────────────────────────────────────────────────
+
+@role_required('admin')
+def call_order_upload(request):
+    """통화녹음 파일 업로드 → 텍스트 변환 → 주문 파싱"""
+    from .call_order import transcribe_audio, parse_order_from_text
+
+    if request.method == 'POST':
+        audio = request.FILES.get('audio')
+        if not audio:
+            messages.error(request, '녹음 파일을 선택해주세요.')
+            return redirect('call_order_upload')
+
+        # 1단계: 음성 → 텍스트
+        transcript, err = transcribe_audio(audio)
+        if err:
+            messages.error(request, err)
+            return redirect('call_order_upload')
+
+        # 교재 목록 준비
+        books = Book.objects.filter(is_active=True).select_related('publisher')
+        book_list = [{
+            'id': b.id,
+            'series': b.series or '기타',
+            'name': b.name,
+            'publisher': b.publisher.name,
+            'unit_price': math.floor(b.list_price * float(b.publisher.supply_rate) / 100),
+        } for b in books]
+
+        # 2단계: 텍스트 → 주문 파싱
+        parsed, err = parse_order_from_text(transcript, book_list)
+        if err:
+            messages.error(request, err)
+            return render(request, 'orders/call_order_upload.html', {
+                'transcript': transcript,
+            })
+
+        # 파싱 결과를 세션에 저장 → 확인 페이지로
+        request.session['call_order_data'] = {
+            'transcript': transcript,
+            'parsed': parsed,
+        }
+        return redirect('call_order_confirm')
+
+    return render(request, 'orders/call_order_upload.html')
+
+
+@role_required('admin')
+def call_order_confirm(request):
+    """파싱 결과 확인 후 주문 생성"""
+    data = request.session.get('call_order_data')
+    if not data:
+        messages.error(request, '파싱 데이터가 없습니다. 다시 업로드해주세요.')
+        return redirect('call_order_upload')
+
+    transcript = data['transcript']
+    parsed = data['parsed']
+
+    # 매칭된 교재 정보 보강
+    book_ids = [item['book_id'] for item in parsed.get('items', []) if item.get('book_id')]
+    books_map = {}
+    if book_ids:
+        for b in Book.objects.filter(id__in=book_ids, is_active=True).select_related('publisher'):
+            books_map[b.id] = {
+                'id': b.id,
+                'name': b.name,
+                'publisher': b.publisher.name,
+                'series': b.series or '기타',
+                'unit_price': math.floor(b.list_price * float(b.publisher.supply_rate) / 100),
+            }
+
+    for item in parsed.get('items', []):
+        bid = item.get('book_id')
+        if bid and bid in books_map:
+            item['book_info'] = books_map[bid]
+        else:
+            item['book_info'] = None
+
+    # 업체/선생님/교재 JSON
+    agencies = User.objects.filter(role='agency', is_active=True).order_by('name')
+    agencies_json = json.dumps([{'id': a.pk, 'name': a.name} for a in agencies], ensure_ascii=False)
+
+    teachers = (
+        User.objects.filter(role='teacher', is_active=True)
+        .select_related('agency', 'delivery_address')
+        .order_by('agency__name', 'name')
+    )
+    teachers_json = json.dumps([{
+        'id': t.pk, 'name': t.name, 'phone': t.phone or '',
+        'agency_id': t.agency_id,
+        'delivery_id': t.delivery_address_id,
+        'delivery_name': t.delivery_address.name if t.delivery_address else '',
+        'delivery_address': t.delivery_address.address if t.delivery_address else '',
+        'delivery_phone': t.delivery_address.phone if t.delivery_address else '',
+        'has_delivery': bool(t.delivery_address),
+    } for t in teachers], ensure_ascii=False)
+
+    books = Book.objects.filter(is_active=True).select_related('publisher')
+    series_list = sorted(set(b.series for b in books if b.series))
+    if any(not b.series for b in books):
+        series_list.append('기타')
+    books_json = json.dumps([{
+        'id': b.id, 'series': b.series or '기타', 'name': b.name,
+        'publisher': b.publisher.name,
+        'unit_price': math.floor(b.list_price * float(b.publisher.supply_rate) / 100),
+    } for b in books], ensure_ascii=False)
+
+    # 기존 선생님 매칭 시도
+    matched_teacher_id = ''
+    teacher_name = parsed.get('teacher_name', '')
+    teacher_phone = parsed.get('phone', '')
+    if teacher_name:
+        teacher_match = User.objects.filter(
+            role='teacher', is_active=True, name__icontains=teacher_name
+        ).first()
+        if teacher_match:
+            matched_teacher_id = str(teacher_match.pk)
+
+    prefill_rows = json.dumps([{
+        'series': item.get('book_info', {}).get('series', '') if item.get('book_info') else '',
+        'book_id': str(item['book_id']) if item.get('book_id') and item.get('book_info') else '',
+        'qty': item.get('qty', 1),
+        'unit_price': item.get('book_info', {}).get('unit_price', 0) if item.get('book_info') else 0,
+        'is_custom': not item.get('book_info'),
+        'custom_name': item.get('name', ''),
+        'confidence': item.get('confidence', 'high'),
+    } for item in parsed.get('items', [])], ensure_ascii=False)
+
+    if request.method == 'POST':
+        agency_id = request.POST.get('agency_id', '').strip()
+        teacher_id = request.POST.get('teacher_id', '').strip()
+        new_teacher_name = request.POST.get('new_teacher_name', '').strip()
+        new_teacher_phone = request.POST.get('new_teacher_phone', '').strip()
+        delivery_school = request.POST.get('delivery_school', '').strip()
+        delivery_address_val = request.POST.get('delivery_address', '').strip()
+        delivery_phone = request.POST.get('delivery_phone', '').strip()
+
+        try:
+            agency = User.objects.get(pk=agency_id, role='agency', is_active=True)
+        except (User.DoesNotExist, ValueError):
+            messages.error(request, '업체를 선택해 주세요.')
+            return redirect('call_order_confirm')
+
+        if teacher_id:
+            try:
+                teacher = User.objects.select_related('delivery_address').get(
+                    pk=teacher_id, role='teacher', is_active=True
+                )
+            except (User.DoesNotExist, ValueError):
+                messages.error(request, '선생님을 선택해 주세요.')
+                return redirect('call_order_confirm')
+        elif new_teacher_name:
+            login_id = f'a_{new_teacher_phone or "nophone"}_{agency.pk}'
+            if User.objects.filter(login_id=login_id).exists():
+                teacher = User.objects.get(login_id=login_id)
+            else:
+                teacher = User(
+                    login_id=login_id, role='teacher',
+                    name=new_teacher_name, phone=new_teacher_phone,
+                    agency=agency, must_change_password=False,
+                )
+                teacher.set_unusable_password()
+                teacher.save()
+        else:
+            messages.error(request, '선생님을 선택하거나 새로 입력해 주세요.')
+            return redirect('call_order_confirm')
+
+        if delivery_school:
+            delivery, created = DeliveryAddress.objects.get_or_create(
+                agency=agency, name=delivery_school,
+                defaults={'address': delivery_address_val, 'phone': delivery_phone},
+            )
+            if not created and delivery_address_val:
+                delivery.address = delivery_address_val
+                delivery.phone = delivery_phone
+                delivery.save(update_fields=['address', 'phone'])
+            teacher.delivery_address = delivery
+            teacher.save(update_fields=['delivery_address'])
+        elif not teacher.delivery_address:
+            messages.error(request, '배송지를 입력해 주세요.')
+            return redirect('call_order_confirm')
+
+        items = []
+        i = 0
+        while f'book_{i}' in request.POST or f'custom_name_{i}' in request.POST:
+            book_id = request.POST.get(f'book_{i}', '').strip()
+            custom_name = request.POST.get(f'custom_name_{i}', '').strip()
+            custom_price = request.POST.get(f'custom_price_{i}', '').strip()
+            qty_str = request.POST.get(f'qty_{i}', '').strip()
+            if book_id and qty_str:
+                try:
+                    qty = int(qty_str)
+                    if qty > 0:
+                        items.append({'book_id': int(book_id), 'qty': qty})
+                except (ValueError, TypeError):
+                    pass
+            elif custom_name and qty_str:
+                try:
+                    qty = int(qty_str)
+                    price = int(custom_price) if custom_price else 0
+                    if qty > 0:
+                        items.append({'custom_name': custom_name, 'custom_price': price, 'qty': qty})
+                except (ValueError, TypeError):
+                    pass
+            i += 1
+
+        if not items:
+            messages.error(request, '주문 품목이 1건 이상 있어야 합니다.')
+            return redirect('call_order_confirm')
+
+        order = Order.objects.create(
+            order_no=Order.generate_order_no(),
+            agency=agency,
+            teacher=teacher,
+            delivery=teacher.delivery_address,
+            memo=(request.POST.get('memo', '') + '\n[통화녹음 주문]').strip(),
+            source=Order.Source.ADMIN,
+        )
+        for item in items:
+            if 'book_id' in item:
+                try:
+                    book = Book.objects.get(id=item['book_id'], is_active=True)
+                    OrderItem(order=order, book=book, quantity=item['qty']).save()
+                except Book.DoesNotExist:
+                    pass
+            else:
+                OrderItem(order=order, custom_book_name=item['custom_name'],
+                          unit_price=item['custom_price'], quantity=item['qty']).save()
+
+        OrderStatusLog.objects.create(
+            order=order, old_status='', new_status='pending',
+            changed_by=request.user, memo='통화녹음에서 주문 생성',
+        )
+        _audit(request, AuditLog.Action.ORDER_CREATE, order, f'[통화녹음] 주문 {order.order_no} 생성')
+
+        request.session.pop('call_order_data', None)
+        messages.success(request, f'통화 주문 등록 완료! 주문번호: {order.order_no}')
+        return redirect('order_detail', pk=order.pk)
+
+    return render(request, 'orders/call_order_confirm.html', {
+        'transcript': transcript,
+        'parsed': parsed,
+        'parsed_json': json.dumps(parsed, ensure_ascii=False),
+        'agencies_json': agencies_json,
+        'teachers_json': teachers_json,
+        'series_list': series_list,
+        'books_json': books_json,
+        'prefill_rows': prefill_rows,
+        'matched_teacher_id': matched_teacher_id,
+        'teacher_name': teacher_name,
+        'teacher_phone': teacher_phone,
+        'school_name': parsed.get('school_name', ''),
+        'memo': parsed.get('memo', ''),
+    })

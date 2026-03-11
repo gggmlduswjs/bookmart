@@ -61,6 +61,7 @@
   <input type="hidden" name="tab" value="{{ tab }}">
   {% if hide_done %}<input type="hidden" name="hide_done" value="1">{% endif %}
   <input type="text" name="q" value="{{ search }}" placeholder="발신자, 제목, 내용 검색"
+         aria-label="수신함 검색"
          style="width:280px;padding:6px 10px;border:1px solid #bbb;border-radius:4px;font-size:13px">
   <button type="submit" class="btn btn-outline btn-sm">검색</button>
   {% if search %}<a href="?tab={{ tab }}{% if hide_done %}&hide_done=1{% endif %}" class="btn btn-outline btn-sm" style="color:#888">초기화</a>{% endif %}
@@ -109,11 +110,11 @@
     </div>
     {% endif %}
 
-    <div class="content-box">
+    <div class="content-box scroll-hint">
       <table class="data-table">
         <thead>
           <tr>
-            <th style="width:36px"><input type="checkbox" onchange="toggleAll(this,'email')"></th>
+            <th style="width:36px"><input type="checkbox" onchange="toggleAll(this,'email')" aria-label="메일 전체 선택"></th>
             <th style="width:28px"></th>
             <th style="width:90px">계정</th>
             <th>발신자</th>
@@ -127,7 +128,7 @@
           {% for msg in email_messages %}
           <tr class="{% if not msg.is_read %}unread{% elif msg.is_read and not msg.is_processed %}read{% endif %}" style="{% if msg.is_processed %}opacity:0.5{% endif %}">
             <td class="center">
-              <input type="checkbox" name="msg_ids" value="{{ msg.pk }}" class="msg-check-email">
+              <input type="checkbox" name="msg_ids" value="{{ msg.pk }}" class="msg-check-email" aria-label="{{ msg.sender }} 메일 선택">
             </td>
             <td class="center">{% if not msg.is_read %}<span class="read-dot"></span>{% endif %}</td>
             <td class="center" style="font-size:11px;color:#666">{{ msg.account_label|default:"-" }}</td>
@@ -208,11 +209,11 @@
     </div>
     {% endif %}
 
-    <div class="content-box">
+    <div class="content-box scroll-hint">
       <table class="data-table">
         <thead>
           <tr>
-            <th style="width:36px"><input type="checkbox" onchange="toggleAll(this,'sms')"></th>
+            <th style="width:36px"><input type="checkbox" onchange="toggleAll(this,'sms')" aria-label="문자 전체 선택"></th>
             <th style="width:28px"></th>
             <th style="width:130px">발신번호</th>
             <th>내용</th>
@@ -225,7 +226,7 @@
           {% for msg in sms_messages %}
           <tr class="{% if not msg.is_read %}unread{% elif msg.is_read and not msg.is_processed %}read{% endif %}" style="{% if msg.is_processed %}opacity:0.5{% endif %}">
             <td class="center">
-              <input type="checkbox" name="msg_ids" value="{{ msg.pk }}" class="msg-check-sms">
+              <input type="checkbox" name="msg_ids" value="{{ msg.pk }}" class="msg-check-sms" aria-label="{{ msg.sender }} 문자 선택">
             </td>
             <td class="center">{% if not msg.is_read %}<span class="read-dot"></span>{% endif %}</td>
             <td style="font-size:12px;font-weight:bold">{{ msg.sender }}</td>

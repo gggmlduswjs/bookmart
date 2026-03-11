@@ -65,7 +65,11 @@ class User(AbstractBaseUser, PermissionsMixin):
         max_length=8, null=True, blank=True, unique=True, verbose_name='간편주문 코드'
     )
 
-    plain_password = models.CharField(max_length=50, blank=True, default='', verbose_name='비밀번호(원문)')
+    is_individual = models.BooleanField(default=False, verbose_name='개인선생님')
+    supply_rate_override = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True,
+        verbose_name='공급률 오버라이드(%)'
+    )
 
     is_active = models.BooleanField(default=True, verbose_name='활성')
     is_staff = models.BooleanField(default=False)
@@ -106,6 +110,30 @@ class User(AbstractBaseUser, PermissionsMixin):
     @property
     def is_teacher(self):
         return self.role == self.Role.TEACHER
+
+    @property
+    def is_individual_agency(self):
+        return self.role == self.Role.AGENCY and self.is_individual
+
+    @property
+    def individual_teacher(self):
+        """개인선생님용 내부 shadow teacher 반환 (없으면 자동 생성)"""
+        if not self.is_individual_agency:
+            return None
+        login_id = f'_ind_{self.pk}'
+        teacher = User.objects.filter(login_id=login_id, role=self.Role.TEACHER).first()
+        if not teacher:
+            teacher = User(
+                login_id=login_id,
+                role=self.Role.TEACHER,
+                name=self.name,
+                phone=self.phone,
+                agency=self,
+                must_change_password=False,
+            )
+            teacher.set_unusable_password()
+            teacher.save()
+        return teacher
 
 
 class AgencyInfo(models.Model):

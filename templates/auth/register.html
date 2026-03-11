@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>로그인 — 북마트</title>
+  <title>개인선생님 회원가입 — 북마트</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -15,15 +15,15 @@
       justify-content: center;
       min-height: 100vh;
     }
-    .login-wrap {
+    .register-wrap {
       background: #fff;
       border: 1px solid #e2e8f0;
       border-radius: 12px;
-      width: 360px;
+      width: 400px;
       box-shadow: 0 4px 20px rgba(0,0,0,0.08);
       overflow: hidden;
     }
-    .login-header {
+    .register-header {
       background: #1e293b;
       color: #fff;
       text-align: center;
@@ -32,7 +32,7 @@
       font-weight: 700;
       letter-spacing: -0.5px;
     }
-    .login-header span {
+    .register-header span {
       display: block;
       font-size: 12px;
       font-weight: 400;
@@ -40,7 +40,7 @@
       margin-top: 6px;
       letter-spacing: 0;
     }
-    .login-body { padding: 28px 32px 32px; }
+    .register-body { padding: 28px 32px 32px; }
     .field-row { margin-bottom: 16px; }
     .field-row label {
       display: block;
@@ -74,7 +74,7 @@
       margin-bottom: 16px;
       border-left: 4px solid #dc2626;
     }
-    .btn-login {
+    .btn-register {
       width: 100%;
       background: #1e40af;
       color: #fff;
@@ -88,39 +88,71 @@
       margin-top: 6px;
       transition: background 0.15s, transform 0.1s;
     }
-    .btn-login:hover { background: #1e3a8a; transform: translateY(-1px); box-shadow: 0 2px 6px rgba(0,0,0,0.12); }
-    .btn-login:active { transform: translateY(0); }
+    .btn-register:hover { background: #1e3a8a; transform: translateY(-1px); box-shadow: 0 2px 6px rgba(0,0,0,0.12); }
+    .btn-register:active { transform: translateY(0); }
+    .login-link {
+      display: block;
+      text-align: center;
+      margin-top: 16px;
+      font-size: 13px;
+      color: #64748b;
+    }
+    .login-link a { color: #2563eb; text-decoration: none; }
+    .login-link a:hover { text-decoration: underline; }
   </style>
 </head>
 <body>
-<div class="login-wrap">
-  <div class="login-header">
-    북마트<span>주문관리시스템</span>
+<div class="register-wrap">
+  <div class="register-header">
+    북마트<span>개인선생님 회원가입</span>
   </div>
-  <div class="login-body">
+  <div class="register-body">
     <form method="post">
       {% csrf_token %}
       {% if form.non_field_errors %}
-        <div class="non-field-error">{{ form.non_field_errors.0 }}</div>
+        {% for error in form.non_field_errors %}
+          <div class="non-field-error">{{ error }}</div>
+        {% endfor %}
       {% endif %}
       <div class="field-row">
+        <label>이름</label>
+        <input type="text" name="name" value="{{ form.name.value|default_if_none:'' }}" placeholder="이름" required autofocus>
+        {% if form.name.errors %}
+          <div class="error-msg">{{ form.name.errors.0 }}</div>
+        {% endif %}
+      </div>
+      <div class="field-row">
+        <label>연락처</label>
+        <input type="text" name="phone" value="{{ form.phone.value|default_if_none:'' }}" placeholder="010-0000-0000" required>
+        {% if form.phone.errors %}
+          <div class="error-msg">{{ form.phone.errors.0 }}</div>
+        {% endif %}
+      </div>
+      <div class="field-row">
         <label>아이디</label>
-        {{ form.username }}
-        {% if form.username.errors %}
-          <div class="error-msg">{{ form.username.errors.0 }}</div>
+        <input type="text" name="login_id" value="{{ form.login_id.value|default_if_none:'' }}" placeholder="영문, 숫자 조합" required>
+        {% if form.login_id.errors %}
+          <div class="error-msg">{{ form.login_id.errors.0 }}</div>
         {% endif %}
       </div>
       <div class="field-row">
         <label>비밀번호</label>
-        {{ form.password }}
-        {% if form.password.errors %}
-          <div class="error-msg">{{ form.password.errors.0 }}</div>
+        <input type="password" name="password1" placeholder="4자 이상" required>
+        {% if form.password1.errors %}
+          <div class="error-msg">{{ form.password1.errors.0 }}</div>
         {% endif %}
       </div>
-      <button type="submit" class="btn-login">로그인</button>
+      <div class="field-row">
+        <label>비밀번호 확인</label>
+        <input type="password" name="password2" placeholder="비밀번호 확인" required>
+        {% if form.password2.errors %}
+          <div class="error-msg">{{ form.password2.errors.0 }}</div>
+        {% endif %}
+      </div>
+      <button type="submit" class="btn-register">회원가입</button>
     </form>
-    <div style="text-align:center;margin-top:16px;font-size:13px;color:#64748b">
-      개인선생님이신가요? <a href="{% url 'individual_register' %}" style="color:#2563eb;text-decoration:none">회원가입</a>
+    <div class="login-link">
+      이미 계정이 있으신가요? <a href="{% url 'login' %}">로그인</a>
     </div>
   </div>
 </div>

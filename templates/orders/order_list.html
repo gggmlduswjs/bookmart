@@ -7,14 +7,18 @@
   {% if request.user.is_teacher %}
   <a href="{% url 'order_create' %}" class="btn btn-orange btn-sm">+ 주문 입력</a>
   {% endif %}
+  {% if request.user.is_admin %}
+  <a href="{% url 'export_orders' %}?status={{ filters.status }}&date_from={{ filters.date_from }}&date_to={{ filters.date_to }}" class="btn btn-outline btn-sm">엑셀 내보내기</a>
+  {% endif %}
 </div>
 
 <!-- 필터 -->
 <form method="get" class="search-bar">
-  <input type="text" name="q" value="{{ filters.q }}" placeholder="주문번호/선생님/학교/업체 검색"
-         style="width:200px;padding:4px 8px;border:1px solid #bbb;font-size:12px">
-  <label>상태</label>
-  <select name="status">
+  <input type="text" name="q" value="{{ filters.q }}" placeholder="주문번호/선생님/학교/업체/운송장 검색"
+         aria-label="주문 검색"
+         style="width:220px;padding:4px 8px;border:1px solid #bbb;font-size:12px">
+  <label for="filter-status">상태</label>
+  <select name="status" id="filter-status">
     <option value="">전체</option>
     {% for val, label in status_choices %}
     <option value="{{ val }}" {% if filters.status == val %}selected{% endif %}>{{ label }}</option>
@@ -22,8 +26,8 @@
   </select>
 
   {% if not request.user.is_teacher %}
-  <label>배송지</label>
-  <select name="delivery">
+  <label for="filter-delivery">배송지</label>
+  <select name="delivery" id="filter-delivery">
     <option value="">전체</option>
     {% for d in deliveries %}
     <option value="{{ d.pk }}" {% if filters.delivery == d.pk|stringformat:"s" %}selected{% endif %}>{{ d.name }}</option>
@@ -32,8 +36,8 @@
   {% endif %}
 
   {% if request.user.is_admin %}
-  <label>경로</label>
-  <select name="source">
+  <label for="filter-source">경로</label>
+  <select name="source" id="filter-source">
     <option value="">전체</option>
     <option value="simple" {% if filters.source == 'simple' %}selected{% endif %}>간편주문</option>
     <option value="inbox" {% if filters.source == 'inbox' %}selected{% endif %}>수신함</option>
@@ -41,35 +45,36 @@
   </select>
   {% endif %}
 
-  <label>시작일</label>
-  <input type="date" name="date_from" value="{{ filters.date_from }}">
+  <label for="filter-date-from">시작일</label>
+  <input type="date" name="date_from" id="filter-date-from" value="{{ filters.date_from }}">
 
-  <label>종료일</label>
-  <input type="date" name="date_to" value="{{ filters.date_to }}">
+  <label for="filter-date-to">종료일</label>
+  <input type="date" name="date_to" id="filter-date-to" value="{{ filters.date_to }}">
 
   <button type="submit" class="btn btn-dark btn-sm">조회</button>
   <a href="{% url 'order_list' %}" class="btn btn-outline btn-sm">초기화</a>
 </form>
 
-<!-- 목록 -->
+<!-- 일괄 작업 -->
 {% if not request.user.is_teacher %}
-<div style="margin-bottom:8px;display:flex;align-items:center;gap:8px">
+<div style="margin-bottom:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
   <label style="font-size:13px;color:#64748b;cursor:pointer">
     <input type="checkbox" id="check-all" onchange="toggleAll(this)"> 전체 선택
   </label>
   <button class="btn btn-dark btn-sm" onclick="bulkPrint()">거래명세서</button>
   <button class="btn btn-outline btn-sm" onclick="bulkQuote()">견적서</button>
   {% if request.user.is_admin %}
-  <button class="btn btn-outline btn-sm" style="color:#c00;border-color:#c00" onclick="bulkDelete()">선택 삭제</button>
+  <button class="btn btn-red btn-sm" onclick="bulkDelete()">선택 삭제</button>
   {% endif %}
 </div>
 {% endif %}
 
-<div class="content-box">
+<!-- 목록 -->
+<div class="content-box scroll-hint">
   <table class="data-table">
     <thead>
       <tr>
-        {% if not request.user.is_teacher %}<th style="width:30px"></th>{% endif %}
+        {% if not request.user.is_teacher %}<th style="width:30px"><span class="sr-only">선택</span></th>{% endif %}
         <th>주문번호</th>
         {% if not request.user.is_teacher %}<th>선생님</th>{% endif %}
         <th>배송지</th>
@@ -77,14 +82,14 @@
         {% if request.user.is_admin %}<th>경로</th>{% endif %}
         <th>상태</th>
         <th>주문일시</th>
-        <th style="width:50px"></th>
+        <th style="width:50px"><span class="sr-only">상세</span></th>
       </tr>
     </thead>
     <tbody>
       {% for order in orders %}
       <tr>
         {% if not request.user.is_teacher %}
-        <td class="center"><input type="checkbox" class="order-chk" value="{{ order.pk }}"></td>
+        <td class="center"><input type="checkbox" class="order-chk" value="{{ order.pk }}" aria-label="주문 {{ order.order_no }} 선택"></td>
         {% endif %}
         <td style="font-size:11px">{{ order.order_no }}</td>
         {% if not request.user.is_teacher %}<td>{{ order.teacher.name }}</td>{% endif %}
@@ -115,11 +120,41 @@
         </td>
       </tr>
       {% empty %}
-      <tr><td colspan="9" class="center" style="padding:20px;color:#888">주문 내역이 없습니다.</td></tr>
+      <tr>
+        <td colspan="9">
+          <div class="empty-state">
+            <p>주문 내역이 없습니다.</p>
+            {% if request.user.is_teacher %}
+            <a href="{% url 'order_create' %}" class="btn btn-orange btn-sm">첫 주문을 등록해보세요</a>
+            {% endif %}
+          </div>
+        </td>
+      </tr>
       {% endfor %}
     </tbody>
   </table>
 </div>
+
+<!-- 페이지네이션 (3-4) -->
+{% if page_obj.has_other_pages %}
+<nav class="pagination" aria-label="페이지 탐색">
+  {% if page_obj.has_previous %}
+  <a href="?page=1{% for k, v in filters.items %}{% if v %}&{{ k }}={{ v }}{% endif %}{% endfor %}">&laquo;</a>
+  <a href="?page={{ page_obj.previous_page_number }}{% for k, v in filters.items %}{% if v %}&{{ k }}={{ v }}{% endif %}{% endfor %}">&lsaquo;</a>
+  {% endif %}
+  {% for num in page_obj.paginator.page_range %}
+    {% if page_obj.number == num %}
+    <span class="current">{{ num }}</span>
+    {% elif num > page_obj.number|add:"-3" and num < page_obj.number|add:"3" %}
+    <a href="?page={{ num }}{% for k, v in filters.items %}{% if v %}&{{ k }}={{ v }}{% endif %}{% endfor %}">{{ num }}</a>
+    {% endif %}
+  {% endfor %}
+  {% if page_obj.has_next %}
+  <a href="?page={{ page_obj.next_page_number }}{% for k, v in filters.items %}{% if v %}&{{ k }}={{ v }}{% endif %}{% endfor %}">&rsaquo;</a>
+  <a href="?page={{ page_obj.paginator.num_pages }}{% for k, v in filters.items %}{% if v %}&{{ k }}={{ v }}{% endif %}{% endfor %}">&raquo;</a>
+  {% endif %}
+</nav>
+{% endif %}
 
 {% if request.user.is_admin %}
 <form id="bulkDeleteForm" method="post" action="{% url 'order_bulk_delete' %}" style="display:none">
@@ -148,7 +183,7 @@ function bulkDelete() {
   var ids = [];
   document.querySelectorAll('.order-chk:checked').forEach(function(cb) { ids.push(cb.value); });
   if (ids.length === 0) { alert('삭제할 주문을 선택해주세요.'); return; }
-  if (!confirm(ids.length + '건의 주문을 삭제하시겠습니까? 복구할 수 없습니다.')) return;
+  if (!confirm(ids.length + '건의 주문을 삭제하시겠습니까?\n(24시간 내 복구 가능)')) return;
   var form = document.getElementById('bulkDeleteForm');
   form.querySelectorAll('input[name=ids]').forEach(function(el) { el.remove(); });
   ids.forEach(function(id) {

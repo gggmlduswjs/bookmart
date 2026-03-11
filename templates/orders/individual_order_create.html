@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% block title %}주문 입력{% endblock %}
+{% block title %}도서 주문{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -9,46 +9,77 @@
   }
   .order-row-wrap select { width: 100%; }
   .order-row-wrap input[type=number] { width: 60px; text-align: center; }
-  .deadline-warn { background:#fff3cd; border:1px solid #ffc107; color:#856404; padding:6px 12px; margin-bottom:10px; font-size:12px; }
   .book-search-wrap { position:relative; }
   .book-search-input { width:100%; padding:3px 5px; border:1px solid #bbb; font-size:12px; height:26px; box-sizing:border-box; }
   .book-search-list { position:absolute; top:100%; left:0; right:0; z-index:100; background:#fff; border:1px solid #ccc; border-top:none; max-height:200px; overflow-y:auto; box-shadow:0 4px 12px rgba(0,0,0,0.15); }
   .book-search-list div { padding:5px 8px; font-size:11px; cursor:pointer; }
   .book-search-list div:hover { background:#e8f0fe; }
   .book-search-list .bk-pub { color:#888; font-size:10px; }
+  .delivery-section {
+    background: #fff; border: 1px solid #e2e8f0; border-radius: 8px;
+    padding: 16px; margin-bottom: 16px;
+  }
+  .delivery-section h3 { font-size: 14px; margin-bottom: 12px; color: #334155; }
+  .delivery-radio { margin-bottom: 8px; display: flex; align-items: center; gap: 8px; font-size: 13px; }
+  .delivery-radio input[type=radio] { margin: 0; }
+  .new-delivery-fields { margin-top: 12px; padding: 12px; background: #f8fafc; border-radius: 6px; }
+  .new-delivery-fields .field-row { margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+  .new-delivery-fields .field-row label { min-width: 60px; font-size: 12px; font-weight: 600; color: #475569; }
+  .new-delivery-fields .field-row input {
+    flex: 1; padding: 6px 8px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px;
+  }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="page-title">
-  도서 주문
-  <span class="subtitle">배송지: {{ delivery.name }}</span>
-</div>
-
-{% if past_region %}
-<div class="deadline-warn">
-  ⚠ 현재 시각 {{ now_str }}은 주문 마감 시간(지방 13:50)이 지났습니다. 주문은 가능하나 당일 발송이 어려울 수 있습니다.
-</div>
-{% elif past_city %}
-<div class="deadline-warn">
-  ⚠ 현재 시각 {{ now_str }}은 시내 마감(11:20)이 지났습니다. 지방 마감은 13:50입니다.
-</div>
-{% else %}
-<div class="msg-box msg-info">주문 마감: 시내 <strong>11:20</strong> / 지방 <strong>13:50</strong> &nbsp;|&nbsp; 현재 시각: {{ now_str }}</div>
-{% endif %}
+<div class="page-title">도서 주문</div>
 
 <form method="post" x-data="orderForm()" @submit.prevent="submitOrder">
   {% csrf_token %}
-  <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
 
+  <!-- 배송지 선택 -->
+  <div class="delivery-section">
+    <h3>배송지</h3>
+
+    {% for d in deliveries %}
+    <div class="delivery-radio">
+      <input type="radio" name="delivery_id" value="{{ d.pk }}" id="del_{{ d.pk }}"
+             x-model="deliveryMode" @change="deliveryMode = '{{ d.pk }}'">
+      <label for="del_{{ d.pk }}" style="cursor:pointer">{{ d.name }} <span style="color:#94a3b8;font-size:12px">{{ d.address }}</span></label>
+    </div>
+    {% endfor %}
+
+    <div class="delivery-radio">
+      <input type="radio" name="delivery_id" value="" id="del_new"
+             x-model="deliveryMode" @change="deliveryMode = 'new'">
+      <label for="del_new" style="cursor:pointer;color:#2563eb">+ 새 배송지 입력</label>
+    </div>
+
+    <div class="new-delivery-fields" x-show="deliveryMode === 'new'" x-cloak>
+      <div class="field-row">
+        <label>배송지명</label>
+        <input type="text" name="new_delivery_name" placeholder="예: OO학교, 자택 등">
+      </div>
+      <div class="field-row">
+        <label>주소</label>
+        <input type="text" name="new_delivery_address" placeholder="주소 입력">
+      </div>
+      <div class="field-row">
+        <label>연락처</label>
+        <input type="text" name="new_delivery_phone" placeholder="010-0000-0000">
+      </div>
+    </div>
+  </div>
+
+  <!-- 교재 선택 -->
   <div class="order-row-wrap">
     <table class="data-table">
       <thead>
         <tr>
           <th style="width:28%">시리즈</th>
-          <th style="width:34%">교재 <span class="required-mark">*</span></th>
-          <th class="right" style="width:90px">단가</th>
-          <th class="center" style="width:70px">수량 <span class="required-mark">*</span></th>
+          <th style="width:34%">교재</th>
+          <th class="right" style="width:90px">정가</th>
+          <th class="center" style="width:70px">수량</th>
           <th class="right" style="width:90px">금액</th>
           <th style="width:30px"></th>
         </tr>
@@ -70,11 +101,10 @@
                        @input="row.bookQuery = $event.target.value; row.showBookList = true; row.book_id = ''; row.unit_price = 0"
                        @focus="row.showBookList = true"
                        @keydown.escape="row.showBookList = false"
-                       placeholder="교재 검색..."
-                       aria-label="교재 검색">
+                       placeholder="교재 검색...">
                 <div class="book-search-list" x-show="row.showBookList && row.bookQuery && row.bookQuery.length >= 1" @click.outside="row.showBookList = false">
                   <template x-for="b in searchBooks(row)" :key="b.id">
-                    <div @click="selectBook(row, b, $event)">
+                    <div @click="selectBook(row, b)">
                       <span x-text="b.name"></span>
                       <span class="bk-pub" x-text="'(' + b.publisher + ')'"></span>
                     </div>
@@ -111,7 +141,7 @@
 
   <div style="margin-top:12px">
     <button type="submit" class="btn btn-orange" style="padding:6px 30px">주문 완료</button>
-    <a href="{% url 'order_list' %}" class="btn btn-outline" style="margin-left:8px">취소</a>
+    <a href="{% url 'order_list' %}" class="btn btn-outline" style="margin-left:8px">주문현황</a>
   </div>
 </form>
 {% endblock %}
@@ -122,7 +152,7 @@ const BOOKS = {{ books_json|safe }};
 function orderForm() {
   return {
     rows: [{ series: '', book_id: '', qty: 1, unit_price: 0, bookQuery: '', showBookList: false }],
-    getBooks(series) { return series ? BOOKS.filter(b => b.series === series) : BOOKS; },
+    deliveryMode: '{% if deliveries %}{{ deliveries.0.pk }}{% else %}new{% endif %}',
     searchBooks(row) {
       const q = (row.bookQuery || '').toLowerCase();
       let list = row.series ? BOOKS.filter(b => b.series === row.series) : BOOKS;
@@ -134,17 +164,22 @@ function orderForm() {
       const b = BOOKS.find(b => b.id == row.book_id);
       return b ? b.name : '';
     },
-    selectBook(row, b, e) {
+    selectBook(row, b) {
       row.book_id = b.id; row.unit_price = b.unit_price;
       row.series = b.series; row.bookQuery = b.name;
       row.showBookList = false;
     },
-    updatePrice(row) { const b = BOOKS.find(b => b.id == row.book_id); row.unit_price = b ? b.unit_price : 0; },
     rowAmount(row) { return (row.book_id && row.qty) ? row.unit_price * row.qty : 0; },
     total() { return this.rows.reduce((s, r) => s + this.rowAmount(r), 0); },
     addRow() { this.rows.push({ series: '', book_id: '', qty: 1, unit_price: 0, bookQuery: '', showBookList: false }); },
     submitOrder() {
       if (!this.rows.some(r => r.book_id && r.qty > 0)) { alert('주문할 교재를 선택하세요.'); return; }
+      if (this.deliveryMode === 'new') {
+        const name = document.querySelector('[name=new_delivery_name]').value.trim();
+        if (!name) { alert('배송지명을 입력해 주세요.'); return; }
+        // Clear delivery_id so server uses new fields
+        document.querySelector('input[name=delivery_id][value=""]').checked = true;
+      }
       this.$el.submit();
     }
   }

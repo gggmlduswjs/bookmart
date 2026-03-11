@@ -133,6 +133,12 @@ ALIGO_API_KEY = os.environ.get('ALIGO_API_KEY', '')
 ALIGO_USER_ID = os.environ.get('ALIGO_USER_ID', '')
 ALIGO_SENDER  = os.environ.get('ALIGO_SENDER', '')
 
+# OpenAI (Whisper STT)
+OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '')
+
+# Anthropic (Claude 주문 파싱)
+ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY', '')
+
 # 네이버 메일 IMAP
 NAVER_EMAIL_1_ID = os.environ.get('NAVER_EMAIL_1_ID', '')
 NAVER_EMAIL_1_PW = os.environ.get('NAVER_EMAIL_1_PW', '')

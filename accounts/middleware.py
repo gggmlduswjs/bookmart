@@ -1,6 +1,6 @@
 from django.shortcuts import redirect
 
-EXEMPT_PATHS = {'/login/', '/logout/', '/password-change/', '/admin/'}
+EXEMPT_PATHS = {'/login/', '/logout/', '/password-change/', '/admin/', '/register/'}
 EXEMPT_PREFIXES = ('/admin/', '/invite/', '/s/')
 
 

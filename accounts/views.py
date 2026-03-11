@@ -11,12 +11,27 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 from openpyxl import Workbook, load_workbook
 
+from decimal import Decimal
+
 from .decorators import role_required
 from .forms import (LoginForm, CustomPasswordChangeForm, AgencyForm,
-                    TeacherForm, DeliveryAddressForm, generate_temp_password)
+                    TeacherForm, DeliveryAddressForm, IndividualRegisterForm,
+                    generate_temp_password)
 from .models import User, AgencyInfo, InviteToken
-from orders.models import DeliveryAddress
+from orders.models import AuditLog, DeliveryAddress
 from orders.sms import send_sms
+from django.contrib.contenttypes.models import ContentType
+
+
+def _audit(request, action, target=None, detail=''):
+    AuditLog.objects.create(
+        user=request.user if request.user.is_authenticated else None,
+        action=action,
+        target_type=ContentType.objects.get_for_model(target) if target else None,
+        target_id=target.pk if target else None,
+        detail=detail,
+        ip_address=request.META.get('REMOTE_ADDR'),
+    )
 
 
 def csrf_failure(request, reason=''):
@@ -60,20 +75,53 @@ class CustomPasswordChangeView(PasswordChangeView):
         return response
 
 
+# ── 개인선생님 회원가입 ────────────────────────────────────────────────────────
+
+def individual_register(request):
+    if request.method == 'POST':
+        form = IndividualRegisterForm(request.POST)
+        if form.is_valid():
+            user = User(
+                login_id=form.cleaned_data['login_id'],
+                role='agency',
+                name=form.cleaned_data['name'],
+                phone=form.cleaned_data['phone'],
+                is_individual=True,
+                supply_rate_override=Decimal('100.00'),
+                must_change_password=False,
+            )
+            user.set_password(form.cleaned_data['password1'])
+            user.save()
+            # shadow teacher 자동 생성
+            user.individual_teacher
+            auth_login(request, user, backend='django.contrib.auth.backends.ModelBackend')
+            messages.success(request, f'{user.name}님, 환영합니다! 회원가입이 완료되었습니다.')
+            return redirect('home')
+    else:
+        form = IndividualRegisterForm()
+    return render(request, 'auth/register.html', {'form': form})
+
+
 # ── 총판 전용 ─────────────────────────────────────────────────────────────────
 
 @role_required('admin')
 def agency_list(request):
     show_inactive = request.GET.get('inactive') == '1'
+    filter_type = request.GET.get('type', '')  # '', 'agency', 'individual'
     if show_inactive:
         agencies = User.objects.filter(role='agency').order_by('name')
     else:
         agencies = User.objects.filter(role='agency', is_active=True).order_by('name')
+    if filter_type == 'agency':
+        agencies = agencies.filter(is_individual=False)
+    elif filter_type == 'individual':
+        agencies = agencies.filter(is_individual=True)
     site_url = request.build_absolute_uri('/').rstrip('/')
     return render(request, 'accounts/agency_list.html', {
         'agencies': agencies,
         'site_url': site_url,
         'show_inactive': show_inactive,
+        'filter_type': filter_type,
     })
 
 
@@ -86,7 +134,6 @@ def agency_create(request):
             agency = form.save(commit=False)
             agency.role = 'agency'
             agency.set_password(temp_pw)
-            agency.plain_password = temp_pw
             agency.must_change_password = True
             agency.save()
             simple_link = request.build_absolute_uri(
@@ -145,9 +192,9 @@ def agency_reset_password(request, pk):
     agency = get_object_or_404(User, pk=pk, role='agency')
     temp_pw = generate_temp_password()
     agency.set_password(temp_pw)
-    agency.plain_password = temp_pw
     agency.must_change_password = True
-    agency.save(update_fields=['password', 'plain_password', 'must_change_password'])
+    agency.save(update_fields=['password', 'must_change_password'])
+    _audit(request, AuditLog.Action.PASSWORD_RESET, agency, f'{agency.name} 비밀번호 초기화')
     return JsonResponse({'password': temp_pw, 'name': agency.name})
 
 
@@ -159,6 +206,7 @@ def agency_toggle(request, pk):
     if not agency.is_active:
         agency.teachers.update(is_active=False)
     action = '활성화' if agency.is_active else '비활성화'
+    _audit(request, AuditLog.Action.USER_TOGGLE, agency, f'{agency.name} {action}')
     messages.success(request, f'{agency.name} 계정이 {action}되었습니다.')
     return redirect('agency_list')
 
@@ -233,6 +281,7 @@ def teacher_reset_password(request, pk):
     teacher.set_password(temp_pw)
     teacher.must_change_password = True
     teacher.save()
+    _audit(request, AuditLog.Action.PASSWORD_RESET, teacher, f'{teacher.name} 비밀번호 초기화')
     return render(request, 'accounts/credential.html', {
         'title': f'{teacher.name} 비밀번호 초기화',
         'login_id': teacher.login_id,
@@ -247,6 +296,7 @@ def teacher_toggle(request, pk):
     teacher.is_active = not teacher.is_active
     teacher.save(update_fields=['is_active'])
     action = '활성화' if teacher.is_active else '비활성화'
+    _audit(request, AuditLog.Action.USER_TOGGLE, teacher, f'{teacher.name} {action}')
     messages.success(request, f'{teacher.name} 계정이 {action}되었습니다.')
     return redirect('teacher_list')
 

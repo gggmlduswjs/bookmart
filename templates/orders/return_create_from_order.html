@@ -1,0 +1,89 @@
+{% extends 'base.html' %}
+{% block title %}주문 반품 — {{ order.order_no }}{% endblock %}
+
+{% block content %}
+<div class="page-title">
+  주문 반품 신청
+  <a href="{% url 'order_detail' order.pk %}" class="btn btn-gray btn-sm">← 주문으로 돌아가기</a>
+</div>
+
+<!-- 원주문 정보 -->
+<div class="content-box" style="padding:12px 16px;margin-bottom:16px">
+  <div style="font-size:13px;color:#64748b">
+    원주문: <strong>{{ order.order_no }}</strong> |
+    배송지: <strong>{{ order.delivery.name }}</strong> |
+    선생님: {{ order.teacher.name }}
+  </div>
+</div>
+
+<form method="post">
+  {% csrf_token %}
+
+  <div class="content-box" style="padding:12px 16px;margin-bottom:16px">
+    <table class="form-table" style="width:auto">
+      <tr>
+        <th>반품 사유<span class="required-mark">*</span></th>
+        <td>
+          <select name="reason" id="reason" required>
+            {% for val, label in reason_choices %}
+            <option value="{{ val }}">{{ label }}</option>
+            {% endfor %}
+          </select>
+        </td>
+      </tr>
+      <tr>
+        <th>메모</th>
+        <td><input type="text" name="memo" style="width:300px" placeholder="메모 (선택)"></td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- 교재 선택 (pre-filled from order) -->
+  <div class="content-box" style="padding:0;margin-bottom:16px">
+    <table class="data-table" id="item-table">
+      <thead>
+        <tr>
+          <th>교재명</th>
+          <th style="width:80px">원주문 수량</th>
+          <th style="width:80px">반품 수량</th>
+          <th style="width:60px">삭제</th>
+        </tr>
+      </thead>
+      <tbody id="item-body">
+      </tbody>
+    </table>
+  </div>
+
+  <div style="text-align:center">
+    <button type="submit" class="btn btn-orange">반품 신청</button>
+  </div>
+</form>
+
+<script>
+var PREFILL = {{ prefill_items|safe }};
+var tbody = document.getElementById('item-body');
+
+function renderItems() {
+  tbody.innerHTML = '';
+  PREFILL.forEach(function(item, i) {
+    if (item._removed) return;
+    var tr = document.createElement('tr');
+    tr.innerHTML = '<td>' + item.name + '<input type="hidden" name="book_' + i + '" value="' + item.book_id + '"></td>'
+      + '<td class="center">' + item.qty + '</td>'
+      + '<td class="center"><input type="number" name="qty_' + i + '" value="' + item.qty + '" min="0" max="' + item.qty + '" style="width:60px;text-align:center;padding:3px"></td>'
+      + '<td class="center"><button type="button" class="btn btn-red btn-sm" onclick="removeItem(' + i + ')">X</button></td>';
+    tbody.appendChild(tr);
+  });
+  if (!PREFILL.some(function(it){ return !it._removed; })) {
+    tbody.innerHTML = '<tr><td colspan="4" class="center" style="padding:20px;color:#888">반품할 교재가 없습니다.</td></tr>';
+  }
+}
+
+function removeItem(i) {
+  PREFILL[i]._removed = true;
+  renderItems();
+}
+
+renderItems();
+</script>
+{% endblock %}

@@ -22,6 +22,7 @@
           {% elif ret.status == 'rejected' %}<span class="badge badge-gray">거절</span>{% endif %}
         </td>
       </tr>
+      <tr><th>반품 사유</th><td>{{ ret.get_reason_display }}</td></tr>
       <tr><th>신청일시</th><td style="font-size:11px">{{ ret.requested_at|date:"Y-m-d H:i" }}</td></tr>
       {% if ret.confirmed_at %}<tr><th>확정일시</th><td style="font-size:11px">{{ ret.confirmed_at|date:"Y-m-d H:i" }}</td></tr>{% endif %}
       {% if ret.memo %}<tr><th>메모</th><td>{{ ret.memo }}</td></tr>{% endif %}

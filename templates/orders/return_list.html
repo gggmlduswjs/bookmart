@@ -10,29 +10,29 @@
 </div>
 
 <form method="get" class="search-bar">
-  <label>상태</label>
-  <select name="status">
+  <label for="filter-status">상태</label>
+  <select name="status" id="filter-status" aria-label="반품 상태 필터">
     <option value="">전체</option>
     {% for val, label in status_choices %}
     <option value="{{ val }}" {% if filters.status == val %}selected{% endif %}>{{ label }}</option>
     {% endfor %}
   </select>
   {% if not request.user.is_teacher %}
-  <label>배송지</label>
-  <select name="delivery">
+  <label for="filter-delivery">배송지</label>
+  <select name="delivery" id="filter-delivery" aria-label="배송지 필터">
     <option value="">전체</option>
     {% for d in deliveries %}
     <option value="{{ d.pk }}" {% if filters.delivery == d.pk|stringformat:"s" %}selected{% endif %}>{{ d.name }}</option>
     {% endfor %}
   </select>
   {% endif %}
-  <label>시작일</label><input type="date" name="date_from" value="{{ filters.date_from }}">
-  <label>종료일</label><input type="date" name="date_to" value="{{ filters.date_to }}">
+  <label for="filter-date-from">시작일</label><input type="date" name="date_from" id="filter-date-from" value="{{ filters.date_from }}" aria-label="조회 시작일">
+  <label for="filter-date-to">종료일</label><input type="date" name="date_to" id="filter-date-to" value="{{ filters.date_to }}" aria-label="조회 종료일">
   <button type="submit" class="btn btn-dark btn-sm">조회</button>
   <a href="{% url 'return_list' %}" class="btn btn-outline btn-sm">초기화</a>
 </form>
 
-<div class="content-box">
+<div class="content-box scroll-hint">
   <table class="data-table">
     <thead>
       <tr>
@@ -67,4 +67,24 @@
     </tbody>
   </table>
 </div>
+
+{% if page_obj.has_other_pages %}
+<nav class="pagination" aria-label="페이지 탐색">
+  {% if page_obj.has_previous %}
+  <a href="?page=1{% for k, v in filters.items %}{% if v %}&{{ k }}={{ v }}{% endif %}{% endfor %}">&laquo;</a>
+  <a href="?page={{ page_obj.previous_page_number }}{% for k, v in filters.items %}{% if v %}&{{ k }}={{ v }}{% endif %}{% endfor %}">&lsaquo;</a>
+  {% endif %}
+  {% for num in page_obj.paginator.page_range %}
+    {% if page_obj.number == num %}
+    <span class="current">{{ num }}</span>
+    {% elif num > page_obj.number|add:"-3" and num < page_obj.number|add:"3" %}
+    <a href="?page={{ num }}{% for k, v in filters.items %}{% if v %}&{{ k }}={{ v }}{% endif %}{% endfor %}">{{ num }}</a>
+    {% endif %}
+  {% endfor %}
+  {% if page_obj.has_next %}
+  <a href="?page={{ page_obj.next_page_number }}{% for k, v in filters.items %}{% if v %}&{{ k }}={{ v }}{% endif %}{% endfor %}">&rsaquo;</a>
+  <a href="?page={{ page_obj.paginator.num_pages }}{% for k, v in filters.items %}{% if v %}&{{ k }}={{ v }}{% endif %}{% endfor %}">&raquo;</a>
+  {% endif %}
+</nav>
+{% endif %}
 {% endblock %}

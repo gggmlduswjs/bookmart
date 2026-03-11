@@ -6,6 +6,7 @@ urlpatterns = [
     path('login/', views.CustomLoginView.as_view(), name='login'),
     path('logout/', auth_views.LogoutView.as_view(), name='logout'),
     path('password-change/', views.CustomPasswordChangeView.as_view(), name='password_change'),
+    path('register/', views.individual_register, name='individual_register'),
 
     # 총판 전용 — 업체 관리
     path('agencies/', views.agency_list, name='agency_list'),
