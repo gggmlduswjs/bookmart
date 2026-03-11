@@ -289,11 +289,6 @@
     <a href="?tab=call" style="padding:6px 14px;font-size:12px;text-decoration:none;border-bottom:2px solid {% if not call_status %}#3b82f6{% else %}transparent{% endif %};margin-bottom:-2px;color:{% if not call_status %}#1e40af{% else %}#64748b{% endif %};font-weight:{% if not call_status %}600{% else %}400{% endif %}">
       전체 <span style="background:#e2e8f0;padding:1px 5px;border-radius:8px;font-size:10px">{{ call_page.paginator.count }}</span>
     </a>
-    {% for st, label in call_status_choices %}
-    <a href="?tab=call&call_status={{ st }}" style="padding:6px 14px;font-size:12px;text-decoration:none;border-bottom:2px solid {% if call_status == st %}#3b82f6{% else %}transparent{% endif %};margin-bottom:-2px;color:{% if call_status == st %}#1e40af{% else %}#64748b{% endif %};font-weight:{% if call_status == st %}600{% else %}400{% endif %}">
-      {{ label }} <span style="background:#e2e8f0;padding:1px 5px;border-radius:8px;font-size:10px">{{ call_counts|default_if_none:"" }}</span>
-    </a>
-    {% endfor %}
     <a href="?tab=call&call_status=pending" style="padding:6px 14px;font-size:12px;text-decoration:none;border-bottom:2px solid {% if call_status == 'pending' %}#3b82f6{% else %}transparent{% endif %};margin-bottom:-2px;color:{% if call_status == 'pending' %}#1e40af{% else %}#64748b{% endif %};font-weight:{% if call_status == 'pending' %}600{% else %}400{% endif %}">
       대기 <span style="background:#e2e8f0;padding:1px 5px;border-radius:8px;font-size:10px">{{ call_counts.pending|default:"0" }}</span>
     </a>
