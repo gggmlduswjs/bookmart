@@ -5,7 +5,7 @@ from django.contrib.contenttypes.models import ContentType
 
 from accounts.models import User
 from books.models import Book
-from orders.models import AuditLog
+from orders.models import AuditLog, SiteConfig
 
 
 def _audit(request, action, target=None, detail=''):
@@ -79,3 +79,17 @@ def get_series_list(books=None):
     if any(not b.series for b in books):
         series.append('기타')
     return series
+
+
+def get_deadlines(now):
+    """마감시간 반환: (deadline_city, deadline_region, past_city, past_region)"""
+    config = SiteConfig.get()
+    deadline_city = now.replace(
+        hour=config.deadline_city.hour, minute=config.deadline_city.minute,
+        second=0, microsecond=0
+    )
+    deadline_region = now.replace(
+        hour=config.deadline_region.hour, minute=config.deadline_region.minute,
+        second=0, microsecond=0
+    )
+    return deadline_city, deadline_region, now > deadline_city, now > deadline_region

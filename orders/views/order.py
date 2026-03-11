@@ -14,7 +14,7 @@ from books.models import Book
 from orders.models import Order, OrderItem, DeliveryAddress, AuditLog, OrderStatusLog
 from orders.services import get_order_queryset, get_delivery_queryset
 from orders.services.order_service import parse_post_items, resolve_teacher, resolve_delivery, create_order_items
-from ._helpers import _audit, get_books_json, get_agencies_json, get_teachers_json, get_series_list
+from ._helpers import _audit, get_books_json, get_agencies_json, get_teachers_json, get_series_list, get_deadlines
 
 
 @login_required
@@ -49,10 +49,7 @@ def order_list(request):
         )
 
     now = timezone.localtime()
-    deadline_city = now.replace(hour=11, minute=20, second=0, microsecond=0)
-    deadline_region = now.replace(hour=13, minute=50, second=0, microsecond=0)
-    past_city = now > deadline_city
-    past_region = now > deadline_region
+    deadline_city, deadline_region, past_city, past_region = get_deadlines(now)
 
     deliveries = get_delivery_queryset(request.user)
 
@@ -83,10 +80,7 @@ def order_create(request):
         return redirect('home')
 
     now = timezone.localtime()
-    deadline_city = now.replace(hour=11, minute=20, second=0, microsecond=0)
-    deadline_region = now.replace(hour=13, minute=50, second=0, microsecond=0)
-    past_city = now > deadline_city
-    past_region = now > deadline_region
+    deadline_city, deadline_region, past_city, past_region = get_deadlines(now)
 
     books = Book.objects.filter(is_active=True).select_related('publisher')
     series_list = sorted(set(b.series for b in books if b.series))
@@ -366,10 +360,7 @@ def order_create_admin(request):
     teachers, teachers_json = get_teachers_json()
 
     now = timezone.localtime()
-    deadline_city = now.replace(hour=11, minute=20, second=0, microsecond=0)
-    deadline_region = now.replace(hour=13, minute=50, second=0, microsecond=0)
-    past_city = now > deadline_city
-    past_region = now > deadline_region
+    deadline_city, deadline_region, past_city, past_region = get_deadlines(now)
 
     books = Book.objects.filter(is_active=True).select_related('publisher')
     series_list = get_series_list(books)

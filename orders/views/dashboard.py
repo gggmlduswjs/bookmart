@@ -1,10 +1,14 @@
-from django.shortcuts import render
+import datetime
+
+from django.contrib import messages
+from django.shortcuts import render, redirect
 from django.utils import timezone
 from django.db.models import Sum
 
 from accounts.decorators import role_required
 from accounts.models import User
-from orders.models import Order, OrderItem, Return, InboxMessage, DeliveryAddress, CallRecording, AuditLog
+from orders.models import Order, OrderItem, Return, InboxMessage, DeliveryAddress, CallRecording, AuditLog, SiteConfig
+from ._helpers import get_deadlines
 
 
 @role_required('admin')
@@ -21,8 +25,7 @@ def dashboard(request):
     pending_order_list = Order.objects.filter(status='pending').order_by('-ordered_at')[:5]
     pending_returns = Return.objects.filter(status='requested').order_by('-requested_at')[:3]
 
-    deadline_city = now.replace(hour=11, minute=20, second=0, microsecond=0)
-    deadline_region = now.replace(hour=13, minute=50, second=0, microsecond=0)
+    deadline_city, deadline_region, _, _ = get_deadlines(now)
 
     recent_delivered = Order.objects.filter(status='delivered').order_by('-ordered_at')[:5]
 
@@ -106,3 +109,20 @@ def agency_dashboard(request):
         'pending_returns': pending_returns,
         'now': now,
     })
+
+
+@role_required('admin')
+def site_settings(request):
+    config = SiteConfig.get()
+    if request.method == 'POST':
+        city_str = request.POST.get('deadline_city', '').strip()
+        region_str = request.POST.get('deadline_region', '').strip()
+        try:
+            config.deadline_city = datetime.time.fromisoformat(city_str)
+            config.deadline_region = datetime.time.fromisoformat(region_str)
+            config.save(update_fields=['deadline_city', 'deadline_region', 'updated_at'])
+            messages.success(request, f'마감시간이 변경되었습니다. 시내 {city_str} / 지방 {region_str}')
+        except (ValueError, TypeError):
+            messages.error(request, '시간 형식이 올바르지 않습니다. (예: 11:20)')
+        return redirect('site_settings')
+    return render(request, 'orders/site_settings.html', {'config': config})

@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block current_menu %}site_settings{% endblock %}
+{% block title %}사이트 설정{% endblock %}
+
+{% block content %}
+<div style="max-width:480px;margin:0 auto;padding:32px 0">
+  <h2 style="font-size:20px;font-weight:700;margin-bottom:24px">사이트 설정</h2>
+
+  {% if messages %}
+  {% for msg in messages %}
+  <div style="padding:12px 16px;border-radius:8px;margin-bottom:16px;font-size:14px;
+    {% if msg.tags == 'success' %}background:#f0fdf4;color:#166534;border:1px solid #bbf7d0{% else %}background:#fef2f2;color:#991b1b;border:1px solid #fecaca{% endif %}">
+    {{ msg }}
+  </div>
+  {% endfor %}
+  {% endif %}
+
+  <form method="post">
+    {% csrf_token %}
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:24px">
+      <h3 style="font-size:15px;font-weight:600;margin-bottom:16px;color:#334155">마감시간 설정</h3>
+
+      <div style="margin-bottom:16px">
+        <label style="display:block;font-size:13px;font-weight:500;color:#64748b;margin-bottom:6px">시내 마감시간</label>
+        <input type="time" name="deadline_city" value="{{ config.deadline_city|time:'H:i' }}"
+               style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:15px" required>
+      </div>
+
+      <div style="margin-bottom:20px">
+        <label style="display:block;font-size:13px;font-weight:500;color:#64748b;margin-bottom:6px">지방 마감시간</label>
+        <input type="time" name="deadline_region" value="{{ config.deadline_region|time:'H:i' }}"
+               style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:15px" required>
+      </div>
+
+      <button type="submit"
+              style="width:100%;padding:12px;background:#2563eb;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer">
+        저장
+      </button>
+    </div>
+  </form>
+</div>
+{% endblock %}

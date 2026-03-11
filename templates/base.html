@@ -809,6 +809,13 @@
       </div>
     </div>
 
+    {# 설정 #}
+    <a href="{% url 'site_settings' %}"
+       class="sidebar-group-header {% if cur == 'site_settings' %}group-active{% endif %}"
+       style="margin-top:8px">
+      ⚙ 설정
+    </a>
+
   </div>
 
   {% elif user.is_agency %}

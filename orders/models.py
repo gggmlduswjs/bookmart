@@ -572,3 +572,22 @@ class CallRecording(models.Model):
 
     def __str__(self):
         return f'{self.file_name or "녹음"} ({self.get_status_display()})'
+
+
+class SiteConfig(models.Model):
+    """싱글톤 사이트 설정"""
+    deadline_city = models.TimeField(default='11:20', verbose_name='시내 마감시간')
+    deadline_region = models.TimeField(default='13:50', verbose_name='지방 마감시간')
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'site_config'
+        verbose_name = '사이트 설정'
+
+    def __str__(self):
+        return f'마감: 시내 {self.deadline_city:%H:%M} / 지방 {self.deadline_region:%H:%M}'
+
+    @classmethod
+    def get(cls):
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
