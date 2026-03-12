@@ -321,7 +321,8 @@
         {% if rec.recorded_at %}&#128197; {{ rec.recorded_at|date:"Y-m-d H:i" }} &nbsp;{% endif %}
         {{ rec.created_at|date:"m/d H:i" }} 수신
       </div>
-      {% if rec.transcript %}<div style="font-size:12px;color:#64748b;margin-top:3px;max-height:36px;overflow:hidden">{{ rec.transcript|truncatechars:120 }}</div>{% endif %}
+      {% if rec.summary %}<div style="font-size:12px;color:#334155;margin-top:3px;font-weight:500">{% if rec.is_order %}&#128230;{% else %}&#128172;{% endif %} {{ rec.summary }}</div>
+      {% elif rec.transcript %}<div style="font-size:12px;color:#64748b;margin-top:3px;max-height:36px;overflow:hidden">{{ rec.transcript|truncatechars:120 }}</div>{% endif %}
       {% if rec.error_msg %}<div style="font-size:12px;color:#dc2626;margin-top:3px">{{ rec.error_msg }}</div>{% endif %}
       {% if rec.order %}<div style="font-size:12px;color:#059669;margin-top:3px">주문 <a href="{% url 'order_detail' pk=rec.order.pk %}" style="color:#059669;font-weight:600">{{ rec.order.order_no }}</a></div>{% endif %}
       {% if rec.parsed_data %}<div style="font-size:11px;color:#64748b;margin-top:2px">{% if rec.parsed_data.teacher_name %}{{ rec.parsed_data.teacher_name }}{% endif %}{% if rec.parsed_data.school_name %} / {{ rec.parsed_data.school_name }}{% endif %}{% if rec.parsed_data.items %} / 교재 {{ rec.parsed_data.items|length }}건{% endif %}</div>{% endif %}

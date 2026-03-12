@@ -302,7 +302,7 @@ def call_recording_process(request, pk):
     rec = get_object_or_404(CallRecording, pk=pk)
 
     if rec.status == CallRecording.Status.PENDING:
-        from orders.call_order import transcribe_audio, parse_order_from_text
+        from orders.call_order import transcribe_audio, summarize_transcript, parse_order_from_text
 
         rec.status = CallRecording.Status.PROCESSING
         rec.save(update_fields=['status'])
@@ -316,9 +316,24 @@ def call_recording_process(request, pk):
                 rec.error_msg = err[:300]
                 rec.save(update_fields=['status', 'error_msg'])
                 messages.error(request, f'음성 변환 실패: {err}')
-                return redirect('call_inbox')
+                return redirect('/inbox/?tab=call')
             rec.transcript = transcript
             rec.save(update_fields=['transcript'])
+
+        # 요약 + 주문 여부 판별
+        if not rec.summary:
+            summary, is_order, err = summarize_transcript(rec.transcript)
+            if not err:
+                rec.summary = (summary or '')[:300]
+                rec.is_order = is_order
+                rec.save(update_fields=['summary', 'is_order'])
+
+        # 주문 통화가 아니면 건너뛰기
+        if rec.is_order is False:
+            rec.status = CallRecording.Status.SKIPPED
+            rec.save(update_fields=['status'])
+            messages.info(request, f'주문 통화가 아닙니다: {rec.summary}')
+            return redirect('/inbox/?tab=call')
 
         books = Book.objects.filter(is_active=True).select_related('publisher')
         book_list = [{
@@ -333,7 +348,7 @@ def call_recording_process(request, pk):
             rec.error_msg = err[:300]
             rec.save(update_fields=['status', 'error_msg'])
             messages.error(request, f'주문 파싱 실패: {err}')
-            return redirect('call_inbox')
+            return redirect('/inbox/?tab=call')
 
         rec.parsed_data = parsed
         rec.status = CallRecording.Status.PARSED

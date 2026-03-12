@@ -105,6 +105,30 @@ def transcribe_audio(audio_file):
                 os.unlink(path)
 
 
+def summarize_transcript(transcript):
+    """통화 내용 요약 + 주문 여부 판별 (OpenAI GPT-4o)"""
+    api_key = settings.OPENAI_API_KEY
+    if not api_key:
+        return None, None, 'OPENAI_API_KEY가 설정되지 않았습니다.'
+
+    prompt = f"""아래는 전화 통화를 텍스트로 변환한 내용입니다.
+
+## 통화 내용
+{transcript}
+
+## 요청사항
+1. 이 통화 내용을 1~2문장으로 간결하게 요약해주세요.
+2. 이 통화가 도서/교재 주문과 관련된 통화인지 판별해주세요.
+
+## 반드시 아래 JSON 형식으로만 응답하세요 (다른 텍스트 없이):
+{{"summary": "통화 요약 (1~2문장)", "is_order": true 또는 false}}"""
+
+    result, err = _call_openai_chat(prompt)
+    if err:
+        return None, None, err
+    return result.get('summary', ''), result.get('is_order', False), None
+
+
 def _call_openai_chat(prompt):
     """OpenAI Chat API 호출 공통 함수"""
     api_key = settings.OPENAI_API_KEY

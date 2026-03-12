@@ -134,7 +134,7 @@ def sync_from_drive():
 
 def process_pending_recordings():
     """대기 중인 녹음을 자동 파싱"""
-    from orders.call_order import transcribe_audio, parse_order_from_text
+    from orders.call_order import transcribe_audio, summarize_transcript, parse_order_from_text
     from books.models import Book
 
     pending = CallRecording.objects.filter(status=CallRecording.Status.PENDING)
@@ -169,17 +169,30 @@ def process_pending_recordings():
                 rec.transcript = transcript
                 rec.save(update_fields=['transcript'])
 
-            # 2단계: 텍스트 → 주문 파싱
-            parsed, err = parse_order_from_text(rec.transcript, book_list)
-            if err:
-                rec.status = CallRecording.Status.FAILED
-                rec.error_msg = err[:300]
-                rec.save(update_fields=['status', 'error_msg'])
-                continue
+            # 2단계: 요약 + 주문 여부 판별
+            if not rec.summary:
+                summary, is_order, err = summarize_transcript(rec.transcript)
+                if not err:
+                    rec.summary = (summary or '')[:300]
+                    rec.is_order = is_order
+                    rec.save(update_fields=['summary', 'is_order'])
 
-            rec.parsed_data = parsed
-            rec.status = CallRecording.Status.PARSED
-            rec.save(update_fields=['parsed_data', 'status'])
+            # 3단계: 주문 통화인 경우만 주문 파싱
+            if rec.is_order:
+                parsed, err = parse_order_from_text(rec.transcript, book_list)
+                if err:
+                    rec.status = CallRecording.Status.FAILED
+                    rec.error_msg = err[:300]
+                    rec.save(update_fields=['status', 'error_msg'])
+                    continue
+                rec.parsed_data = parsed
+                rec.status = CallRecording.Status.PARSED
+                rec.save(update_fields=['parsed_data', 'status'])
+            else:
+                # 주문 아닌 통화 → 건너뜀 처리
+                rec.status = CallRecording.Status.SKIPPED
+                rec.save(update_fields=['status'])
+
             processed += 1
 
         except Exception as e:

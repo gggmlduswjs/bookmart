@@ -45,6 +45,7 @@ class Order(models.Model):
         INBOX   = 'inbox',   '수신함'
         ADMIN   = 'admin',   '관리자'
         CALL    = 'call',    '통화주문'
+        IMPORT  = 'import',  '극동임포트'
 
     class Carrier(models.TextChoices):
         HANJIN = 'hanjin', '한진택배'
@@ -552,6 +553,8 @@ class CallRecording(models.Model):
         verbose_name='처리상태'
     )
     transcript = models.TextField(blank=True, verbose_name='변환 텍스트')
+    summary = models.CharField(max_length=300, blank=True, verbose_name='통화 요약')
+    is_order = models.BooleanField(null=True, blank=True, verbose_name='주문 통화 여부')
     parsed_data = models.JSONField(null=True, blank=True, verbose_name='파싱 결과')
     order = models.ForeignKey(
         Order, on_delete=models.SET_NULL, null=True, blank=True,
