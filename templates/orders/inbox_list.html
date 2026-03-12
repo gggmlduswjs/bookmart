@@ -609,6 +609,21 @@
         </div>
         <!-- Call detail (shown for calls) -->
         <div id="spCallSection" style="display:none"></div>
+        <!-- Reply section -->
+        <div id="spReplySection" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid #e2e8f0">
+          <div style="font-size:11px;font-weight:700;color:#64748b;margin-bottom:4px">
+            <span id="spReplyLabel">답장</span>
+            <span id="spReplyTo" style="font-weight:400;color:#94a3b8;margin-left:4px"></span>
+          </div>
+          <textarea id="spReplyBody" rows="3"
+                    style="width:100%;box-sizing:border-box;padding:6px 8px;border:1px solid #bbb;border-radius:4px;font-size:12px;font-family:inherit;resize:vertical"
+                    placeholder="답장 내용을 입력하세요..."></textarea>
+          <button type="button" id="spReplyBtn" onclick="sendReplyFromPanel()"
+                  class="btn btn-sm" style="width:100%;margin-top:4px;background:#2563eb;color:#fff;border:none;padding:6px 0;font-size:12px;border-radius:4px;cursor:pointer">
+            답장 보내기
+          </button>
+          <div id="spReplyResult" style="display:none;margin-top:4px;font-size:11px;padding:4px 8px;border-radius:4px"></div>
+        </div>
       </div>
     </div>
     <!-- Right: Order Form -->
@@ -791,6 +806,7 @@ function openSlidePanel(pk, source) {
   document.getElementById('spAttachments').style.display = 'none';
   document.getElementById('spSmsSection').style.display = 'none';
   document.getElementById('spCallSection').style.display = 'none';
+  document.getElementById('spReplySection').style.display = 'none';
   // Reset order form container
   document.getElementById('spOrderFormContainer').innerHTML = '<div style="text-align:center;padding:40px;color:#94a3b8">폼 로딩 중...</div>';
 
@@ -881,6 +897,33 @@ function _loadMessageDetail(pk, source) {
         });
       } else {
         attDiv.style.display = 'none';
+      }
+
+      // Reply section
+      var replySection = document.getElementById('spReplySection');
+      var replyLabel = document.getElementById('spReplyLabel');
+      var replyTo = document.getElementById('spReplyTo');
+      document.getElementById('spReplyBody').value = '';
+      document.getElementById('spReplyResult').style.display = 'none';
+
+      if (data.source === 'email') {
+        replySection.style.display = '';
+        replySection.dataset.type = 'email';
+        replySection.dataset.pk = pk;
+        replyLabel.textContent = '이메일 답장';
+        // Extract email from sender
+        var emailMatch = (data.sender || '').match(/[\w.\-+]+@[\w.\-]+\.\w+/);
+        replyTo.textContent = emailMatch ? emailMatch[0] : data.sender;
+        document.getElementById('spReplyBtn').textContent = '답장 보내기';
+      } else if (data.source === 'sms' && data.sms_reply_phone) {
+        replySection.style.display = '';
+        replySection.dataset.type = 'sms';
+        replySection.dataset.phone = data.sms_reply_phone;
+        replyLabel.textContent = '문자 답장';
+        replyTo.textContent = data.sms_reply_phone;
+        document.getElementById('spReplyBtn').textContent = '문자 발송';
+      } else {
+        replySection.style.display = 'none';
       }
 
       // Mark row as read
@@ -1161,6 +1204,84 @@ window._onPanelSkipped = function(data) {
   showToast('처리완료', 'success');
   _loadNextUnprocessed(data.inbox_pk, _currentPanelSource);
 };
+
+/* ── Reply from panel ── */
+function sendReplyFromPanel() {
+  var section = document.getElementById('spReplySection');
+  var body = document.getElementById('spReplyBody').value.trim();
+  var btn = document.getElementById('spReplyBtn');
+  var result = document.getElementById('spReplyResult');
+
+  if (!body) { alert('답장 내용을 입력하세요.'); return; }
+
+  var type = section.dataset.type;
+  var csrf = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+  btn.disabled = true;
+  btn.textContent = '발송 중...';
+  result.style.display = 'none';
+
+  if (type === 'email') {
+    // Email reply via existing inbox_reply endpoint
+    var pk = section.dataset.pk;
+    var fd = new FormData();
+    fd.append('csrfmiddlewaretoken', csrf);
+    fd.append('reply_body', body);
+    fetch('/inbox/' + pk + '/reply/', {
+      method: 'POST', body: fd,
+      headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    }).then(function(r) { return r.json(); })
+    .then(function(data) {
+      result.style.display = '';
+      if (data.ok) {
+        result.style.background = '#ecfdf5';
+        result.style.color = '#065f46';
+        result.textContent = data.message || '답장이 발송되었습니다.';
+        document.getElementById('spReplyBody').value = '';
+      } else {
+        result.style.background = '#fef2f2';
+        result.style.color = '#dc2626';
+        result.textContent = data.error || '답장 발송 실패';
+      }
+    }).catch(function(err) {
+      result.style.display = '';
+      result.style.background = '#fef2f2';
+      result.style.color = '#dc2626';
+      result.textContent = err.message;
+    }).finally(function() {
+      btn.disabled = false;
+      btn.textContent = '답장 보내기';
+    });
+  } else if (type === 'sms') {
+    // SMS reply via send_sms_ajax endpoint
+    var phone = section.dataset.phone;
+    var fd = new FormData();
+    fd.append('csrfmiddlewaretoken', csrf);
+    fd.append('receiver', phone);
+    fd.append('message', body);
+    fetch('/inbox/send-sms/', { method: 'POST', body: fd })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (data.ok) {
+          result.style.display = '';
+          result.style.background = '#ecfdf5';
+          result.style.color = '#065f46';
+          result.textContent = '문자가 발송되었습니다.';
+          document.getElementById('spReplyBody').value = '';
+        } else {
+          throw new Error(data.error || '문자 발송 실패');
+        }
+      }).catch(function(err) {
+        result.style.display = '';
+        result.style.background = '#fef2f2';
+        result.style.color = '#dc2626';
+        result.textContent = err.message;
+      }).finally(function() {
+        btn.disabled = false;
+        btn.textContent = '문자 발송';
+      });
+  }
+}
 
 /* ── Apply Excel attachment to order form ── */
 function applyExcelAttachment(attPk) {

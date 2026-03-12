@@ -748,9 +748,15 @@ def inbox_reply(request, pk):
         references=references,
     )
 
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+
     if ok:
+        if is_ajax:
+            return JsonResponse({'ok': True, 'message': f'{to_email}에 답장을 발송했습니다.'})
         messages.success(request, f'{to_email}에 답장을 발송했습니다.')
     else:
+        if is_ajax:
+            return JsonResponse({'ok': False, 'error': '답장 발송에 실패했습니다.'}, status=500)
         messages.error(request, '답장 발송에 실패했습니다. 로그를 확인하세요.')
 
     return redirect('inbox_process', pk=pk)
