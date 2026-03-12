@@ -7,11 +7,46 @@ import json
 import logging
 import mimetypes
 import os
+import subprocess
+import tempfile
 
 import requests
 from django.conf import settings
 
 logger = logging.getLogger(__name__)
+
+
+WHISPER_SUPPORTED = {'.flac', '.m4a', '.mp3', '.mp4', '.mpeg', '.mpga', '.oga', '.ogg', '.wav', '.webm'}
+
+
+def _convert_to_mp3(audio_file):
+    """Whisper 미지원 포맷을 ffmpeg로 mp3 변환. (파일객체, 파일명) 반환."""
+    filename = os.path.basename(audio_file.name)
+    ext = os.path.splitext(filename)[1].lower()
+
+    if ext in WHISPER_SUPPORTED:
+        return audio_file, filename
+
+    # 임시 파일에 원본 저장 후 ffmpeg 변환
+    with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as src:
+        for chunk in audio_file.chunks() if hasattr(audio_file, 'chunks') else [audio_file.read()]:
+            src.write(chunk)
+        src_path = src.name
+
+    dst_path = src_path.rsplit('.', 1)[0] + '.mp3'
+    try:
+        subprocess.run(
+            ['ffmpeg', '-y', '-i', src_path, '-vn', '-acodec', 'libmp3lame', '-q:a', '4', dst_path],
+            capture_output=True, timeout=120, check=True,
+        )
+        converted = open(dst_path, 'rb')
+        new_filename = os.path.splitext(filename)[0] + '.mp3'
+        return converted, new_filename
+    except (subprocess.CalledProcessError, FileNotFoundError) as e:
+        raise RuntimeError(f'ffmpeg 변환 실패: {e}')
+    finally:
+        if os.path.exists(src_path):
+            os.unlink(src_path)
 
 
 def transcribe_audio(audio_file):
@@ -20,14 +55,18 @@ def transcribe_audio(audio_file):
     if not api_key:
         return None, 'OPENAI_API_KEY가 설정되지 않았습니다.'
 
+    converted_file = None
     try:
+        file_obj, filename = _convert_to_mp3(audio_file)
+        converted_file = file_obj if file_obj is not audio_file else None
+
         resp = requests.post(
             'https://api.openai.com/v1/audio/transcriptions',
             headers={'Authorization': f'Bearer {api_key}'},
             files={'file': (
-                os.path.basename(audio_file.name),
-                audio_file,
-                mimetypes.guess_type(audio_file.name)[0] or 'audio/mpeg',
+                filename,
+                file_obj,
+                mimetypes.guess_type(filename)[0] or 'audio/mpeg',
             )},
             data={
                 'model': 'whisper-1',
@@ -43,9 +82,17 @@ def transcribe_audio(audio_file):
             return None, f'Whisper API 오류: {error_msg}'
     except requests.Timeout:
         return None, '음성 변환 시간 초과 (2분). 파일이 너무 길 수 있습니다.'
+    except RuntimeError as e:
+        return None, str(e)
     except Exception as e:
         logger.exception('Whisper API error')
         return None, f'음성 변환 오류: {str(e)}'
+    finally:
+        if converted_file:
+            path = converted_file.name
+            converted_file.close()
+            if os.path.exists(path):
+                os.unlink(path)
 
 
 def parse_order_from_text(transcript, book_list):
