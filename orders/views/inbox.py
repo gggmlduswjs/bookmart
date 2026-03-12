@@ -776,7 +776,10 @@ def attachment_download(request, pk):
     return resp
 
 
+from django.views.decorators.clickjacking import xframe_options_sameorigin
+
 @role_required('admin')
+@xframe_options_sameorigin
 def attachment_preview(request, pk):
     """첨부파일 미리보기 (엑셀/이미지/PDF/HWP)"""
     att = get_object_or_404(InboxAttachment, pk=pk)
