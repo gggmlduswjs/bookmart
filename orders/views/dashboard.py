@@ -17,12 +17,12 @@ def dashboard(request):
     today = timezone.localtime().date()
     now = timezone.localtime()
 
-    unprocessed_inbox = InboxMessage.objects.filter(is_processed=False).count()
+    unprocessed_inbox = InboxMessage.objects.filter(is_processed=False).exclude(subject='[발신]').count()
     today_orders = Order.objects.filter(ordered_at__date=today).count()
     pending_orders = Order.objects.filter(status='pending').count()
     shipping_orders = Order.objects.filter(status='shipping').count()
 
-    recent_inbox = InboxMessage.objects.filter(is_processed=False)[:5]
+    recent_inbox = InboxMessage.objects.filter(is_processed=False).exclude(subject='[발신]')[:5]
     pending_order_list = Order.objects.filter(status='pending').order_by('-ordered_at')[:5]
     pending_returns = Return.objects.filter(status='requested').order_by('-requested_at')[:3]
 

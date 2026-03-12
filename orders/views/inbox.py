@@ -43,9 +43,9 @@ def inbox_list(request):
             Q(content__icontains=search)
         )
     email_qs = qs.filter(source='email').order_by('-received_at')
-    sms_qs = qs.filter(source='sms').order_by('-received_at')
+    sms_qs = qs.filter(source='sms').exclude(subject='[발신]').order_by('-received_at')
     unread_email = InboxMessage.objects.filter(is_processed=False, source='email').count()
-    unread_sms = InboxMessage.objects.filter(is_processed=False, source='sms').count()
+    unread_sms = InboxMessage.objects.filter(is_processed=False, source='sms').exclude(subject='[발신]').count()
 
     # 통화 녹음 탭 데이터
     from pathlib import Path
