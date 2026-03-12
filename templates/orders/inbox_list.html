@@ -114,17 +114,19 @@
   .slide-panel.triple { width: 1600px; right: -1600px; }
   .slide-panel.triple.open { right: 0; }
   .sp-att-col {
-    display: none; overflow-y: auto; min-width: 200px; flex: 1;
+    display: none; overflow: hidden; min-width: 200px; width: 40%;
   }
   .sp-att-col.visible { display: flex; flex-direction: column; }
   .sp-split-left {
     overflow-y: auto;
-    min-width: 200px; flex: 1;
+    min-width: 200px; width: 50%; flex: 1;
   }
   .sp-split-right {
     flex: 1; overflow-y: auto;
     min-width: 200px;
   }
+  .slide-panel.triple .sp-split-left { width: 30%; flex: none; }
+  .slide-panel.triple .sp-split-right { min-width: 280px; }
   .sp-resizer {
     width: 5px; cursor: col-resize; background: #e2e8f0;
     flex-shrink: 0; position: relative; transition: background 0.15s;
@@ -616,7 +618,7 @@
         <span id="spAttPreviewTitle">첨부파일 미리보기</span>
         <button type="button" onclick="closeAttPreview()" style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:16px;padding:0 4px">&times;</button>
       </div>
-      <div id="spAttPreviewBody" style="flex:1;background:#f9fafb"></div>
+      <div id="spAttPreviewBody" style="flex:1;background:#f9fafb;min-height:0"></div>
     </div>
     <div class="sp-resizer" id="spResizerAtt" style="display:none"></div>
     <!-- Middle: Email preview -->
