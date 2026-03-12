@@ -83,14 +83,17 @@
   }
   .slide-panel-overlay.open { display: block; }
   .slide-panel {
-    position: fixed; top: 0; right: -640px; bottom: 0;
-    width: 640px; max-width: 100vw;
+    position: fixed; top: 0; right: -1200px; bottom: 0;
+    width: 1200px; max-width: 100vw;
     background: #fff; z-index: 501;
     box-shadow: -4px 0 20px rgba(0,0,0,0.15);
     transition: right 0.25s ease;
     display: flex; flex-direction: column;
   }
   .slide-panel.open { right: 0; }
+  /* Call-only mode: narrower panel */
+  .slide-panel.call-only { width: 640px; right: -640px; }
+  .slide-panel.call-only.open { right: 0; }
   .slide-panel-header {
     background: #334155; color: #fff;
     padding: 14px 20px; display: flex;
@@ -103,18 +106,23 @@
     font-size: 22px; cursor: pointer; padding: 0 4px;
   }
   .slide-panel-close:hover { color:#fff; }
-  /* Panel tabs */
-  .sp-tabs { display:flex; border-bottom:1px solid #e2e8f0; flex-shrink:0; }
-  .sp-tab {
-    padding:8px 20px; font-size:13px; font-weight:600; cursor:pointer;
-    color:#64748b; border-bottom:2px solid transparent; transition:all .15s;
-  }
-  .sp-tab:hover { color:#334155; }
-  .sp-tab.active { color:#1e40af; border-bottom-color:#1e40af; }
-  .sp-tab-content { display:none; }
-  .sp-tab-content.active { display:block; }
+  /* Split body: preview left, order right */
   .slide-panel-body {
-    flex: 1; overflow-y: auto; padding: 0;
+    flex: 1; overflow: hidden; padding: 0;
+    display: flex;
+  }
+  .sp-split-left {
+    flex: 1; overflow-y: auto; border-right: 1px solid #e2e8f0;
+    min-width: 0;
+  }
+  .sp-split-right {
+    flex: 1; overflow-y: auto;
+    min-width: 0;
+  }
+  .sp-split-label {
+    font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;
+    letter-spacing: 0.5px; padding: 10px 20px 6px; border-bottom: 1px solid #f1f5f9;
+    background: #f8fafc; flex-shrink: 0;
   }
   .sp-preview-body { padding: 16px 20px; }
   .sp-order-body { padding: 0; }
@@ -127,7 +135,7 @@
   .sp-content {
     background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px;
     padding: 12px; font-size: 12px; line-height: 1.7;
-    max-height: 300px; overflow-y: auto;
+    overflow-y: auto;
     white-space: pre-wrap; word-break: break-all;
   }
   .sp-attachments { margin-top: 12px; }
@@ -137,7 +145,7 @@
   }
   /* SMS chat in panel */
   .sp-chat-thread {
-    background:#b2c7d9; padding:10px 12px; max-height:300px; overflow-y:auto;
+    background:#b2c7d9; padding:10px 12px; overflow-y:auto;
     display:flex; flex-direction:column; gap:3px; border-radius:6px;
   }
   .sp-chat-row { display:flex; align-items:flex-end; gap:4px; }
@@ -158,8 +166,14 @@
   .sp-call-info .field { margin-bottom:8px; }
   .sp-call-info .field-label { font-size:10px; color:#94a3b8; text-transform:uppercase; font-weight:600; margin-bottom:2px; }
   .sp-call-info .field-value { font-size:13px; color:#0f172a; }
-  @media (max-width: 768px) {
+  @media (max-width: 1280px) {
     .slide-panel { width: 100vw; right: -100vw; }
+    .slide-panel.call-only { width: 100vw; right: -100vw; }
+  }
+  @media (max-width: 768px) {
+    .slide-panel-body { flex-direction: column; }
+    .sp-split-left { border-right: none; border-bottom: 1px solid #e2e8f0; max-height: 40vh; }
+    .sp-split-right { flex: 1; }
   }
 </style>
 {% endblock %}
@@ -574,14 +588,10 @@
       <button class="slide-panel-close" onclick="closeSlidePanel()" title="닫기 (Esc)" style="margin-left:8px">&times;</button>
     </div>
   </div>
-  <!-- Panel tabs -->
-  <div class="sp-tabs" id="spTabs">
-    <div class="sp-tab active" data-tab="preview" onclick="switchSpTab('preview')">미리보기</div>
-    <div class="sp-tab" data-tab="order" onclick="switchSpTab('order')">주문 등록</div>
-  </div>
   <div class="slide-panel-body" id="spBody">
-    <!-- Preview tab -->
-    <div class="sp-tab-content active" id="spPreviewTab">
+    <!-- Left: Preview -->
+    <div class="sp-split-left">
+      <div class="sp-split-label">미리보기</div>
       <div class="sp-preview-body">
         <div class="sp-meta">
           <div><strong>발신:</strong> <span id="spSender"></span></div>
@@ -601,10 +611,11 @@
         <div id="spCallSection" style="display:none"></div>
       </div>
     </div>
-    <!-- Order form tab -->
-    <div class="sp-tab-content" id="spOrderTab">
+    <!-- Right: Order Form -->
+    <div class="sp-split-right" id="spOrderSide">
+      <div class="sp-split-label">주문 등록</div>
       <div class="sp-order-body" id="spOrderFormContainer" style="padding:16px 20px">
-        <div style="text-align:center;padding:40px;color:#94a3b8">주문 등록 탭을 클릭하면 폼을 로드합니다.</div>
+        <div style="text-align:center;padding:40px;color:#94a3b8">폼 로딩 중...</div>
       </div>
     </div>
   </div>
@@ -708,48 +719,42 @@ function _collectPks(source) {
   return pks;
 }
 
-function switchSpTab(tab) {
-  document.querySelectorAll('.sp-tab').forEach(function(t) { t.classList.toggle('active', t.dataset.tab === tab); });
-  document.querySelectorAll('.sp-tab-content').forEach(function(c) { c.classList.toggle('active', c.id === 'sp' + tab.charAt(0).toUpperCase() + tab.slice(1) + 'Tab'); });
-  // Footer visibility
-  document.getElementById('spFooter').style.display = tab === 'order' ? 'none' : '';
-  // Load order form on first switch
-  if (tab === 'order' && !_orderFormLoaded && _currentPanelPk) {
-    _orderFormLoaded = true;
-    var container = document.getElementById('spOrderFormContainer');
-    container.innerHTML = '<div style="text-align:center;padding:40px;color:#94a3b8">폼 로딩 중...</div>';
-    fetch('/inbox/' + _currentPanelPk + '/form/')
-      .then(function(r) { return r.text(); })
-      .then(function(html) {
-        // Parse HTML and execute scripts manually (innerHTML doesn't execute scripts)
-        var temp = document.createElement('div');
-        temp.innerHTML = html;
-        container.innerHTML = '';
-        // Move non-script nodes
-        var scripts = [];
-        Array.from(temp.childNodes).forEach(function(node) {
-          if (node.nodeName === 'SCRIPT') {
-            scripts.push(node);
-          } else {
-            container.appendChild(node);
-          }
-        });
-        // Execute scripts in order
-        scripts.forEach(function(oldScript) {
-          var newScript = document.createElement('script');
-          if (oldScript.src) { newScript.src = oldScript.src; }
-          else { newScript.textContent = oldScript.textContent; }
-          document.body.appendChild(newScript);
-        });
-        // Init Alpine on new content after scripts have run
-        setTimeout(function() {
-          if (window.Alpine) { Alpine.initTree(container); }
-        }, 50);
-      })
-      .catch(function(err) {
-        container.innerHTML = '<div style="text-align:center;padding:40px;color:#dc2626">폼 로드 실패: ' + err.message + '</div>';
+function _loadOrderForm() {
+  if (_orderFormLoaded || !_currentPanelPk) return;
+  _orderFormLoaded = true;
+  var container = document.getElementById('spOrderFormContainer');
+  container.innerHTML = '<div style="text-align:center;padding:40px;color:#94a3b8">폼 로딩 중...</div>';
+  fetch('/inbox/' + _currentPanelPk + '/form/')
+    .then(function(r) { return r.text(); })
+    .then(function(html) {
+      // Parse HTML and execute scripts manually (innerHTML doesn't execute scripts)
+      var temp = document.createElement('div');
+      temp.innerHTML = html;
+      container.innerHTML = '';
+      // Move non-script nodes
+      var scripts = [];
+      Array.from(temp.childNodes).forEach(function(node) {
+        if (node.nodeName === 'SCRIPT') {
+          scripts.push(node);
+        } else {
+          container.appendChild(node);
+        }
       });
-  }
+      // Execute scripts in order
+      scripts.forEach(function(oldScript) {
+        var newScript = document.createElement('script');
+        if (oldScript.src) { newScript.src = oldScript.src; }
+        else { newScript.textContent = oldScript.textContent; }
+        document.body.appendChild(newScript);
+      });
+      // Init Alpine on new content after scripts have run
+      setTimeout(function() {
+        if (window.Alpine) { Alpine.initTree(container); }
+      }, 50);
+    })
+    .catch(function(err) {
+      container.innerHTML = '<div style="text-align:center;padding:40px;color:#dc2626">폼 로드 실패: ' + err.message + '</div>';
+    });
 }
 
 function openSlidePanel(pk, source) {
@@ -759,15 +764,15 @@ function openSlidePanel(pk, source) {
   _currentPanelIdx = _panelPks.indexOf(pk);
   _orderFormLoaded = false;
 
-  // Reset tab to preview
-  switchSpTab('preview');
-
-  // Show/hide order tab based on source
-  var orderTab = document.querySelector('.sp-tab[data-tab="order"]');
+  var panel = document.getElementById('slidePanel');
+  var orderSide = document.getElementById('spOrderSide');
+  // Show/hide order side & adjust panel width based on source
   if (source === 'call') {
-    orderTab.style.display = 'none';
+    orderSide.style.display = 'none';
+    panel.classList.add('call-only');
   } else {
-    orderTab.style.display = '';
+    orderSide.style.display = '';
+    panel.classList.remove('call-only');
   }
 
   // Counter
@@ -786,6 +791,8 @@ function openSlidePanel(pk, source) {
   document.getElementById('spAttachments').style.display = 'none';
   document.getElementById('spSmsSection').style.display = 'none';
   document.getElementById('spCallSection').style.display = 'none';
+  // Reset order form container
+  document.getElementById('spOrderFormContainer').innerHTML = '<div style="text-align:center;padding:40px;color:#94a3b8">폼 로딩 중...</div>';
 
   document.getElementById('slidePanelOverlay').classList.add('open');
   document.getElementById('slidePanel').classList.add('open');
@@ -795,6 +802,8 @@ function openSlidePanel(pk, source) {
     _loadCallDetail(pk);
   } else {
     _loadMessageDetail(pk, source);
+    // Auto-load order form on the right side
+    _loadOrderForm();
   }
 }
 
@@ -829,16 +838,16 @@ function _loadMessageDetail(pk, source) {
       if (data.is_processed) {
         skipBtn.style.display = 'none';
         if (data.order_pk) {
+          processLink.style.display = '';
           processLink.textContent = '주문 보기 \u2192 ' + data.order_no;
           processLink.href = '/orders/' + data.order_pk + '/';
         } else {
-          processLink.textContent = '전체 처리 \u2192';
-          processLink.href = '/inbox/' + pk + '/';
+          processLink.style.display = 'none';
         }
       } else {
         skipBtn.style.display = '';
-        processLink.textContent = '주문 처리 \u2192';
-        processLink.href = '/inbox/' + pk + '/';
+        // Order form is visible on the right side, no need for process link
+        processLink.style.display = 'none';
       }
 
       // Attachments
