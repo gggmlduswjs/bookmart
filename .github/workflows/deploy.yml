@@ -16,7 +16,9 @@ jobs:
           password: ${{ secrets.SERVER_PASSWORD }}
           script: |
             # ffmpeg 설치 (음성 포맷 변환용)
-            which ffmpeg || sudo apt-get install -y ffmpeg
+            if ! command -v ffmpeg &>/dev/null; then
+              sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+            fi
             cd /home/bookmart/bookmart
             git fetch origin main
             git reset --hard origin/main

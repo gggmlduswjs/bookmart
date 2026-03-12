@@ -23,27 +23,48 @@ def _convert_to_mp3(audio_file):
     """Whisper 미지원 포맷을 ffmpeg로 mp3 변환. (파일객체, 파일명) 반환."""
     filename = os.path.basename(audio_file.name)
     ext = os.path.splitext(filename)[1].lower()
+    logger.info(f'[convert] 파일: {filename}, 확장자: "{ext}"')
 
     if ext in WHISPER_SUPPORTED:
         return audio_file, filename
 
+    logger.info(f'[convert] ffmpeg 변환 시작: {ext} → mp3')
+
+    # 확장자가 없는 경우 .3gp로 간주
+    if not ext:
+        ext = '.3gp'
+
     # 임시 파일에 원본 저장 후 ffmpeg 변환
     with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as src:
-        for chunk in audio_file.chunks() if hasattr(audio_file, 'chunks') else [audio_file.read()]:
-            src.write(chunk)
+        if hasattr(audio_file, 'chunks'):
+            for chunk in audio_file.chunks():
+                src.write(chunk)
+        else:
+            src.write(audio_file.read())
         src_path = src.name
 
     dst_path = src_path.rsplit('.', 1)[0] + '.mp3'
     try:
-        subprocess.run(
+        result = subprocess.run(
             ['ffmpeg', '-y', '-i', src_path, '-vn', '-acodec', 'libmp3lame', '-q:a', '4', dst_path],
-            capture_output=True, timeout=120, check=True,
+            capture_output=True, timeout=120,
         )
+        if result.returncode != 0:
+            stderr = result.stderr.decode('utf-8', errors='replace')[:500]
+            logger.error(f'[convert] ffmpeg 실패: {stderr}')
+            raise RuntimeError(f'ffmpeg 변환 실패 (code {result.returncode}): {stderr}')
+
+        if not os.path.exists(dst_path) or os.path.getsize(dst_path) == 0:
+            raise RuntimeError('ffmpeg 변환 결과 파일이 비어 있습니다.')
+
+        logger.info(f'[convert] 변환 성공: {os.path.getsize(dst_path)} bytes')
         converted = open(dst_path, 'rb')
         new_filename = os.path.splitext(filename)[0] + '.mp3'
         return converted, new_filename
-    except (subprocess.CalledProcessError, FileNotFoundError) as e:
-        raise RuntimeError(f'ffmpeg 변환 실패: {e}')
+    except RuntimeError:
+        raise
+    except FileNotFoundError:
+        raise RuntimeError('ffmpeg가 설치되지 않았습니다. sudo apt-get install -y ffmpeg')
     finally:
         if os.path.exists(src_path):
             os.unlink(src_path)
