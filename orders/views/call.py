@@ -298,9 +298,10 @@ def call_inbox(request):
 
 @role_required('admin')
 def call_recording_process(request, pk):
-    """개별 녹음 처리 - 파싱 결과 확인 후 주문 생성"""
+    """개별 녹음 상세보기 + 주문 생성 (inbox_process와 유사한 분할 화면)"""
     rec = get_object_or_404(CallRecording, pk=pk)
 
+    # pending 상태면 파싱 실행
     if rec.status == CallRecording.Status.PENDING:
         from orders.call_order import transcribe_audio, summarize_transcript, parse_order_from_text
 
@@ -316,54 +317,195 @@ def call_recording_process(request, pk):
                 rec.error_msg = err[:300]
                 rec.save(update_fields=['status', 'error_msg'])
                 messages.error(request, f'음성 변환 실패: {err}')
-                return redirect('/inbox/?tab=call')
-            rec.transcript = transcript
-            rec.save(update_fields=['transcript'])
+                # 실패해도 상세보기는 보여줌
+            else:
+                rec.transcript = transcript
+                rec.save(update_fields=['transcript'])
 
-        # 요약 + 주문 여부 판별
-        if not rec.summary:
+        if rec.transcript and not rec.summary:
             summary, is_order, err = summarize_transcript(rec.transcript)
             if not err:
                 rec.summary = (summary or '')[:300]
                 rec.is_order = is_order
                 rec.save(update_fields=['summary', 'is_order'])
 
-        # 주문 통화가 아니면 건너뛰기
-        if rec.is_order is False:
+        if rec.transcript and not rec.parsed_data and rec.is_order is not False:
+            books = Book.objects.filter(is_active=True).select_related('publisher')
+            book_list = [{
+                'id': b.id, 'series': b.series or '기타', 'name': b.name,
+                'publisher': b.publisher.name,
+                'unit_price': math.floor(b.list_price * float(b.publisher.supply_rate) / 100),
+            } for b in books]
+
+            parsed, err = parse_order_from_text(rec.transcript, book_list)
+            if err:
+                rec.status = CallRecording.Status.FAILED
+                rec.error_msg = err[:300]
+                rec.save(update_fields=['status', 'error_msg'])
+            else:
+                rec.parsed_data = parsed
+                rec.status = CallRecording.Status.PARSED
+                rec.save(update_fields=['parsed_data', 'status'])
+
+    # POST: 주문 생성
+    if request.method == 'POST':
+        if 'skip' in request.POST:
             rec.status = CallRecording.Status.SKIPPED
             rec.save(update_fields=['status'])
-            messages.info(request, f'주문 통화가 아닙니다: {rec.summary}')
+            messages.success(request, '건너뛰었습니다.')
             return redirect('/inbox/?tab=call')
 
-        books = Book.objects.filter(is_active=True).select_related('publisher')
-        book_list = [{
-            'id': b.id, 'series': b.series or '기타', 'name': b.name,
-            'publisher': b.publisher.name,
-            'unit_price': math.floor(b.list_price * float(b.publisher.supply_rate) / 100),
-        } for b in books]
+        agency_id = request.POST.get('agency_id', '').strip()
+        teacher_id = request.POST.get('teacher_id', '').strip()
+        new_teacher_name = request.POST.get('new_teacher_name', '').strip()
+        new_teacher_phone = request.POST.get('new_teacher_phone', '').strip()
+        delivery_school = request.POST.get('delivery_school', '').strip()
+        delivery_address_val = request.POST.get('delivery_address', '').strip()
+        delivery_phone = request.POST.get('delivery_phone', '').strip()
 
-        parsed, err = parse_order_from_text(rec.transcript, book_list)
-        if err:
-            rec.status = CallRecording.Status.FAILED
-            rec.error_msg = err[:300]
-            rec.save(update_fields=['status', 'error_msg'])
-            messages.error(request, f'주문 파싱 실패: {err}')
-            return redirect('/inbox/?tab=call')
+        try:
+            agency = User.objects.get(pk=agency_id, role='agency', is_active=True)
+        except (User.DoesNotExist, ValueError):
+            messages.error(request, '업체를 선택해 주세요.')
+            return redirect('call_recording_process', pk=pk)
 
-        rec.parsed_data = parsed
-        rec.status = CallRecording.Status.PARSED
-        rec.save(update_fields=['parsed_data', 'status'])
+        if teacher_id:
+            try:
+                teacher = User.objects.select_related('delivery_address').get(
+                    pk=teacher_id, role='teacher', is_active=True
+                )
+            except (User.DoesNotExist, ValueError):
+                messages.error(request, '선생님을 선택해 주세요.')
+                return redirect('call_recording_process', pk=pk)
+        elif new_teacher_name:
+            login_id = f'a_{new_teacher_phone or "nophone"}_{agency.pk}'
+            if User.objects.filter(login_id=login_id).exists():
+                teacher = User.objects.get(login_id=login_id)
+            else:
+                teacher = User(
+                    login_id=login_id, role='teacher',
+                    name=new_teacher_name, phone=new_teacher_phone,
+                    agency=agency, must_change_password=False,
+                )
+                teacher.set_unusable_password()
+                teacher.save()
+        else:
+            messages.error(request, '선생님을 선택하거나 새로 입력해 주세요.')
+            return redirect('call_recording_process', pk=pk)
 
-    if rec.status not in (CallRecording.Status.PARSED, CallRecording.Status.ORDERED):
-        messages.error(request, f'이 녹음은 처리할 수 없는 상태입니다: {rec.get_status_display()}')
-        return redirect('call_inbox')
+        if delivery_school:
+            delivery, created = DeliveryAddress.objects.get_or_create(
+                agency=agency, name=delivery_school,
+                defaults={'address': delivery_address_val, 'phone': delivery_phone},
+            )
+            if not created and delivery_address_val:
+                delivery.address = delivery_address_val
+                delivery.phone = delivery_phone
+                delivery.save(update_fields=['address', 'phone'])
+            teacher.delivery_address = delivery
+            teacher.save(update_fields=['delivery_address'])
+        elif not teacher.delivery_address:
+            messages.error(request, '배송지를 입력해 주세요.')
+            return redirect('call_recording_process', pk=pk)
 
-    request.session['call_order_data'] = {
-        'transcript': rec.transcript,
-        'parsed': rec.parsed_data,
-        'recording_id': rec.pk,
-    }
-    return redirect('call_order_confirm')
+        items = []
+        i = 0
+        while f'book_{i}' in request.POST or f'custom_name_{i}' in request.POST:
+            book_id = request.POST.get(f'book_{i}', '').strip()
+            custom_name = request.POST.get(f'custom_name_{i}', '').strip()
+            custom_price = request.POST.get(f'custom_price_{i}', '').strip()
+            qty_str = request.POST.get(f'qty_{i}', '').strip()
+            if book_id and qty_str:
+                try:
+                    qty = int(qty_str)
+                    if qty > 0:
+                        items.append({'book_id': int(book_id), 'qty': qty})
+                except (ValueError, TypeError):
+                    pass
+            elif custom_name and qty_str:
+                try:
+                    qty = int(qty_str)
+                    price = int(custom_price) if custom_price else 0
+                    if qty > 0:
+                        items.append({'custom_name': custom_name, 'custom_price': price, 'qty': qty})
+                except (ValueError, TypeError):
+                    pass
+            i += 1
+
+        if not items:
+            messages.error(request, '주문할 교재를 1권 이상 선택하세요.')
+            return redirect('call_recording_process', pk=pk)
+
+        order = Order.objects.create(
+            order_no=Order.generate_order_no(),
+            agency=agency,
+            teacher=teacher,
+            delivery=teacher.delivery_address,
+            memo=(request.POST.get('memo', '') + '\n[통화녹음 주문]').strip(),
+            source=Order.Source.CALL,
+        )
+        for item in items:
+            if 'book_id' in item:
+                try:
+                    book = Book.objects.get(id=item['book_id'], is_active=True)
+                    OrderItem(order=order, book=book, quantity=item['qty']).save()
+                except Book.DoesNotExist:
+                    pass
+            else:
+                OrderItem(order=order, custom_book_name=item['custom_name'],
+                          unit_price=item['custom_price'], quantity=item['qty']).save()
+
+        OrderStatusLog.objects.create(
+            order=order, old_status='', new_status='pending',
+            changed_by=request.user, memo='통화녹음에서 주문 생성',
+        )
+        _audit(request, AuditLog.Action.ORDER_CREATE, order, f'[통화녹음] 주문 {order.order_no} 생성')
+
+        rec.order = order
+        rec.status = CallRecording.Status.ORDERED
+        rec.save(update_fields=['order', 'status'])
+
+        messages.success(request, f'통화 주문 등록 완료! 주문번호: {order.order_no}')
+        return redirect('order_detail', pk=order.pk)
+
+    # GET: 상세보기 렌더링
+    agencies = User.objects.filter(role='agency', is_active=True).order_by('name')
+    agencies_json = json.dumps([{'id': a.pk, 'name': a.name} for a in agencies], ensure_ascii=False)
+
+    teachers = (
+        User.objects.filter(role='teacher', is_active=True)
+        .select_related('agency', 'delivery_address')
+        .order_by('agency__name', 'name')
+    )
+    teachers_json = json.dumps([{
+        'id': t.pk, 'name': t.name, 'phone': t.phone or '',
+        'agency_id': t.agency_id,
+        'delivery_id': t.delivery_address_id,
+        'delivery_name': t.delivery_address.name if t.delivery_address else '',
+        'delivery_address': t.delivery_address.address if t.delivery_address else '',
+        'delivery_phone': t.delivery_address.phone if t.delivery_address else '',
+        'has_delivery': bool(t.delivery_address),
+    } for t in teachers], ensure_ascii=False)
+
+    books = Book.objects.filter(is_active=True).select_related('publisher')
+    series_list = sorted(set(b.series for b in books if b.series))
+    books_json = json.dumps([{
+        'id': b.id, 'series': b.series or '기타', 'name': b.name,
+        'publisher': b.publisher.name,
+        'unit_price': math.floor(b.list_price * float(b.publisher.supply_rate) / 100),
+    } for b in books], ensure_ascii=False)
+
+    parsed = rec.parsed_data or {}
+    parsed_json = json.dumps(parsed, ensure_ascii=False) if parsed else 'null'
+
+    return render(request, 'orders/call_recording_detail.html', {
+        'rec': rec,
+        'agencies_json': agencies_json,
+        'teachers_json': teachers_json,
+        'series_list': series_list,
+        'books_json': books_json,
+        'parsed_json': parsed_json,
+    })
 
 
 @role_required('admin')

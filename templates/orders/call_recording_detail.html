@@ -1,0 +1,394 @@
+{% extends 'base.html' %}
+{% block title %}통화 녹음 상세 — 수신함{% endblock %}
+
+{% block extra_css %}
+<style>
+  .inbox-split { display: flex; gap: 14px; align-items: flex-start; }
+  .inbox-msg-box {
+    width: 340px; flex-shrink: 0;
+    background: #fff; border: 1px solid #ccc;
+    display: flex; flex-direction: column;
+    max-height: calc(100vh - 100px);
+  }
+  @media (max-width: 900px) {
+    .inbox-split { flex-direction: column; }
+    .inbox-msg-box { width: 100%; max-height: none; }
+  }
+  .inbox-msg-header {
+    background: #555; color: #fff;
+    padding: 8px 12px; font-size: 12px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .inbox-msg-meta { padding: 8px 12px; border-bottom: 1px solid #eee; font-size: 11px; color: #666; }
+  .inbox-msg-meta strong { color: #333; }
+  .inbox-msg-body {
+    padding: 10px 12px; font-size: 12px; line-height: 1.7;
+    overflow-y: auto; flex: 1; white-space: pre-wrap; word-break: break-all;
+  }
+  .call-summary-box {
+    padding: 10px 12px; border-bottom: 1px solid #eee;
+    font-size: 12px; line-height: 1.5;
+  }
+  .call-summary-box .label { font-size: 10px; font-weight: 700; color: #64748b; margin-bottom: 2px; }
+  .order-row-wrap select, .order-row-wrap input[type=number] {
+    padding: 3px 5px; border: 1px solid #bbb;
+    font-size: 12px; font-family: inherit; height: 26px;
+  }
+  .order-row-wrap select { width: 100%; }
+  .order-row-wrap input[type=number] { width: 60px; text-align: center; }
+  .ac-wrap { position: relative; display: inline-block; }
+  .ac-wrap input[type=text] { width: 200px; padding: 4px 8px; border: 1px solid #bbb; font-size: 12px; font-family: inherit; }
+  .ac-list {
+    position: absolute; top: 100%; left: 0; right: 0; z-index: 100;
+    background: #fff; border: 1px solid #ccc; border-top: none;
+    max-height: 200px; overflow-y: auto; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  }
+  .ac-list div { padding: 6px 10px; font-size: 12px; cursor: pointer; }
+  .ac-list div:hover, .ac-list div.active { background: #e8f0fe; }
+  .ac-list div .sub { color: #888; font-size: 11px; }
+  .new-fields { margin-top: 8px; padding: 8px; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 6px; }
+  .new-fields .form-row { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+  .new-fields label { font-size: 11px; color: #666; width: 55px; flex-shrink: 0; }
+  .new-fields input { flex: 1; padding: 3px 6px; border: 1px solid #bbb; font-size: 12px; }
+  .status-badge { display:inline-block; padding:2px 8px; font-size:10px; border-radius:10px; font-weight:600; }
+  .status-badge.pending { background:#fef3c7; color:#92400e; }
+  .status-badge.parsed { background:#d1fae5; color:#065f46; }
+  .status-badge.ordered { background:#dbeafe; color:#1e40af; }
+  .status-badge.failed { background:#fee2e2; color:#991b1b; }
+  .status-badge.skipped { background:#f1f5f9; color:#64748b; }
+  .status-badge.processing { background:#fef3c7; color:#92400e; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-title">
+  통화 녹음 상세
+  <a href="/inbox/?tab=call" class="btn btn-gray btn-sm">&larr; 수신함</a>
+</div>
+
+<div class="inbox-split">
+
+  <!-- 왼쪽: 녹음 정보 -->
+  <div class="inbox-msg-box">
+    <div class="inbox-msg-header">
+      <span class="badge badge-green">통화</span>
+      <span class="status-badge {{ rec.status }}">{{ rec.get_status_display }}</span>
+      {% if rec.recorded_at %}{{ rec.recorded_at|date:"m/d H:i" }}{% else %}{{ rec.created_at|date:"m/d H:i" }}{% endif %}
+    </div>
+    <div class="inbox-msg-meta">
+      {% if rec.caller_phone %}<div><strong>발신번호:</strong> {{ rec.caller_phone }}</div>{% endif %}
+      <div><strong>파일:</strong> {{ rec.file_name|default:"(없음)" }}</div>
+      {% if rec.duration_sec %}<div><strong>통화시간:</strong> {{ rec.duration_sec }}초</div>{% endif %}
+      {% if rec.source %}<div><strong>수신경로:</strong> {{ rec.source }}</div>{% endif %}
+    </div>
+
+    {% if rec.audio_file %}
+    <div style="padding:8px 12px;border-bottom:1px solid #eee">
+      <audio controls style="width:100%;height:32px" preload="metadata">
+        <source src="{{ rec.audio_file.url }}">
+      </audio>
+    </div>
+    {% endif %}
+
+    {% if rec.summary %}
+    <div class="call-summary-box" style="background:#f0fdf4">
+      <div class="label">AI 요약</div>
+      <div>{{ rec.summary }}</div>
+      {% if rec.is_order is not None %}
+      <div style="margin-top:4px;font-size:11px">
+        {% if rec.is_order %}<span style="color:#2563eb;font-weight:bold">주문 통화</span>
+        {% else %}<span style="color:#64748b">일반 통화</span>{% endif %}
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    {% if rec.error_msg %}
+    <div class="call-summary-box" style="background:#fef2f2">
+      <div class="label" style="color:#991b1b">오류</div>
+      <div style="color:#991b1b">{{ rec.error_msg }}</div>
+    </div>
+    {% endif %}
+
+    {% if rec.transcript %}
+    <div class="inbox-msg-body">{{ rec.transcript }}</div>
+    {% else %}
+    <div class="inbox-msg-body" style="color:#999;text-align:center;padding:30px">통화 텍스트가 없습니다.</div>
+    {% endif %}
+
+    {% if rec.order %}
+    <div style="padding:8px 12px;border-top:1px solid #eee;background:#eff6ff">
+      <div style="font-size:11px;font-weight:bold;color:#1e40af;margin-bottom:4px">연결된 주문</div>
+      <a href="{% url 'order_detail' rec.order.pk %}" class="btn btn-blue btn-sm">{{ rec.order.order_no }} 주문 보기</a>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- 오른쪽: 주문 입력 폼 -->
+  <div style="flex:1">
+    {% if rec.status == 'ordered' %}
+    <div style="padding:14px;background:#dbeafe;border:1px solid #93c5fd;border-radius:6px;text-align:center">
+      <div style="font-size:14px;font-weight:bold;color:#1e40af">주문이 이미 생성되었습니다</div>
+      <a href="{% url 'order_detail' rec.order.pk %}" class="btn btn-blue" style="margin-top:8px">주문 {{ rec.order.order_no }} 보기</a>
+    </div>
+    {% elif rec.status == 'failed' %}
+    <div style="padding:14px;background:#fef2f2;border:1px solid #fecaca;border-radius:6px;text-align:center">
+      <div style="font-size:14px;font-weight:bold;color:#991b1b">파싱 실패</div>
+      <p style="font-size:12px;color:#666;margin:8px 0">{{ rec.error_msg }}</p>
+      <a href="{% url 'call_recording_retry' rec.pk %}" class="btn btn-blue">재시도</a>
+    </div>
+    {% else %}
+    <form method="post" x-data="callRecordingForm()">
+      {% csrf_token %}
+      <input type="hidden" name="agency_id" :value="agencyId">
+      <input type="hidden" name="teacher_id" :value="teacherId">
+      <input type="hidden" name="new_teacher_name" :value="newTeacherName">
+      <input type="hidden" name="new_teacher_phone" :value="newTeacherPhone">
+      <input type="hidden" name="delivery_school" :value="deliverySchool">
+      <input type="hidden" name="delivery_address" :value="deliveryAddr">
+      <input type="hidden" name="delivery_phone" :value="deliveryPhone">
+
+      <div class="content-box" style="padding:12px 14px;margin-bottom:10px">
+        <table class="form-table">
+          <tr>
+            <th>업체</th>
+            <td>
+              <select x-model="agencyId" @change="onAgencyChange" style="width:200px;padding:4px 6px;border:1px solid #bbb;font-size:12px">
+                <option value="">-- 업체 선택 --</option>
+                <template x-for="a in ALL_AGENCIES" :key="a.id">
+                  <option :value="a.id" x-text="a.name"></option>
+                </template>
+              </select>
+            </td>
+          </tr>
+          <tr>
+            <th>선생님</th>
+            <td>
+              <div class="ac-wrap">
+                <input type="text" x-model="teacherQuery" @input="filterTeachers" @focus="showTeacherList=true"
+                       placeholder="선생님 이름 입력..." :disabled="!agencyId" autocomplete="off">
+                <div class="ac-list" x-show="showTeacherList && filteredTeacherList.length" @click.outside="showTeacherList=false">
+                  <template x-for="(t, i) in filteredTeacherList" :key="t.id">
+                    <div @click="selectTeacher(t)" :class="{'active': i === acIdx}">
+                      <span x-text="t.name"></span>
+                      <span class="sub" x-text="t.delivery_name ? ' — ' + t.delivery_name : ''"></span>
+                    </div>
+                  </template>
+                </div>
+              </div>
+              <template x-if="agencyId && !teacherId && teacherQuery.length >= 1">
+                <span style="font-size:11px;color:#2563eb;margin-left:6px;cursor:pointer" @click="isNewTeacher=true">+ 신규 등록</span>
+              </template>
+            </td>
+          </tr>
+        </table>
+
+        <div class="new-fields" x-show="isNewTeacher">
+          <div style="font-size:11px;font-weight:bold;color:#334155;margin-bottom:6px">신규 선생님</div>
+          <div class="form-row"><label>이름 *</label><input type="text" x-model="newTeacherName" placeholder="홍길동"></div>
+          <div class="form-row"><label>전화번호</label><input type="tel" x-model="newTeacherPhone" placeholder="010-1234-5678"></div>
+        </div>
+
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid #eee">
+          <table class="form-table">
+            <tr>
+              <th>학교명</th>
+              <td><input type="text" x-model="deliverySchool" style="width:200px;padding:4px 8px;border:1px solid #bbb;font-size:12px" placeholder="OO초등학교"></td>
+            </tr>
+            <tr>
+              <th>주소</th>
+              <td><input type="text" x-model="deliveryAddr" style="width:280px;padding:4px 8px;border:1px solid #bbb;font-size:12px" placeholder="주소"></td>
+            </tr>
+            <tr>
+              <th>전화</th>
+              <td><input type="tel" x-model="deliveryPhone" style="width:140px;padding:4px 8px;border:1px solid #bbb;font-size:12px" placeholder="010-1234-5678"></td>
+            </tr>
+          </table>
+        </div>
+      </div>
+
+      <!-- 교재 선택 -->
+      <div class="order-row-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th style="width:28%">시리즈</th>
+              <th style="width:34%">교재</th>
+              <th class="right" style="width:80px">단가</th>
+              <th class="center" style="width:65px">수량</th>
+              <th class="right" style="width:80px">금액</th>
+              <th style="width:28px"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-for="(row, index) in rows" :key="index">
+              <tr :style="row._lowConf ? 'background:#fefce8;border-left:3px solid #eab308' : row.is_custom ? 'background:#fff8f0' : ''">
+                <template x-if="!row.is_custom">
+                  <td>
+                    <select x-model="row.series" @change="row.book_id='';row.unit_price=0">
+                      <option value="">전체</option>
+                      {% for s in series_list %}
+                      <option value="{{ s }}">{{ s }}</option>
+                      {% endfor %}
+                      <option value="기타">기타</option>
+                    </select>
+                  </td>
+                </template>
+                <template x-if="row.is_custom">
+                  <td><span style="font-size:11px;color:#e8720c;font-weight:bold">직접입력</span></td>
+                </template>
+                <template x-if="!row.is_custom">
+                  <td>
+                    <select x-model="row.book_id" @change="updatePrice(row)">
+                      <option value="">교재</option>
+                      <template x-for="b in getBooks(row.series)" :key="b.id">
+                        <option :value="b.id" x-text="b.name"></option>
+                      </template>
+                    </select>
+                    <input type="hidden" :name="'book_' + index" :value="row.book_id">
+                  </td>
+                </template>
+                <template x-if="row.is_custom">
+                  <td>
+                    <input type="text" :name="'custom_name_' + index" x-model="row.custom_name"
+                           style="width:100%;padding:3px 5px;border:1px solid #bbb;font-size:12px" placeholder="교재명">
+                  </td>
+                </template>
+                <td class="right">
+                  <template x-if="!row.is_custom">
+                    <span x-text="row.unit_price ? row.unit_price.toLocaleString()+'원' : '-'" style="color:#666;font-size:11px"></span>
+                  </template>
+                  <template x-if="row.is_custom">
+                    <input type="number" :name="'custom_price_' + index" x-model.number="row.unit_price"
+                           style="width:60px;padding:3px 5px;border:1px solid #bbb;font-size:11px;text-align:right" placeholder="단가">
+                  </template>
+                </td>
+                <td class="center">
+                  <input type="number" :name="'qty_' + index" x-model.number="row.qty" min="1" max="9999">
+                </td>
+                <td class="right" style="font-weight:bold;font-size:11px">
+                  <span x-text="rowAmount(row) ? rowAmount(row).toLocaleString()+'원' : '-'"></span>
+                </td>
+                <td class="center">
+                  <button type="button" class="btn btn-sm btn-red" @click="rows.splice(index,1)"
+                          x-show="rows.length>1" style="padding:1px 5px">&times;</button>
+                </td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="order-total-bar">
+        <button type="button" class="btn btn-outline btn-sm" @click="addRow" style="float:left">+ 행 추가</button>
+        <button type="button" class="btn btn-outline btn-sm" @click="addCustomRow" style="float:left;margin-left:4px;color:#e8720c;border-color:#e8720c">+ 직접입력</button>
+        합계: <span x-text="total().toLocaleString()" style="font-size:15px;color:#e8720c"></span>원
+      </div>
+
+      <div style="margin-top:8px;display:flex;align-items:center;gap:8px">
+        <label style="white-space:nowrap;background:#777;color:#fff;padding:3px 8px;font-size:12px">메모</label>
+        <input type="text" name="memo" style="flex:1;padding:4px 8px;border:1px solid #bbb;font-size:12px" placeholder="특이사항">
+      </div>
+
+      <div style="margin-top:10px;display:flex;gap:8px">
+        <button type="button" class="btn btn-orange" @click="submitOrder" style="padding:6px 28px">주문 등록</button>
+        <button type="button" class="btn btn-gray" @click="markSkipped" style="padding:6px 28px">건너뛰기</button>
+      </div>
+    </form>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const BOOKS = {{ books_json|safe }};
+const ALL_TEACHERS = {{ teachers_json|safe }};
+const ALL_AGENCIES = JSON.parse('{{ agencies_json|escapejs }}');
+const PARSED = {{ parsed_json|safe }};
+
+function callRecordingForm() {
+  return {
+    agencyId: '', ALL_AGENCIES: ALL_AGENCIES,
+    teacherId: '', teacherQuery: '',
+    showTeacherList: false, filteredTeacherList: [],
+    isNewTeacher: false, newTeacherName: '', newTeacherPhone: '',
+    deliverySchool: '', deliveryAddr: '', deliveryPhone: '',
+    acIdx: -1,
+    rows: [{ series: '', book_id: '', qty: 1, unit_price: 0 }],
+
+    init() {
+      if (!PARSED) return;
+      if (PARSED.teacher_name) {
+        let candidates = ALL_TEACHERS.filter(t => t.name === PARSED.teacher_name);
+        if (candidates.length >= 1) {
+          this.agencyId = String(candidates[0].agency_id);
+          this.selectTeacher(candidates[0]);
+        } else {
+          this.teacherQuery = PARSED.teacher_name;
+        }
+      }
+      if (PARSED.school_name && !this.deliverySchool) this.deliverySchool = PARSED.school_name;
+      if (PARSED.phone && !this.deliveryPhone) this.deliveryPhone = PARSED.phone;
+      if (PARSED.items && PARSED.items.length > 0) {
+        this.rows = [];
+        for (const item of PARSED.items) {
+          if (item.book_id) {
+            const book = BOOKS.find(b => b.id === item.book_id);
+            if (book) {
+              this.rows.push({
+                series: book.series || '', book_id: String(book.id),
+                qty: item.qty || 1, unit_price: book.unit_price,
+                is_custom: false, _lowConf: item.confidence === 'low',
+              });
+              continue;
+            }
+          }
+          if (item.name) {
+            this.rows.push({ is_custom: true, custom_name: item.name, qty: item.qty || 1, unit_price: 0, _lowConf: true });
+          }
+        }
+        if (!this.rows.length) this.rows.push({ series: '', book_id: '', qty: 1, unit_price: 0 });
+      }
+    },
+
+    onAgencyChange() { this.isNewTeacher = false; },
+    filterTeachers() {
+      this.teacherId = ''; this.isNewTeacher = false;
+      const q = this.teacherQuery.toLowerCase();
+      const byAgency = ALL_TEACHERS.filter(t => String(t.agency_id) === String(this.agencyId));
+      this.filteredTeacherList = q ? byAgency.filter(t => t.name.toLowerCase().includes(q) || (t.phone && t.phone.includes(q))) : byAgency;
+      this.showTeacherList = true;
+    },
+    selectTeacher(t) {
+      this.teacherId = t.id; this.teacherQuery = t.name;
+      this.showTeacherList = false; this.isNewTeacher = false;
+      this.deliverySchool = t.delivery_name || '';
+      this.deliveryAddr = t.delivery_address || '';
+      this.deliveryPhone = t.delivery_phone || '';
+    },
+    getBooks(series) { return series ? BOOKS.filter(b => b.series === series) : BOOKS; },
+    updatePrice(row) { const b = BOOKS.find(b => b.id == row.book_id); row.unit_price = b ? b.unit_price : 0; },
+    rowAmount(row) { return ((row.book_id || row.is_custom) && row.qty) ? row.unit_price * row.qty : 0; },
+    total() { return this.rows.reduce((s, r) => s + this.rowAmount(r), 0); },
+    addRow() { this.rows.push({ series: '', book_id: '', qty: 1, unit_price: 0, is_custom: false }); },
+    addCustomRow() { this.rows.push({ is_custom: true, custom_name: '', qty: 1, unit_price: 0 }); },
+    submitOrder() {
+      if (!this.agencyId) { alert('업체를 선택하세요.'); return; }
+      if (!this.teacherId && !this.newTeacherName) { alert('선생님을 선택하거나 신규 등록하세요.'); return; }
+      if (!this.deliverySchool) { alert('학교명을 입력하세요.'); return; }
+      if (!this.rows.some(r => (r.book_id || (r.is_custom && r.custom_name)) && r.qty > 0)) { alert('교재를 선택하세요.'); return; }
+      this.$el.closest('form').submit();
+    },
+    markSkipped() {
+      if (!confirm('이 녹음을 건너뛰시겠습니까?')) return;
+      const form = this.$el.closest('form');
+      const input = document.createElement('input');
+      input.type = 'hidden'; input.name = 'skip'; input.value = '1';
+      form.appendChild(input);
+      form.submit();
+    },
+  }
+}
+</script>
+{% endblock %}
