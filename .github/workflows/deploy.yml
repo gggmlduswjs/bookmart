@@ -41,6 +41,5 @@ jobs:
             # 5분마다 통화녹음 Google Drive 동기화 + 자동 파싱
             CALL_CMD="cd /home/bookmart/bookmart && . venv/bin/activate && python manage.py sync_call_recordings --process >> /home/bookmart/call_sync.log 2>&1"
             (crontab -l 2>/dev/null | grep -v 'sync_call_recordings' ; echo "*/5 * * * * $CALL_CMD") | crontab -
-            # ── 1회성 진단 (다음 배포에서 제거) ──
-            python debug_drive.py 2>&1 || true
-            rm -f debug_drive.py
+            # 1회성 디버그 파일 정리
+            rm -f debug_drive.py debug_inbox.py
