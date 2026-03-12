@@ -137,7 +137,9 @@ def process_pending_recordings():
     from orders.call_order import transcribe_audio, summarize_transcript, parse_order_from_text
     from books.models import Book
 
-    pending = CallRecording.objects.filter(status=CallRecording.Status.PENDING)
+    pending = CallRecording.objects.filter(
+        status__in=[CallRecording.Status.PENDING, CallRecording.Status.FAILED]
+    )
     processed = 0
 
     # 교재 목록 (한 번만 로드)
