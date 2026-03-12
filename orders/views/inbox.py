@@ -660,7 +660,7 @@ def sms_webhook(request):
                 received_at=received_at,
             )
     except Exception:
-        pass
+        logger.exception('SMS 웹훅 처리 오류')
 
     return HttpResponse('OK')
 
