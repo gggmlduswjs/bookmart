@@ -217,9 +217,25 @@
                   fd.append('receiver', '{{ sms_reply_phone|escapejs }}');
                   fd.append('message', smsBody);
                   fd.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+                  const msgText = smsBody;
                   fetch('{% url "send_sms_ajax" %}', { method:'POST', body:fd })
                     .then(r => r.json())
-                    .then(d => { result = d.success ? '발송 완료' : (d.error || '발송 실패'); if(d.success) smsBody=''; })
+                    .then(d => {
+                      result = d.success ? '발송 완료' : (d.error || '발송 실패');
+                      if(d.success) {
+                        smsBody='';
+                        const thread = document.getElementById('chatThread');
+                        if(thread) {
+                          const now = new Date();
+                          const hm = String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
+                          const row = document.createElement('div');
+                          row.className = 'chat-row sent';
+                          row.innerHTML = '<span class=\"chat-time\">'+hm+'</span><div class=\"chat-msg\">'+msgText.replace(/</g,'&lt;').replace(/>/g,'&gt;')+'</div>';
+                          thread.appendChild(row);
+                          thread.scrollTop = thread.scrollHeight;
+                        }
+                      }
+                    })
                     .catch(() => { result = '발송 오류'; })
                     .finally(() => { sending = false; })
                 ">
