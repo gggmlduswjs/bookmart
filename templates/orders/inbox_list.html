@@ -774,12 +774,6 @@ function _loadOrderForm() {
       // Init Alpine on new content after scripts have defined window.spOrderForm
       setTimeout(function() {
         if (window.Alpine) {
-          // Destroy any stale Alpine state first
-          container.querySelectorAll('[x-data]').forEach(function(el) {
-            if (el._x_dataStack) {
-              delete el._x_dataStack;
-            }
-          });
           Alpine.initTree(container);
         }
       }, 100);
@@ -827,14 +821,8 @@ function openSlidePanel(pk, source) {
   // Reset attachment preview
   document.getElementById('spAttPreview').style.display = 'none';
   document.getElementById('spAttPreviewBody').innerHTML = '';
-  // Reset order form container - destroy Alpine state first
-  var orderContainer = document.getElementById('spOrderFormContainer');
-  if (window.Alpine) {
-    orderContainer.querySelectorAll('[x-data]').forEach(function(el) {
-      Alpine.destroyTree(el);
-    });
-  }
-  orderContainer.innerHTML = '<div style="text-align:center;padding:40px;color:#94a3b8">폼 로딩 중...</div>';
+  // Reset order form container
+  document.getElementById('spOrderFormContainer').innerHTML = '<div style="text-align:center;padding:40px;color:#94a3b8">폼 로딩 중...</div>';
 
   document.getElementById('slidePanelOverlay').classList.add('open');
   document.getElementById('slidePanel').classList.add('open');
