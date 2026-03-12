@@ -939,10 +939,13 @@ def send_sms_ajax(request):
     message = request.POST.get('message', '').strip()
     if not receiver or not message:
         return JsonResponse({'error': '수신번호와 메시지를 입력하세요.'})
-    ok = send_sms(receiver, message)
+    from orders.sms import send_sms as _send_sms
+    from django.conf import settings as _s
+    logger.info(f'[SMS] receiver={receiver}, ALIGO_API_KEY={bool(_s.ALIGO_API_KEY)}, ALIGO_USER_ID={_s.ALIGO_USER_ID}, ALIGO_SENDER={_s.ALIGO_SENDER}')
+    ok = _send_sms(receiver, message)
     if ok:
         return JsonResponse({'success': True, 'message': '발송 완료'})
-    return JsonResponse({'error': '발송 실패. 알리고 설정을 확인하세요.'})
+    return JsonResponse({'error': f'발송 실패. API_KEY={bool(_s.ALIGO_API_KEY)}, USER_ID={bool(_s.ALIGO_USER_ID)}, SENDER={bool(_s.ALIGO_SENDER)}'})
 
 
 @role_required('admin')

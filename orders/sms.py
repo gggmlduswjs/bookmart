@@ -23,7 +23,7 @@ def send_sms(receiver: str, message: str) -> bool:
     sender  = getattr(settings, 'ALIGO_SENDER', '')
 
     if not (api_key and user_id and sender):
-        logger.warning('SMS 미설정: ALIGO_API_KEY/ALIGO_USER_ID/ALIGO_SENDER 확인 필요')
+        logger.warning(f'SMS 미설정: api_key={bool(api_key)}, user_id={bool(user_id)}, sender={bool(sender)}')
         return False
 
     if not receiver:
