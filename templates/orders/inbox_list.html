@@ -278,6 +278,7 @@
     {% if gdrive_connected %}
     <span style="color:#059669;font-size:12px;font-weight:600">Google Drive 연동됨</span>
     <a href="{% url 'call_sync_drive' %}" class="btn btn-blue btn-sm">수동 동기화</a>
+    <a href="{% url 'call_recording_retry_all' %}" class="btn btn-blue btn-sm" onclick="return confirm('실패한 녹음을 전체 재시도합니다.')">전체 재시도</a>
     {% else %}
     <a href="{% url 'gdrive_auth_start' %}" class="btn btn-green btn-sm">Google Drive 연동</a>
     {% endif %}
