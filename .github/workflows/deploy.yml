@@ -42,13 +42,31 @@ jobs:
             CALL_CMD="cd /home/bookmart/bookmart && . venv/bin/activate && python manage.py sync_call_recordings --process >> /home/bookmart/call_sync.log 2>&1"
             (crontab -l 2>/dev/null | grep -v 'sync_call_recordings' ; echo "*/5 * * * * $CALL_CMD") | crontab -
             # ── 1회성 진단 (다음 배포에서 제거) ──
-            echo "=== crontab ==="
-            crontab -l 2>/dev/null || echo "(no crontab)"
-            echo "=== ffmpeg ==="
-            which ffmpeg && ffmpeg -version | head -1 || echo "ffmpeg NOT installed"
-            echo "=== gdrive token ==="
-            ls -la /home/bookmart/bookmart/gdrive_token.json 2>/dev/null || echo "gdrive_token.json NOT found"
-            echo "=== call_sync.log (last 30) ==="
-            tail -30 /home/bookmart/call_sync.log 2>/dev/null || echo "(no log file)"
-            echo "=== env check ==="
-            grep -c OPENAI_API_KEY .env && grep -c GOOGLE_DRIVE_FOLDER_ID .env || true
+            python -c "
+import os; os.environ.setdefault('DJANGO_SETTINGS_MODULE','config.settings')
+import django; django.setup()
+from orders.management.commands.sync_call_recordings import get_drive_service
+from django.conf import settings
+service = get_drive_service()
+if not service:
+    print('ERROR: Drive service failed')
+else:
+    fid = settings.GOOGLE_DRIVE_FOLDER_ID
+    print(f'Folder ID: {fid}')
+    # 모든 파일 (MIME 필터 없이)
+    r = service.files().list(q=f\"'{fid}' in parents and trashed=false\", fields='files(id,name,mimeType,size)', pageSize=10).execute()
+    files = r.get('files', [])
+    print(f'Total files in folder: {len(files)}')
+    for f in files[:10]:
+        print(f'  {f[\"name\"]} | {f.get(\"mimeType\",\"?\")} | {f.get(\"size\",\"?\")} bytes')
+    # audio/video 필터
+    r2 = service.files().list(q=f\"'{fid}' in parents and trashed=false and (mimeType contains 'audio/' or mimeType contains 'video/')\", fields='files(id,name,mimeType)', pageSize=10).execute()
+    files2 = r2.get('files', [])
+    print(f'Audio/Video files: {len(files2)}')
+    for f in files2[:10]:
+        print(f'  {f[\"name\"]} | {f.get(\"mimeType\",\"?\")}')
+    # 이미 동기화된 건수
+    from orders.models import CallRecording
+    existing = CallRecording.objects.filter(gdrive_file_id__gt='').count()
+    print(f'Already synced: {existing}')
+" 2>&1 || true
