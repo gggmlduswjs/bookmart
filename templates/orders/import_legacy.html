@@ -1,0 +1,160 @@
+{% extends 'base.html' %}
+{% block title %}극동 데이터 임포트{% endblock %}
+
+{% block content %}
+<div class="page-title">극동 데이터 임포트</div>
+
+{% if not preview %}
+<!-- ── 업로드 폼 ── -->
+<div class="content-box" style="padding:20px;margin-bottom:16px">
+  <form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="preview">
+
+    <div style="display:flex;gap:12px;align-items:end;flex-wrap:wrap">
+      <div>
+        <label style="display:block;font-size:12px;color:#64748b;margin-bottom:4px">업체</label>
+        <select name="agency" required style="padding:6px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px">
+          <option value="">선택</option>
+          {% for a in agencies %}
+          <option value="{{ a.pk }}">{{ a.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label style="display:block;font-size:12px;color:#64748b;margin-bottom:4px">분기 라벨 (메모용)</label>
+        <input type="text" name="quarter_label" placeholder="예: 2025년 1분기"
+               style="padding:6px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;width:180px">
+      </div>
+      <div>
+        <label style="display:block;font-size:12px;color:#64748b;margin-bottom:4px">극동 엑셀 파일</label>
+        <input type="file" name="file" accept=".xlsx,.xls" required
+               style="font-size:13px">
+      </div>
+      <button type="submit" class="btn btn-dark btn-sm">미리보기</button>
+    </div>
+
+    <div style="margin-top:12px;padding:10px 14px;background:#f8fafc;border-radius:6px;font-size:12px;color:#64748b;line-height:1.6">
+      극동프로그램에서 내보낸 업체별 엑셀 파일을 업로드하세요.<br>
+      거래처명 / 처리일자 / 상품명 / 출판사 / 수량 / 정가 / 단가 / % / 매출액 형식을 자동 인식합니다.<br>
+      음수 수량은 반품으로 처리됩니다.
+    </div>
+  </form>
+</div>
+
+<!-- ── 기존 임포트 현황 ── -->
+{% if import_stats %}
+<div class="content-box" style="padding:16px;margin-bottom:16px">
+  <div style="font-weight:600;font-size:14px;margin-bottom:10px">임포트 현황</div>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>업체</th>
+        <th style="text-align:right">주문</th>
+        <th style="text-align:right">반품</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in import_stats %}
+      <tr>
+        <td>{{ s.agency.name }}</td>
+        <td style="text-align:right">{{ s.orders }}건</td>
+        <td style="text-align:right">{{ s.returns }}건</td>
+        <td style="text-align:right">
+          <form method="post" action="{% url 'import_legacy_delete' %}"
+                onsubmit="return confirm('{{ s.agency.name }}의 임포트 데이터를 모두 삭제합니다. 계속?')">
+            {% csrf_token %}
+            <input type="hidden" name="agency" value="{{ s.agency.pk }}">
+            <button type="submit" class="btn btn-outline btn-sm" style="color:#dc2626;border-color:#dc2626;font-size:11px">삭제</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+{% else %}
+<!-- ── 미리보기 ── -->
+<div style="display:flex;gap:8px;margin-bottom:12px">
+  <div class="content-box" style="flex:1;padding:10px 14px;text-align:center">
+    <div style="font-size:11px;color:#888;margin-bottom:4px">업체</div>
+    <div style="font-size:15px;font-weight:bold">{{ selected_agency.name }}</div>
+  </div>
+  <div class="content-box" style="flex:1;padding:10px 14px;text-align:center">
+    <div style="font-size:11px;color:#888;margin-bottom:4px">학교 수</div>
+    <div style="font-size:15px;font-weight:bold">{{ total_schools }}개</div>
+  </div>
+  <div class="content-box" style="flex:1;padding:10px 14px;text-align:center">
+    <div style="font-size:11px;color:#888;margin-bottom:4px">총 항목</div>
+    <div style="font-size:15px;font-weight:bold">{{ total_items }}개</div>
+  </div>
+  <div class="content-box" style="flex:1;padding:10px 14px;text-align:center">
+    <div style="font-size:11px;color:#888;margin-bottom:4px">총 매출액</div>
+    <div style="font-size:15px;font-weight:bold">{{ total_amount|floatformat:0 }}원</div>
+  </div>
+</div>
+
+<!-- 학교별 상세 -->
+{% for school in schools %}
+<div class="content-box" style="padding:14px;margin-bottom:10px">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+    <div>
+      <span style="font-weight:600;font-size:14px">{{ school.school }}</span>
+      {% if school.phone %}
+      <span style="font-size:12px;color:#64748b;margin-left:8px">{{ school.phone }}</span>
+      {% endif %}
+    </div>
+    <div style="font-size:13px;font-weight:600">
+      {{ school.subtotal|floatformat:0 }}원
+      <span style="font-size:11px;color:#64748b;font-weight:400">({{ school.items|length }}건)</span>
+    </div>
+  </div>
+  <table class="data-table" style="font-size:12px">
+    <thead>
+      <tr>
+        <th style="width:80px">날짜</th>
+        <th>상품명</th>
+        <th>출판사</th>
+        <th style="text-align:right;width:45px">수량</th>
+        <th style="text-align:right;width:60px">정가</th>
+        <th style="text-align:right;width:60px">단가</th>
+        <th style="text-align:right;width:35px">%</th>
+        <th style="text-align:right;width:70px">매출액</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in school.items %}
+      <tr{% if item.quantity < 0 %} style="color:#dc2626"{% endif %}>
+        <td>{{ item.date }}</td>
+        <td>{{ item.book_name }}</td>
+        <td>{{ item.publisher }}</td>
+        <td style="text-align:right">{{ item.quantity }}</td>
+        <td style="text-align:right">{{ item.list_price|floatformat:0 }}</td>
+        <td style="text-align:right">{{ item.unit_price|floatformat:0 }}</td>
+        <td style="text-align:right">{{ item.supply_rate }}</td>
+        <td style="text-align:right">{{ item.amount|floatformat:0 }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endfor %}
+
+<!-- 확정/취소 버튼 -->
+<div style="display:flex;gap:8px;margin-top:16px;margin-bottom:24px">
+  <form method="post">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="confirm">
+    <input type="hidden" name="agency" value="{{ selected_agency.pk }}">
+    <button type="submit" class="btn btn-dark"
+            onclick="return confirm('{{ selected_agency.name }}에 {{ total_items }}개 항목을 임포트합니다. 계속?')">
+      임포트 확정
+    </button>
+  </form>
+  <a href="{% url 'import_legacy' %}" class="btn btn-outline">취소</a>
+</div>
+{% endif %}
+{% endblock %}

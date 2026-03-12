@@ -5,7 +5,7 @@ from datetime import date
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 
 from accounts.decorators import role_required
@@ -15,6 +15,7 @@ from orders.models import (
     Order, OrderItem, Payment, Return, ReturnItem,
 )
 from orders.services import get_order_queryset
+from orders.services.import_legacy import import_geukdong_data, parse_geukdong_excel
 
 
 # ── 거래내역 (V03) ─────────────────────────────────────────────────────────────
@@ -418,3 +419,122 @@ def export_purchase(request):
     resp = HttpResponse(buf.read(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     resp['Content-Disposition'] = f'attachment; filename*=UTF-8\'\'{filename}'
     return resp
+
+
+# ── 극동 데이터 임포트 ────────────────────────────────────────────────────────
+
+@role_required('admin')
+def import_legacy(request):
+    agencies = User.objects.filter(role='agency', is_active=True).order_by('name')
+
+    # 기존 임포트 현황
+    import_stats = []
+    for a in agencies:
+        o_cnt = Order.objects.filter(agency=a, source=Order.Source.IMPORT, is_deleted=False).count()
+        r_cnt = Return.objects.filter(agency=a, memo__startswith='극동임포트').count()
+        if o_cnt or r_cnt:
+            import_stats.append({'agency': a, 'orders': o_cnt, 'returns': r_cnt})
+
+    context = {'agencies': agencies, 'import_stats': import_stats}
+
+    if request.method == 'POST':
+        action = request.POST.get('action', '')
+        agency_id = request.POST.get('agency', '')
+        quarter_label = request.POST.get('quarter_label', '')
+
+        if not agency_id:
+            messages.error(request, '업체를 선택해주세요.')
+            return render(request, 'orders/import_legacy.html', context)
+
+        agency = get_object_or_404(User, pk=agency_id, role='agency')
+
+        # Step 1: 미리보기
+        if action == 'preview':
+            file = request.FILES.get('file')
+            if not file:
+                messages.error(request, '엑셀 파일을 선택해주세요.')
+                return render(request, 'orders/import_legacy.html', context)
+
+            try:
+                schools = parse_geukdong_excel(file)
+            except Exception as e:
+                messages.error(request, f'엑셀 파싱 오류: {e}')
+                return render(request, 'orders/import_legacy.html', context)
+
+            if not schools:
+                messages.warning(request, '파싱된 데이터가 없습니다. 극동 엑셀 형식이 맞는지 확인해주세요.')
+                return render(request, 'orders/import_legacy.html', context)
+
+            total_items = sum(len(s['items']) for s in schools)
+            total_amount = sum(s['subtotal'] for s in schools)
+
+            serialized = json.dumps(schools, default=str)
+            request.session['import_preview'] = serialized
+            request.session['import_agency_id'] = agency.pk
+            request.session['import_quarter_label'] = quarter_label
+
+            context.update({
+                'preview': True,
+                'schools': schools,
+                'total_schools': len(schools),
+                'total_items': total_items,
+                'total_amount': total_amount,
+                'selected_agency': agency,
+                'quarter_label': quarter_label,
+            })
+            return render(request, 'orders/import_legacy.html', context)
+
+        # Step 2: 확정 임포트
+        if action == 'confirm':
+            serialized = request.session.get('import_preview')
+            saved_agency_id = request.session.get('import_agency_id')
+            saved_label = request.session.get('import_quarter_label', '')
+
+            if not serialized or str(saved_agency_id) != str(agency_id):
+                messages.error(request, '미리보기 데이터가 없습니다. 다시 업로드해주세요.')
+                return render(request, 'orders/import_legacy.html', context)
+
+            schools = json.loads(serialized)
+            for school in schools:
+                for item in school['items']:
+                    item['date'] = date.fromisoformat(item['date'])
+
+            stats = import_geukdong_data(agency, schools, saved_label)
+
+            for key in ['import_preview', 'import_agency_id', 'import_quarter_label']:
+                request.session.pop(key, None)
+
+            messages.success(
+                request,
+                f'임포트 완료! 주문 {stats["orders"]}건, '
+                f'반품 {stats["returns"]}건, '
+                f'항목 {stats["items"] + stats["return_items"]}개'
+            )
+            return redirect('import_legacy')
+
+    return render(request, 'orders/import_legacy.html', context)
+
+
+@role_required('admin')
+def import_legacy_delete(request):
+    """극동 임포트 데이터 일괄 삭제."""
+    if request.method != 'POST':
+        return redirect('import_legacy')
+
+    agency_id = request.POST.get('agency', '')
+    if not agency_id:
+        messages.error(request, '업체를 선택해주세요.')
+        return redirect('import_legacy')
+
+    agency = get_object_or_404(User, pk=agency_id, role='agency')
+
+    orders = Order.objects.filter(agency=agency, source=Order.Source.IMPORT, is_deleted=False)
+    returns = Return.objects.filter(agency=agency, memo__startswith='극동임포트')
+    o_count = orders.count()
+    r_count = returns.count()
+
+    orders.delete()
+    returns.delete()
+
+    messages.success(request, f'{agency.name} 임포트 데이터 삭제: 주문 {o_count}건, 반품 {r_count}건')
+    return redirect('import_legacy')
