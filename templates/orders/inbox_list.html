@@ -775,20 +775,21 @@ function _loadOrderForm() {
   fetch('/inbox/' + _currentPanelPk + '/form/')
     .then(function(r) { return r.text(); })
     .then(function(html) {
-      // Parse HTML and execute scripts manually (innerHTML doesn't execute scripts)
+      // Parse HTML, execute scripts FIRST, then add DOM nodes
+      // (Alpine's MutationObserver auto-inits x-data elements on DOM insert,
+      //  so spOrderForm must be defined before nodes are added)
       var temp = document.createElement('div');
       temp.innerHTML = html;
-      container.innerHTML = '';
-      // Move non-script nodes
       var scripts = [];
+      var nodes = [];
       Array.from(temp.childNodes).forEach(function(node) {
         if (node.nodeName === 'SCRIPT') {
           scripts.push(node);
         } else {
-          container.appendChild(node);
+          nodes.push(node);
         }
       });
-      // Execute inline scripts synchronously
+      // 1) Execute scripts first to define window.spOrderForm
       scripts.forEach(function(oldScript) {
         if (oldScript.src) {
           var newScript = document.createElement('script');
@@ -798,14 +799,9 @@ function _loadOrderForm() {
           try { (new Function(oldScript.textContent))(); } catch(e) { console.warn('Script error:', e); }
         }
       });
-      // Init Alpine on new content after scripts have defined window.spOrderForm
-      if (window.Alpine && window.spOrderForm) {
-        Alpine.initTree(container);
-      } else {
-        setTimeout(function() {
-          if (window.Alpine) Alpine.initTree(container);
-        }, 150);
-      }
+      // 2) Now add DOM nodes - Alpine will auto-init via MutationObserver
+      container.innerHTML = '';
+      nodes.forEach(function(node) { container.appendChild(node); });
     })
     .catch(function(err) {
       container.innerHTML = '<div style="text-align:center;padding:40px;color:#dc2626">폼 로드 실패: ' + err.message + '</div>';
