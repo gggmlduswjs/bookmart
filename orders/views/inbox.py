@@ -1430,45 +1430,54 @@ def inbox_order_form_partial(request, pk):
     _, agencies_json = get_agencies_json()
     _, teachers_json = get_teachers_json()
 
-    # AI parsing for email
-    parsed_json = 'null'
-    if inbox_msg.content and not inbox_msg.is_processed:
-        try:
-            from orders.call_order import parse_order_from_email
-            agencies = User.objects.filter(role='agency', is_active=True)
-            teachers = User.objects.filter(role='teacher', is_active=True).select_related('agency', 'delivery_address')
-            books_data = [{
-                'id': b.id, 'series': b.series or '기타', 'name': b.name,
-                'publisher': b.publisher.name,
-                'unit_price': math.floor(b.list_price * float(b.publisher.supply_rate) / 100),
-            } for b in books]
-            agencies_data = [{'id': a.pk, 'name': a.name} for a in agencies]
-            teachers_data = [{
-                'id': t.pk, 'name': t.name, 'agency_id': t.agency_id,
-                'agency_name': t.agency.name if t.agency else '',
-                'delivery_name': t.delivery_address.name if t.delivery_address else '',
-            } for t in teachers]
-            parsed, err = parse_order_from_email(
-                sender=inbox_msg.sender or '',
-                subject=inbox_msg.subject or '',
-                body=inbox_msg.content,
-                book_list=books_data,
-                agencies=agencies_data,
-                teachers=teachers_data,
-            )
-            if parsed and not err:
-                parsed_json = json.dumps(parsed, ensure_ascii=False)
-        except Exception:
-            logger.exception('이메일 AI 파싱 오류 (partial)')
-
     return render(request, 'orders/_inbox_order_form.html', {
         'inbox_msg': inbox_msg,
         'agencies_json': agencies_json,
         'teachers_json': teachers_json,
         'series_list': series_list,
         'books_json': books_json,
-        'parsed_json': parsed_json,
+        'parsed_json': 'null',
     })
+
+
+@role_required('admin')
+def inbox_parse_email_api(request, pk):
+    """AI 이메일 파싱 API (비동기용)"""
+    inbox_msg = get_object_or_404(InboxMessage, pk=pk)
+
+    if not inbox_msg.content or inbox_msg.is_processed:
+        return JsonResponse({'parsed': None})
+
+    try:
+        from orders.call_order import parse_order_from_email
+        books = Book.objects.filter(is_active=True).select_related('publisher')
+        agencies = User.objects.filter(role='agency', is_active=True)
+        teachers = User.objects.filter(role='teacher', is_active=True).select_related('agency', 'delivery_address')
+        books_data = [{
+            'id': b.id, 'series': b.series or '기타', 'name': b.name,
+            'publisher': b.publisher.name,
+            'unit_price': math.floor(b.list_price * float(b.publisher.supply_rate) / 100),
+        } for b in books]
+        agencies_data = [{'id': a.pk, 'name': a.name} for a in agencies]
+        teachers_data = [{
+            'id': t.pk, 'name': t.name, 'agency_id': t.agency_id,
+            'agency_name': t.agency.name if t.agency else '',
+            'delivery_name': t.delivery_address.name if t.delivery_address else '',
+        } for t in teachers]
+        parsed, err = parse_order_from_email(
+            sender=inbox_msg.sender or '',
+            subject=inbox_msg.subject or '',
+            body=inbox_msg.content,
+            book_list=books_data,
+            agencies=agencies_data,
+            teachers=teachers_data,
+        )
+        if parsed and not err:
+            return JsonResponse({'parsed': parsed})
+        return JsonResponse({'parsed': None, 'error': err})
+    except Exception as e:
+        logger.exception('이메일 AI 파싱 오류 (API)')
+        return JsonResponse({'parsed': None, 'error': str(e)})
 
 
 @role_required('admin')

@@ -37,7 +37,11 @@
     <input type="hidden" name="delivery_address" :value="deliveryAddr">
     <input type="hidden" name="delivery_phone" :value="deliveryPhone">
 
-    <!-- AI 파싱 알림 -->
+    <!-- AI 파싱 진행 중 -->
+    <div x-show="aiParsing" style="margin-bottom:8px;padding:6px 10px;background:#fefce8;border:1px solid #fde68a;border-radius:6px;font-size:11px;color:#92400e">
+      <strong>AI 분석 중...</strong> 잠시 후 자동으로 채워집니다.
+    </div>
+    <!-- AI 파싱 완료 알림 -->
     <div x-show="hasParsed" style="margin-bottom:8px;padding:6px 10px;background:#eff6ff;border:1px solid #93c5fd;border-radius:6px;font-size:11px;color:#1e40af">
       <strong>AI 자동 파싱됨</strong> — 확인 후 등록하세요.
     </div>
@@ -178,7 +182,7 @@
   const SP_BOOKS = {{ books_json|safe }};
   const SP_TEACHERS = {{ teachers_json|safe }};
   const SP_AGENCIES = {{ agencies_json|safe }};
-  const SP_PARSED = {{ parsed_json|safe }};
+  const SP_INBOX_PK = {{ inbox_msg.pk }};
 
   window.spOrderForm = function() {
     return {
@@ -186,39 +190,54 @@
       teacherId: '', teacherQuery: '', showTeacherList: false, filteredTeachers: [],
       isNewTeacher: false, newTeacherName: '', newTeacherPhone: '',
       deliverySchool: '', deliveryAddr: '', deliveryPhone: '',
-      acIdx: -1, excelLoading: false, hasParsed: SP_PARSED !== null,
+      acIdx: -1, excelLoading: false, hasParsed: false, aiParsing: false,
       rows: [{ series:'', book_id:'', qty:1, unit_price:0 }],
 
       init() {
-        if (!SP_PARSED) return;
-        if (SP_PARSED.agency_id) {
-          const found = SP_AGENCIES.find(a => a.id === SP_PARSED.agency_id);
+        // AI 파싱을 비동기로 요청
+        this._fetchAiParse();
+      },
+      _fetchAiParse() {
+        this.aiParsing = true;
+        fetch('/inbox/' + SP_INBOX_PK + '/parse/')
+          .then(r => r.json())
+          .then(data => {
+            this.aiParsing = false;
+            if (!data.parsed) return;
+            this._applyParsed(data.parsed);
+          })
+          .catch(() => { this.aiParsing = false; });
+      },
+      _applyParsed(p) {
+        this.hasParsed = true;
+        if (p.agency_id) {
+          const found = SP_AGENCIES.find(a => a.id === p.agency_id);
           if (found) this.agencyId = String(found.id);
         }
-        if (!this.agencyId && SP_PARSED.agency_name) {
-          const found = SP_AGENCIES.find(a => a.name.includes(SP_PARSED.agency_name) || SP_PARSED.agency_name.includes(a.name));
+        if (!this.agencyId && p.agency_name) {
+          const found = SP_AGENCIES.find(a => a.name.includes(p.agency_name) || p.agency_name.includes(a.name));
           if (found) this.agencyId = String(found.id);
         }
-        if (SP_PARSED.teacher_id) {
-          const found = SP_TEACHERS.find(t => t.id === SP_PARSED.teacher_id);
+        if (p.teacher_id) {
+          const found = SP_TEACHERS.find(t => t.id === p.teacher_id);
           if (found) {
             if (!this.agencyId) this.agencyId = String(found.agency_id);
             this.selectTeacher(found);
           }
-        } else if (SP_PARSED.teacher_name) {
-          let cands = SP_TEACHERS.filter(t => t.name === SP_PARSED.teacher_name);
+        } else if (p.teacher_name) {
+          let cands = SP_TEACHERS.filter(t => t.name === p.teacher_name);
           if (this.agencyId) { const ba = cands.filter(t => String(t.agency_id) === this.agencyId); if (ba.length) cands = ba; }
           if (cands.length >= 1) {
             if (!this.agencyId) this.agencyId = String(cands[0].agency_id);
             this.selectTeacher(cands[0]);
-          } else { this.teacherQuery = SP_PARSED.teacher_name; }
+          } else { this.teacherQuery = p.teacher_name; }
         }
-        if (SP_PARSED.school_name && !this.deliverySchool) this.deliverySchool = SP_PARSED.school_name;
-        if (SP_PARSED.address && !this.deliveryAddr) this.deliveryAddr = SP_PARSED.address;
-        if (SP_PARSED.phone && !this.deliveryPhone) this.deliveryPhone = SP_PARSED.phone;
-        if (SP_PARSED.items && SP_PARSED.items.length > 0) {
+        if (p.school_name && !this.deliverySchool) this.deliverySchool = p.school_name;
+        if (p.address && !this.deliveryAddr) this.deliveryAddr = p.address;
+        if (p.phone && !this.deliveryPhone) this.deliveryPhone = p.phone;
+        if (p.items && p.items.length > 0) {
           this.rows = [];
-          for (const item of SP_PARSED.items) {
+          for (const item of p.items) {
             if (item.book_id) {
               const book = SP_BOOKS.find(b => b.id === item.book_id);
               if (book) { this.rows.push({ series:book.series||'', book_id:String(book.id), qty:item.qty||1, unit_price:book.unit_price, is_custom:false, _lowConf:item.confidence==='low' }); continue; }
@@ -227,9 +246,9 @@
           }
           if (!this.rows.length) this.rows.push({ series:'', book_id:'', qty:1, unit_price:0 });
         }
-        if (SP_PARSED.memo) {
+        if (p.memo) {
           const mi = document.querySelector('#spOrderFormEl input[name="memo"]');
-          if (mi && !mi.value) mi.value = SP_PARSED.memo;
+          if (mi && !mi.value) mi.value = p.memo;
         }
       },
       onAgencyChange() { this.isNewTeacher = false; },
