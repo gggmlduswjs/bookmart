@@ -186,6 +186,31 @@
       deliverySchool: '', deliveryAddr: '', deliveryPhone: '',
       acIdx: -1, excelLoading: false,
       rows: [{ series:'', book_id:'', qty:1, unit_price:0 }],
+
+      init() {
+        // Listen for excel attachment apply event from slide panel
+        var self = this;
+        document.addEventListener('apply-excel-attachment', function() {
+          if (window._applyExcelData) {
+            self._applyExcelResult(window._applyExcelData);
+            window._applyExcelData = null;
+          }
+        });
+      },
+      _applyExcelResult(data) {
+        this.rows = this.rows.filter(r => r.book_id || (r.is_custom && r.custom_name));
+        if (data.matched) {
+          for (const m of data.matched) {
+            this.rows.push({ series: m.series || '', book_id: String(m.book_id), qty: m.qty, unit_price: m.unit_price, is_custom: false });
+          }
+        }
+        if (data.unmatched) {
+          for (const u of data.unmatched) {
+            this.rows.push({ is_custom: true, custom_name: u.name, qty: u.qty, unit_price: 0 });
+          }
+        }
+        if (!this.rows.length) this.rows.push({ series: '', book_id: '', qty: 1, unit_price: 0, is_custom: false });
+      },
       searchSchool() {
         var q = (this.deliverySchool || '').trim();
         if (!q) { alert('학교명을 입력해주세요.'); return; }
@@ -252,10 +277,7 @@
             if (m.address && !this.deliveryAddr) this.deliveryAddr = m.address;
             if (m.phone && !this.deliveryPhone) this.deliveryPhone = m.phone;
           }
-          this.rows = this.rows.filter(r => r.book_id || (r.is_custom && r.custom_name));
-          if (data.matched) { for (const m of data.matched) { if (!m.is_sample) this.rows.push({ series:m.series||'', book_id:String(m.id), qty:m.qty, unit_price:m.unit_price, is_custom:false }); } }
-          if (data.unmatched) { for (const u of data.unmatched) { if (!u.is_sample) this.rows.push({ is_custom:true, custom_name:u.name, qty:u.qty, unit_price:u.excel_price||0 }); } }
-          if (!this.rows.length) this.rows.push({ series:'', book_id:'', qty:1, unit_price:0, is_custom:false });
+          this._applyExcelResult(data);
         } catch(err) { alert('업로드 실패: '+err.message); }
         finally { this.excelLoading=false; e.target.value=''; }
       },

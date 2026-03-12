@@ -772,39 +772,98 @@ def attachment_download(request, pk):
 
 @role_required('admin')
 def attachment_preview(request, pk):
-    """엑셀 첨부파일 미리보기 (HTML 테이블)"""
+    """첨부파일 미리보기 (엑셀/이미지/PDF/HWP)"""
     att = get_object_or_404(InboxAttachment, pk=pk)
-    if not att.is_excel:
-        return HttpResponse('미리보기를 지원하지 않는 파일입니다.', status=400)
 
-    import openpyxl
+    # 이미지 미리보기
+    if att.is_image:
+        att.file.open('rb')
+        data = att.file.read()
+        att.file.close()
+        content_type = att.content_type or f'image/{att.extension}'
+        return HttpResponse(data, content_type=content_type)
 
-    try:
-        wb = openpyxl.load_workbook(att.file, read_only=True, data_only=True)
-    except Exception:
-        return HttpResponse('엑셀 파일을 열 수 없습니다.', status=400)
+    # PDF 미리보기
+    if att.is_pdf:
+        att.file.open('rb')
+        data = att.file.read()
+        att.file.close()
+        resp = HttpResponse(data, content_type='application/pdf')
+        resp['Content-Disposition'] = 'inline'
+        return resp
 
-    sheets_html = []
-    for ws in wb.worksheets:
-        rows = list(ws.iter_rows(values_only=True))
-        if not rows:
-            continue
-        table = f'<h3 style="margin:10px 0 4px;font-size:13px">{ws.title}</h3>'
-        table += '<table class="data-table"><thead><tr>'
-        for cell in rows[0]:
-            table += f'<th>{cell if cell is not None else ""}</th>'
-        table += '</tr></thead><tbody>'
-        for row in rows[1:200]:
-            table += '<tr>'
-            for cell in row:
-                val = f'{cell:,}' if isinstance(cell, (int, float)) and not isinstance(cell, bool) else (cell if cell is not None else '')
-                table += f'<td>{val}</td>'
-            table += '</tr>'
-        table += '</tbody></table>'
-        sheets_html.append(table)
-    wb.close()
+    # HWP 텍스트 추출 미리보기
+    if att.is_hwp:
+        try:
+            import olefile
+            att.file.open('rb')
+            raw = att.file.read()
+            att.file.close()
+            import io
+            ole = olefile.OleFileIO(io.BytesIO(raw))
+            if ole.exists('PrvText'):
+                text = ole.openstream('PrvText').read().decode('utf-16-le', errors='replace')
+            elif ole.exists('BodyText/Section0'):
+                raw_body = ole.openstream('BodyText/Section0').read()
+                import zlib
+                try:
+                    decompressed = zlib.decompress(raw_body, -15)
+                except Exception:
+                    decompressed = raw_body
+                text = decompressed.decode('utf-16-le', errors='replace')
+                text = _re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', text)
+            else:
+                text = '(HWP 텍스트를 추출할 수 없습니다)'
+            ole.close()
+            from django.utils.html import escape
+            html = f'''<!DOCTYPE html>
+<html lang="ko"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{escape(att.filename)}</title>
+<style>
+body {{ font-family:'Malgun Gothic',sans-serif; font-size:13px; padding:16px; background:#f5f5f5; line-height:1.8; }}
+.hwp-content {{ background:#fff; padding:20px; border:1px solid #ddd; border-radius:6px; white-space:pre-wrap; word-break:break-all; }}
+h2 {{ font-size:14px; margin-bottom:8px; color:#334155; }}
+</style></head><body>
+<h2>{escape(att.filename)}</h2>
+<div class="hwp-content">{escape(text)}</div>
+</body></html>'''
+            return HttpResponse(html)
+        except ImportError:
+            return HttpResponse('HWP 미리보기를 사용하려면 olefile 패키지가 필요합니다.', status=400)
+        except Exception as e:
+            return HttpResponse(f'HWP 파일 처리 오류: {e}', status=400)
 
-    html = f'''<!DOCTYPE html>
+    # 엑셀 미리보기
+    if att.is_excel:
+        import openpyxl
+        try:
+            wb = openpyxl.load_workbook(att.file, read_only=True, data_only=True)
+        except Exception:
+            return HttpResponse('엑셀 파일을 열 수 없습니다.', status=400)
+
+        sheets_html = []
+        for ws in wb.worksheets:
+            rows = list(ws.iter_rows(values_only=True))
+            if not rows:
+                continue
+            from django.utils.html import escape
+            table = f'<h3 style="margin:10px 0 4px;font-size:13px">{escape(ws.title)}</h3>'
+            table += '<table class="data-table"><thead><tr>'
+            for cell in rows[0]:
+                table += f'<th>{escape(str(cell)) if cell is not None else ""}</th>'
+            table += '</tr></thead><tbody>'
+            for row in rows[1:200]:
+                table += '<tr>'
+                for cell in row:
+                    val = f'{cell:,}' if isinstance(cell, (int, float)) and not isinstance(cell, bool) else (escape(str(cell)) if cell is not None else '')
+                    table += f'<td>{val}</td>'
+                table += '</tr>'
+            table += '</tbody></table>'
+            sheets_html.append(table)
+        wb.close()
+
+        html = f'''<!DOCTYPE html>
 <html lang="ko"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{att.filename}</title>
@@ -819,7 +878,9 @@ h3 {{ color:#e8720c; }}
 <h2 style="font-size:14px;margin-bottom:8px">{att.filename}</h2>
 {"".join(sheets_html)}
 </body></html>'''
-    return HttpResponse(html)
+        return HttpResponse(html)
+
+    return HttpResponse('미리보기를 지원하지 않는 파일 형식입니다.', status=400)
 
 
 @csrf_exempt
@@ -1326,8 +1387,10 @@ def parse_order_excel(request):
                     'original_name': name,
                 })
 
+        matched = [r for r in results if r['matched']]
+        unmatched = [r for r in results if not r['matched']]
         return HttpResponse(
-            json.dumps({'items': results}, ensure_ascii=False),
+            json.dumps({'matched': matched, 'unmatched': unmatched}, ensure_ascii=False),
             content_type='application/json'
         )
     except Exception as e:
@@ -1361,8 +1424,10 @@ def inbox_detail_api(request, pk):
         'order_no': msg.order.order_no if msg.order else None,
         'attachments': [
             {'pk': att.pk, 'filename': att.filename, 'is_excel': att.is_excel,
+             'is_image': att.is_image, 'is_pdf': att.is_pdf, 'is_hwp': att.is_hwp,
+             'extension': att.extension,
              'download_url': f'/inbox/attachment/{att.pk}/download/',
-             'preview_url': f'/inbox/attachment/{att.pk}/preview/' if att.is_excel else None}
+             'preview_url': f'/inbox/attachment/{att.pk}/preview/' if (att.is_excel or att.is_image or att.is_pdf or att.is_hwp) else None}
             for att in msg.attachments.all()
         ],
     }

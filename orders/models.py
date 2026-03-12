@@ -405,6 +405,14 @@ class InboxAttachment(models.Model):
         return ext in ('jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp')
 
     @property
+    def is_pdf(self):
+        return self.extension == 'pdf'
+
+    @property
+    def is_hwp(self):
+        return self.extension in ('hwp', 'hwpx')
+
+    @property
     def extension(self):
         return self.filename.lower().rsplit('.', 1)[-1] if '.' in self.filename else ''
 
