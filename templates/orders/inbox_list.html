@@ -287,10 +287,9 @@
     .call-filter a:not(.active) .cnt { background:#e2e8f0; color:#64748b; }
 
     .call-card {
-      display:grid;
-      grid-template-columns:4px 1fr auto;
-      gap:0 12px;
+      display:flex;
       align-items:center;
+      gap:12px;
       background:#fff;
       border:1px solid #e5e7eb;
       border-radius:8px;
@@ -303,7 +302,7 @@
     }
     .call-card:hover { border-color:#93c5fd; box-shadow:0 1px 4px rgba(59,130,246,.1); }
 
-    .call-sbar { width:4px; border-radius:2px; align-self:stretch; margin:2px 0; }
+    .call-sbar { width:4px; min-width:4px; border-radius:2px; align-self:stretch; }
     .call-sbar.pending { background:#f59e0b; }
     .call-sbar.parsed { background:#10b981; }
     .call-sbar.ordered { background:#3b82f6; }
@@ -311,7 +310,7 @@
     .call-sbar.processing { background:#f59e0b; }
     .call-sbar.skipped { background:#94a3b8; }
 
-    .call-info { min-width:0; }
+    .call-info { flex:1; min-width:0; }
     .call-top { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
     .call-phone { font-size:13px; font-weight:700; color:#0f172a; }
     .call-badge { display:inline-block; padding:1px 6px; font-size:10px; border-radius:3px; font-weight:600; }
