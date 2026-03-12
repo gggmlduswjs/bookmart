@@ -100,7 +100,7 @@
     {% endif %}
 
     {% if inbox_msg.source == 'email' %}
-    <!-- 답장 -->
+    <!-- 이메일 답장 -->
     <div style="padding:8px 12px;border-top:1px solid #eee">
       <form method="post" action="{% url 'inbox_reply' inbox_msg.pk %}">
         {% csrf_token %}
@@ -113,6 +113,42 @@
           답장 보내기
         </button>
       </form>
+    </div>
+    {% elif inbox_msg.source == 'sms' %}
+    <!-- 문자 답장 -->
+    <div style="padding:8px 12px;border-top:1px solid #eee" x-data="{ smsBody:'', sending:false, result:'' }">
+      <div style="font-size:11px;font-weight:bold;color:#444;margin-bottom:4px">
+        문자 답장{% if sms_reply_phone %} <span style="color:#666;font-weight:normal">→ {{ sms_reply_phone }}</span>{% endif %}
+      </div>
+      {% if not sms_reply_phone %}
+      <div style="font-size:11px;color:#dc2626;margin-bottom:4px">전화번호를 추출할 수 없습니다.</div>
+      {% endif %}
+      <textarea x-model="smsBody" rows="3"
+                style="width:100%;box-sizing:border-box;padding:6px 8px;border:1px solid #bbb;font-size:12px;font-family:inherit;resize:vertical"
+                placeholder="답장 내용을 입력하세요..."></textarea>
+      <div style="display:flex;align-items:center;gap:6px;margin-top:4px">
+        <button type="button" class="btn btn-blue btn-sm" style="flex:1"
+                :disabled="sending || !smsBody.trim()"
+                @click="
+                  if (!smsBody.trim()) { alert('내용을 입력하세요.'); return; }
+                  if (!confirm('문자를 발송하시겠습니까?')) return;
+                  sending = true; result = '';
+                  const fd = new FormData();
+                  fd.append('receiver', '{{ sms_reply_phone|escapejs }}');
+                  fd.append('message', smsBody);
+                  fd.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+                  fetch('{% url "send_sms_ajax" %}', { method:'POST', body:fd })
+                    .then(r => r.json())
+                    .then(d => { result = d.success ? '발송 완료' : (d.error || '발송 실패'); if(d.success) smsBody=''; })
+                    .catch(() => { result = '발송 오류'; })
+                    .finally(() => { sending = false; })
+                ">
+          <span x-show="!sending">문자 발송</span>
+          <span x-show="sending">발송 중...</span>
+        </button>
+      </div>
+      <div x-show="result" x-text="result" style="margin-top:4px;font-size:11px;font-weight:bold"
+           :style="result === '발송 완료' ? 'color:#16a34a' : 'color:#dc2626'"></div>
     </div>
     {% endif %}
 

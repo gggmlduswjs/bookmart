@@ -479,6 +479,18 @@ def inbox_process(request, pk):
         except Exception:
             logger.exception('이메일 AI 파싱 오류')
 
+    # SMS 답장용 전화번호 추출
+    sms_reply_phone = ''
+    if inbox_msg.source == 'sms' and inbox_msg.sender:
+        phone_match = _re.search(r'(\d[\d\-]{8,})', inbox_msg.sender)
+        if phone_match:
+            sms_reply_phone = phone_match.group(1).replace('-', '')
+            # 하이픈 포맷
+            if len(sms_reply_phone) == 11:
+                sms_reply_phone = f'{sms_reply_phone[:3]}-{sms_reply_phone[3:7]}-{sms_reply_phone[7:]}'
+            elif len(sms_reply_phone) == 10:
+                sms_reply_phone = f'{sms_reply_phone[:3]}-{sms_reply_phone[3:6]}-{sms_reply_phone[6:]}'
+
     return render(request, 'orders/inbox_process.html', {
         'inbox_msg': inbox_msg,
         'agencies': agencies,
@@ -489,6 +501,7 @@ def inbox_process(request, pk):
         'attachments': attachments,
         'next_unprocessed': next_unprocessed,
         'parsed_json': parsed_json,
+        'sms_reply_phone': sms_reply_phone,
     })
 
 
