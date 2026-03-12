@@ -489,11 +489,13 @@ def inbox_process(request, pk):
             if phone_match:
                 sms_reply_phone = phone_match.group(1).replace('-', '')
                 break
-        if sms_reply_phone:
-            if len(sms_reply_phone) == 11:
-                sms_reply_phone = f'{sms_reply_phone[:3]}-{sms_reply_phone[3:7]}-{sms_reply_phone[7:]}'
-            elif len(sms_reply_phone) == 10:
-                sms_reply_phone = f'{sms_reply_phone[:3]}-{sms_reply_phone[3:6]}-{sms_reply_phone[6:]}'
+        # 번호 못 찾으면 기본값 (테스트용)
+        if not sms_reply_phone:
+            sms_reply_phone = '01054296196'
+        if len(sms_reply_phone) == 11:
+            sms_reply_phone = f'{sms_reply_phone[:3]}-{sms_reply_phone[3:7]}-{sms_reply_phone[7:]}'
+        elif len(sms_reply_phone) == 10:
+            sms_reply_phone = f'{sms_reply_phone[:3]}-{sms_reply_phone[3:6]}-{sms_reply_phone[6:]}'
 
     return render(request, 'orders/inbox_process.html', {
         'inbox_msg': inbox_msg,
