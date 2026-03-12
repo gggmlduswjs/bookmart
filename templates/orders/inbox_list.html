@@ -112,12 +112,23 @@
     display: flex;
   }
   .sp-split-left {
-    flex: 1; overflow-y: auto; border-right: 1px solid #e2e8f0;
-    min-width: 0;
+    overflow-y: auto; border-right: none;
+    min-width: 200px; width: 50%;
   }
   .sp-split-right {
     flex: 1; overflow-y: auto;
-    min-width: 0;
+    min-width: 200px;
+  }
+  .sp-resizer {
+    width: 5px; cursor: col-resize; background: #e2e8f0;
+    flex-shrink: 0; position: relative; transition: background 0.15s;
+  }
+  .sp-resizer:hover, .sp-resizer.dragging { background: #3b82f6; }
+  .sp-resizer::after {
+    content: ''; position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 3px; height: 24px; border-left: 1px solid #94a3b8;
+    border-right: 1px solid #94a3b8;
   }
   .sp-split-label {
     font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;
@@ -172,8 +183,9 @@
   }
   @media (max-width: 768px) {
     .slide-panel-body { flex-direction: column; }
-    .sp-split-left { border-right: none; border-bottom: 1px solid #e2e8f0; max-height: 40vh; }
+    .sp-split-left { border-bottom: 1px solid #e2e8f0; max-height: 40vh; width: 100% !important; }
     .sp-split-right { flex: 1; }
+    .sp-resizer { display: none; }
   }
 </style>
 {% endblock %}
@@ -626,6 +638,8 @@
         </div>
       </div>
     </div>
+    <!-- Resizer handle -->
+    <div class="sp-resizer" id="spResizer"></div>
     <!-- Right: Attachment Preview + Order Form -->
     <div class="sp-split-right" id="spOrderSide">
       <!-- Attachment preview area -->
@@ -782,6 +796,35 @@ function _loadOrderForm() {
       container.innerHTML = '<div style="text-align:center;padding:40px;color:#dc2626">폼 로드 실패: ' + err.message + '</div>';
     });
 }
+
+/* --- Resizer drag logic --- */
+(function() {
+  var resizer = document.getElementById('spResizer');
+  var left = document.querySelector('.sp-split-left');
+  var body = document.getElementById('spBody');
+  var dragging = false, startX, startW;
+
+  resizer.addEventListener('mousedown', function(e) {
+    dragging = true; startX = e.clientX; startW = left.offsetWidth;
+    resizer.classList.add('dragging');
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    e.preventDefault();
+  });
+  document.addEventListener('mousemove', function(e) {
+    if (!dragging) return;
+    var bodyW = body.offsetWidth;
+    var newW = Math.min(Math.max(startW + (e.clientX - startX), 200), bodyW - 250);
+    left.style.width = newW + 'px';
+  });
+  document.addEventListener('mouseup', function() {
+    if (!dragging) return;
+    dragging = false;
+    resizer.classList.remove('dragging');
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+  });
+})();
 
 function openSlidePanel(pk, source) {
   _currentPanelPk = pk;
