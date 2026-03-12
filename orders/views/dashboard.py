@@ -7,7 +7,8 @@ from django.db.models import Sum
 
 from accounts.decorators import role_required
 from accounts.models import User
-from orders.models import Order, OrderItem, Return, InboxMessage, DeliveryAddress, CallRecording, AuditLog, SiteConfig
+from django.shortcuts import get_object_or_404
+from orders.models import Order, OrderItem, Return, InboxMessage, DeliveryAddress, CallRecording, AuditLog, SiteConfig, Notice
 from ._helpers import get_deadlines
 
 
@@ -126,3 +127,70 @@ def site_settings(request):
             messages.error(request, '시간 형식이 올바르지 않습니다. (예: 11:20)')
         return redirect('site_settings')
     return render(request, 'orders/site_settings.html', {'config': config})
+
+
+@role_required('admin')
+def notice_list(request):
+    notices = Notice.objects.all().order_by('-created_at')
+    return render(request, 'orders/notice_list.html', {'notice_list': notices, 'cur': 'notice_list'})
+
+
+@role_required('admin')
+def notice_create(request):
+    if request.method == 'POST':
+        title = request.POST.get('title', '').strip()
+        content = request.POST.get('content', '').strip()
+        level = request.POST.get('level', 'info')
+        if not title:
+            messages.error(request, '제목을 입력해주세요.')
+            return render(request, 'orders/notice_form.html', {
+                'form_title': '공지 작성', 'cur': 'notice_list',
+                'notice': {'title': title, 'content': content, 'level': level},
+            })
+        Notice.objects.create(title=title, content=content, level=level)
+        messages.success(request, '공지가 등록되었습니다.')
+        return redirect('notice_list')
+    return render(request, 'orders/notice_form.html', {'form_title': '공지 작성', 'cur': 'notice_list'})
+
+
+@role_required('admin')
+def notice_edit(request, pk):
+    notice = get_object_or_404(Notice, pk=pk)
+    if request.method == 'POST':
+        title = request.POST.get('title', '').strip()
+        content = request.POST.get('content', '').strip()
+        level = request.POST.get('level', 'info')
+        if not title:
+            messages.error(request, '제목을 입력해주세요.')
+            return render(request, 'orders/notice_form.html', {
+                'form_title': '공지 수정', 'notice': notice, 'cur': 'notice_list',
+            })
+        notice.title = title
+        notice.content = content
+        notice.level = level
+        notice.save(update_fields=['title', 'content', 'level'])
+        messages.success(request, '공지가 수정되었습니다.')
+        return redirect('notice_list')
+    return render(request, 'orders/notice_form.html', {
+        'form_title': '공지 수정', 'notice': notice, 'cur': 'notice_list',
+    })
+
+
+@role_required('admin')
+def notice_delete(request, pk):
+    notice = get_object_or_404(Notice, pk=pk)
+    if request.method == 'POST':
+        notice.delete()
+        messages.success(request, '공지가 삭제되었습니다.')
+    return redirect('notice_list')
+
+
+@role_required('admin')
+def notice_toggle(request, pk):
+    notice = get_object_or_404(Notice, pk=pk)
+    if request.method == 'POST':
+        notice.is_active = not notice.is_active
+        notice.save(update_fields=['is_active'])
+        state = '활성' if notice.is_active else '비활성'
+        messages.success(request, f'공지가 {state} 처리되었습니다.')
+    return redirect('notice_list')

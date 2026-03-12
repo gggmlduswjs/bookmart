@@ -574,6 +574,31 @@ class CallRecording(models.Model):
         return f'{self.file_name or "녹음"} ({self.get_status_display()})'
 
 
+class Notice(models.Model):
+    class Level(models.TextChoices):
+        INFO    = 'info',    '정보'
+        WARNING = 'warning', '경고'
+        URGENT  = 'urgent',  '긴급'
+
+    title = models.CharField(max_length=200, verbose_name='제목')
+    content = models.TextField(verbose_name='내용')
+    level = models.CharField(
+        max_length=10, choices=Level.choices, default=Level.INFO,
+        verbose_name='중요도'
+    )
+    is_active = models.BooleanField(default=True, verbose_name='활성')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'notices'
+        verbose_name = '공지사항'
+        verbose_name_plural = '공지사항'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'[{self.get_level_display()}] {self.title}'
+
+
 class SiteConfig(models.Model):
     """싱글톤 사이트 설정"""
     deadline_city = models.TimeField(default='11:20', verbose_name='시내 마감시간')

@@ -1,4 +1,7 @@
-from .dashboard import dashboard, agency_dashboard, site_settings
+from .dashboard import (
+    dashboard, agency_dashboard, site_settings,
+    notice_list, notice_create, notice_edit, notice_delete, notice_toggle,
+)
 from .order import (
     order_list, order_create, individual_order_create, order_create_admin,
     order_detail, order_copy, order_edit, order_cancel,

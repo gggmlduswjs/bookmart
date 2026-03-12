@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block current_menu %}notice_list{% endblock %}
+{% block title %}{{ form_title }}{% endblock %}
+
+{% block content %}
+<div style="max-width:600px;margin:0 auto;padding:32px 0">
+  <h2 style="font-size:20px;font-weight:700;margin-bottom:24px">{{ form_title }}</h2>
+
+  <form method="post">
+    {% csrf_token %}
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:24px">
+
+      <div style="margin-bottom:16px">
+        <label style="display:block;font-size:13px;font-weight:500;color:#64748b;margin-bottom:6px">제목</label>
+        <input type="text" name="title" value="{{ notice.title|default:'' }}" maxlength="200"
+               style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:14px" required>
+      </div>
+
+      <div style="margin-bottom:16px">
+        <label style="display:block;font-size:13px;font-weight:500;color:#64748b;margin-bottom:6px">중요도</label>
+        <select name="level"
+                style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;background:#fff">
+          <option value="info" {% if notice.level == 'info' or not notice %}selected{% endif %}>🔵 정보</option>
+          <option value="warning" {% if notice.level == 'warning' %}selected{% endif %}>🟡 경고</option>
+          <option value="urgent" {% if notice.level == 'urgent' %}selected{% endif %}>🔴 긴급</option>
+        </select>
+      </div>
+
+      <div style="margin-bottom:20px">
+        <label style="display:block;font-size:13px;font-weight:500;color:#64748b;margin-bottom:6px">내용</label>
+        <textarea name="content" rows="6"
+                  style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;resize:vertical"
+                  required>{{ notice.content|default:'' }}</textarea>
+      </div>
+
+      <div style="display:flex;gap:8px">
+        <button type="submit"
+                style="flex:1;padding:12px;background:#2563eb;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer">
+          저장
+        </button>
+        <a href="{% url 'notice_list' %}"
+           style="padding:12px 24px;background:#f1f5f9;color:#475569;border-radius:8px;font-size:14px;font-weight:600;text-decoration:none;text-align:center">
+          취소
+        </a>
+      </div>
+    </div>
+  </form>
+</div>
+{% endblock %}

@@ -18,6 +18,13 @@ urlpatterns = [
     # ── 설정 ────────────────────────────────────────────────────────────────
     path('settings/', views.site_settings, name='site_settings'),
 
+    # ── 공지사항 ──────────────────────────────────────────────────────────────
+    path('notices/', views.notice_list, name='notice_list'),
+    path('notices/create/', views.notice_create, name='notice_create'),
+    path('notices/<int:pk>/edit/', views.notice_edit, name='notice_edit'),
+    path('notices/<int:pk>/delete/', views.notice_delete, name='notice_delete'),
+    path('notices/<int:pk>/toggle/', views.notice_toggle, name='notice_toggle'),
+
     # ── 주문 ──────────────────────────────────────────────────────────────────
     path('orders/', views.order_list, name='order_list'),
     path('orders/create/', views.order_create, name='order_create'),

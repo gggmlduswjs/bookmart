@@ -6,3 +6,10 @@ def inbox_count(request):
             'pending_order_count': Order.objects.filter(status='pending').count(),
         }
     return {}
+
+
+def active_notices(request):
+    if request.user.is_authenticated:
+        from orders.models import Notice
+        return {'notices': Notice.objects.filter(is_active=True).order_by('-created_at')[:5]}
+    return {}
