@@ -189,11 +189,6 @@
   <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
     <a href="{% url 'sms_desk' %}" class="btn btn-orange btn-sm">문자 주문 데스크</a>
     <a href="{% url 'sms_import_xml' %}" class="btn btn-outline btn-sm">문자 백업 가져오기</a>
-    {% if hide_done %}
-      <a href="?tab=sms{% if search %}&q={{ search|urlencode }}{% endif %}" class="btn btn-outline btn-sm">전체 보기</a>
-    {% else %}
-      <a href="?tab=sms&hide_done=1{% if search %}&q={{ search|urlencode }}{% endif %}" class="btn btn-outline btn-sm">미처리만 보기</a>
-    {% endif %}
   </div>
 
   <div class="content-box scroll-hint">
@@ -205,13 +200,13 @@
           <th>최근 내용</th>
           <th style="width:60px">문자수</th>
           <th style="width:130px">최근 시각</th>
-          <th style="width:70px">상태</th>
+          <th style="width:60px">주문</th>
           <th style="width:60px"></th>
         </tr>
       </thead>
       <tbody>
         {% for conv in sms_conversations %}
-        <tr class="{% if conv.unread_count %}unread{% elif not conv.unprocessed_count %}read{% endif %}">
+        <tr>
           <td class="center">{% if conv.unread_count %}<span class="read-dot"></span>{% endif %}</td>
           <td style="font-size:12px;font-weight:bold">{{ conv.sender_name|default:conv.phone }}</td>
           <td>
@@ -224,10 +219,6 @@
           <td class="center">
             {% if conv.has_order %}
             <span style="color:#1e40af;font-size:11px;font-weight:bold">주문</span>
-            {% elif conv.unprocessed_count %}
-            <span style="color:#e8720c;font-size:11px;font-weight:bold">미처리 {{ conv.unprocessed_count }}</span>
-            {% else %}
-            <span style="color:#888;font-size:11px">처리</span>
             {% endif %}
           </td>
           <td class="center">
