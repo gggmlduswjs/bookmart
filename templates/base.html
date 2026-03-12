@@ -32,6 +32,16 @@
       overflow-y: auto;
       overflow-x: hidden;
     }
+    #sidebar-resizer {
+      position: fixed; top: 0; bottom: 0;
+      width: 4px; left: 200px;
+      cursor: col-resize; z-index: 201;
+      background: transparent;
+    }
+    #sidebar-resizer:hover,
+    #sidebar-resizer.dragging {
+      background: #3b82f6;
+    }
 
     #logo {
       padding: 12px 10px;
@@ -1022,6 +1032,7 @@
     </div>
   {% endif %}
 </div>
+<div id="sidebar-resizer"></div>
 
 <!-- 상단 탭 -->
 <div id="topbar">
@@ -1312,6 +1323,51 @@ function copyToClipboard(text, btn) {
 
   // 60초 간격 폴링
   setInterval(pollCounts, 60000);
+})();
+
+// ── 사이드바 리사이저 ──
+(function(){
+  var resizer = document.getElementById('sidebar-resizer');
+  if(!resizer) return;
+  var sidebar = document.getElementById('sidebar');
+  var topbar = document.getElementById('topbar');
+  var content = document.getElementById('content');
+  var footer = document.getElementById('footer');
+  var MIN = 160, MAX = 360;
+
+  // localStorage에서 저장된 너비 복원
+  var saved = localStorage.getItem('sidebar-w');
+  if(saved){ applyWidth(parseInt(saved, 10)); }
+
+  function applyWidth(w){
+    w = Math.max(MIN, Math.min(MAX, w));
+    sidebar.style.width = w + 'px';
+    resizer.style.left = w + 'px';
+    topbar.style.left = w + 'px';
+    if(content) content.style.marginLeft = w + 'px';
+    if(footer) footer.style.marginLeft = w + 'px';
+  }
+
+  resizer.addEventListener('mousedown', function(e){
+    e.preventDefault();
+    resizer.classList.add('dragging');
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+
+    function onMove(e){
+      applyWidth(e.clientX);
+    }
+    function onUp(e){
+      resizer.classList.remove('dragging');
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      localStorage.setItem('sidebar-w', Math.max(MIN, Math.min(MAX, e.clientX)));
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    }
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
 })();
 
 // ── 상단바 마감 카운트다운 ──
