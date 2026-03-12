@@ -25,6 +25,13 @@ def ledger(request):
     today = date.today()
     if request.user.role == 'admin':
         agencies = User.objects.filter(role='agency', is_active=True).order_by('name')
+        category_filter = request.GET.get('category', '')
+        agency_categories = (
+            User.objects.filter(role='agency', is_active=True, agency_category__gt='')
+            .values_list('agency_category', flat=True).distinct().order_by('agency_category')
+        )
+        if category_filter:
+            agencies = agencies.filter(agency_category=category_filter)
         agency_id = request.GET.get('agency', '')
         if agency_id:
             selected_agency = get_object_or_404(User, pk=agency_id, role='agency')
@@ -32,6 +39,8 @@ def ledger(request):
             selected_agency = agencies.first()
     else:
         agencies = None
+        agency_categories = []
+        category_filter = ''
         selected_agency = request.user
         agency_id = str(request.user.pk)
 
@@ -119,6 +128,8 @@ def ledger(request):
         'total_paid': total_paid,
         'balance': balance,
         'payments': payments if selected_agency else [],
+        'agency_categories': agency_categories,
+        'category_filter': category_filter,
     })
 
 
@@ -137,7 +148,22 @@ def sales_report(request):
     ).select_related('order', 'order__teacher', 'order__delivery', 'order__agency',
                      'book', 'book__publisher').order_by('order__ordered_at')
 
-    if request.user.role == 'agency':
+    agency_filter = request.GET.get('agency', '')
+    category_filter = request.GET.get('category', '')
+    agencies = None
+    agency_categories = []
+
+    if request.user.role == 'admin':
+        agencies = User.objects.filter(role='agency', is_active=True).order_by('name')
+        agency_categories = (
+            User.objects.filter(role='agency', is_active=True, agency_category__gt='')
+            .values_list('agency_category', flat=True).distinct().order_by('agency_category')
+        )
+        if agency_filter:
+            qs = qs.filter(order__agency_id=agency_filter)
+        if category_filter:
+            qs = qs.filter(order__agency__agency_category=category_filter)
+    elif request.user.role == 'agency':
         qs = qs.filter(order__agency=request.user)
     elif request.user.role == 'teacher':
         qs = qs.filter(order__teacher=request.user)
@@ -149,6 +175,10 @@ def sales_report(request):
         'date_from': date_from,
         'date_to': date_to,
         'total_amount': total_amount,
+        'agencies': agencies,
+        'agency_categories': agency_categories,
+        'agency_filter': agency_filter,
+        'category_filter': category_filter,
     })
 
 

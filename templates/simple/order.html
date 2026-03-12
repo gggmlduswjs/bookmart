@@ -59,6 +59,7 @@
   <a href="{% url 'simple_order' slug=slug %}" class="active">주문하기</a>
   <a href="{% url 'simple_order_list' slug=slug %}">주문내역</a>
   <a href="{% url 'simple_delivery_status' slug=slug %}">배송현황</a>
+  <a href="{% url 'simple_set_password' slug=slug %}">비밀번호</a>
 </div>
 
 <div class="simple-card" style="padding:16px" x-data="orderForm()">
@@ -92,6 +93,10 @@
     <div class="form-row">
       <label>연락처</label>
       <input type="text" x-model="deliveryPhone" @input="deliveryPhone = formatPhone(deliveryPhone)" placeholder="010-1234-5678" style="max-width:180px">
+    </div>
+    <div class="form-row">
+      <label>요청 배송일</label>
+      <input type="date" name="requested_delivery_date" style="max-width:180px">
     </div>
   </div>
 

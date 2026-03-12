@@ -70,6 +70,7 @@
           <th>업체</th>
           <th>선생님</th>
           <th>배송지</th>
+          <th>위치상세</th>
           <th class="center">건수</th>
           <th class="right">금액</th>
           <th>배송방법</th>
@@ -79,13 +80,20 @@
         </tr>
       </thead>
       <tbody>
-        {% for order in pending_orders %}
+        {% for group in pending_groups %}
+        <tr style="background:#f1f5f9">
+          <td colspan="12" style="font-weight:700;font-size:13px;padding:8px 12px;color:#334155">
+            {{ group.label }} <span style="color:#64748b;font-weight:400;font-size:12px">({{ group.count }}건)</span>
+          </td>
+        </tr>
+        {% for order in group.orders %}
         <tr x-data="{carrier:'hanjin'}">
           <td class="center"><input type="checkbox" class="pending-chk" name="ids" value="{{ order.pk }}" aria-label="{{ order.order_no }} 선택"></td>
           <td style="font-size:11px">{{ order.order_no }}</td>
           <td>{{ order.agency.name }}</td>
           <td>{{ order.teacher.name }}</td>
           <td>{{ order.delivery.name }}</td>
+          <td style="font-size:11px;color:#64748b">{{ order.delivery.location_detail }}</td>
           <td class="center">{{ order.item_count }}</td>
           <td class="right" style="font-weight:600">{{ order.total_amt|floatformat:0 }}원</td>
           <td style="font-size:11px">
@@ -105,8 +113,9 @@
           <td style="font-size:11px;color:#64748b">{{ order.ordered_at|date:"Y-m-d H:i" }}</td>
           <td class="center"><a href="{% url 'order_detail' order.pk %}" class="btn btn-sm btn-outline" style="padding:1px 6px;font-size:10px">상세</a></td>
         </tr>
+        {% endfor %}
         {% empty %}
-        <tr><td colspan="11" class="center" style="padding:20px;color:#94a3b8">발송 대기중인 주문이 없습니다.</td></tr>
+        <tr><td colspan="12" class="center" style="padding:20px;color:#94a3b8">발송 대기중인 주문이 없습니다.</td></tr>
         {% endfor %}
       </tbody>
     </table>
@@ -137,6 +146,7 @@
           <th>업체</th>
           <th>선생님</th>
           <th>배송지</th>
+          <th>위치상세</th>
           <th class="center">건수</th>
           <th class="right">금액</th>
           <th>배송방법</th>
@@ -145,13 +155,20 @@
         </tr>
       </thead>
       <tbody>
-        {% for order in shipping_orders %}
+        {% for group in shipping_groups %}
+        <tr style="background:#f1f5f9">
+          <td colspan="11" style="font-weight:700;font-size:13px;padding:8px 12px;color:#334155">
+            {{ group.label }} <span style="color:#64748b;font-weight:400;font-size:12px">({{ group.count }}건)</span>
+          </td>
+        </tr>
+        {% for order in group.orders %}
         <tr>
           <td class="center"><input type="checkbox" class="shipping-chk" name="ids" value="{{ order.pk }}" aria-label="{{ order.order_no }} 선택"></td>
           <td style="font-size:11px">{{ order.order_no }}</td>
           <td>{{ order.agency.name }}</td>
           <td>{{ order.teacher.name }}</td>
           <td>{{ order.delivery.name }}</td>
+          <td style="font-size:11px;color:#64748b">{{ order.delivery.location_detail }}</td>
           <td class="center">{{ order.item_count }}</td>
           <td class="right" style="font-weight:600">{{ order.total_amt|floatformat:0 }}원</td>
           <td style="font-size:12px">
@@ -167,8 +184,9 @@
           <td style="font-size:11px;color:#64748b">{{ order.ordered_at|date:"Y-m-d H:i" }}</td>
           <td class="center"><a href="{% url 'order_detail' order.pk %}" class="btn btn-sm btn-outline" style="padding:1px 6px;font-size:10px">상세</a></td>
         </tr>
+        {% endfor %}
         {% empty %}
-        <tr><td colspan="10" class="center" style="padding:20px;color:#94a3b8">배송중인 주문이 없습니다.</td></tr>
+        <tr><td colspan="11" class="center" style="padding:20px;color:#94a3b8">배송중인 주문이 없습니다.</td></tr>
         {% endfor %}
       </tbody>
     </table>
@@ -185,6 +203,7 @@
         <th>업체</th>
         <th>선생님</th>
         <th>배송지</th>
+        <th>위치상세</th>
         <th class="center">건수</th>
         <th class="right">금액</th>
         <th>배송방법</th>
@@ -199,6 +218,7 @@
         <td>{{ order.agency.name }}</td>
         <td>{{ order.teacher.name }}</td>
         <td>{{ order.delivery.name }}</td>
+        <td style="font-size:11px;color:#64748b">{{ order.delivery.location_detail }}</td>
         <td class="center">{{ order.item_count }}</td>
         <td class="right" style="font-weight:600">{{ order.total_amt|floatformat:0 }}원</td>
         <td style="font-size:12px">
@@ -215,7 +235,7 @@
         <td class="center"><a href="{% url 'order_detail' order.pk %}" class="btn btn-sm btn-outline" style="padding:1px 6px;font-size:10px">상세</a></td>
       </tr>
       {% empty %}
-      <tr><td colspan="9" class="center" style="padding:20px;color:#94a3b8">배송완료된 주문이 없습니다.</td></tr>
+      <tr><td colspan="10" class="center" style="padding:20px;color:#94a3b8">배송완료된 주문이 없습니다.</td></tr>
       {% endfor %}
     </tbody>
   </table>

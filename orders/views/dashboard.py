@@ -1,4 +1,5 @@
 import datetime
+from datetime import timedelta
 
 from django.contrib import messages
 from django.shortcuts import render, redirect
@@ -38,6 +39,26 @@ def dashboard(request):
     # 최근 활동 로그
     recent_activity = AuditLog.objects.select_related('user').order_by('-created_at')[:8]
 
+    # 요청 배송일 임박 주문
+    upcoming_delivery = (
+        Order.objects.filter(
+            status__in=['pending', 'shipping'],
+            requested_delivery_date__isnull=False,
+            requested_delivery_date__lte=today + timedelta(days=3),
+        )
+        .select_related('teacher', 'delivery', 'agency')
+        .order_by('requested_delivery_date')[:10]
+    )
+    overdue_delivery = [o for o in upcoming_delivery if o.requested_delivery_date < today]
+
+    # 업체 분류별 통계
+    category_stats = (
+        Order.objects.filter(ordered_at__date=today)
+        .values('agency__agency_category')
+        .annotate(cnt=Count('id'))
+        .order_by('-cnt')
+    )
+
     return render(request, 'orders/dashboard.html', {
         'unprocessed_inbox': unprocessed_inbox,
         'today_orders': today_orders,
@@ -53,6 +74,10 @@ def dashboard(request):
         'today_str': today.strftime('%Y-%m-%d'),
         'call_pending': call_pending,
         'recent_activity': recent_activity,
+        'upcoming_delivery': upcoming_delivery,
+        'overdue_delivery_count': len(overdue_delivery),
+        'category_stats': category_stats,
+        'today': today,
     })
 
 

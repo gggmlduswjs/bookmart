@@ -74,6 +74,20 @@
           </td>
         </tr>
         <tr>
+          <th>위치 상세</th>
+          <td>
+            <input type="text" name="location_detail" value="{{ order.delivery.location_detail|default:'' }}"
+                   style="width:240px;padding:4px 8px;border:1px solid #bbb;font-size:12px" placeholder="4층 컴퓨터실, 관리실 경유 등">
+          </td>
+        </tr>
+        <tr>
+          <th>요청 배송일</th>
+          <td>
+            <input type="date" name="requested_delivery_date" value="{{ order.requested_delivery_date|date:'Y-m-d' }}"
+                   style="padding:4px 8px;border:1px solid #bbb;font-size:12px">
+          </td>
+        </tr>
+        <tr>
           <th>배송방법</th>
           <td x-data="{carrier:'{{ order.carrier|default:'hanjin' }}'}">
             <div style="display:flex;gap:10px;align-items:center">

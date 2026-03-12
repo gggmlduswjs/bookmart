@@ -19,6 +19,13 @@ class DeliveryAddress(models.Model):
     mobile = models.CharField(max_length=20, blank=True, verbose_name='휴대폰')
     fax = models.CharField(max_length=20, blank=True, verbose_name='팩스')
     address = models.CharField(max_length=255, blank=True, verbose_name='주소')
+    location_detail = models.CharField(max_length=100, blank=True, verbose_name='배송 위치 상세',
+                                        help_text='예: 4층 컴퓨터실, 관리실 경유')
+    region = models.CharField(max_length=10, blank=True, choices=[
+        ('seoul', '서울'),
+        ('gyeonggi', '경기'),
+        ('regional', '지방'),
+    ], verbose_name='지역 분류')
     is_active = models.BooleanField(default=True, verbose_name='활성')
     created_at = models.DateTimeField(auto_now_add=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, null=True)
@@ -80,6 +87,7 @@ class Order(models.Model):
         verbose_name='배송방법'
     )
     tracking_no = models.CharField(max_length=50, blank=True, verbose_name='운송장번호')
+    requested_delivery_date = models.DateField(null=True, blank=True, verbose_name='요청 배송일')
     ordered_at = models.DateTimeField(default=timezone.now, verbose_name='주문일시')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True, verbose_name='수정일시')

@@ -61,19 +61,24 @@ def resolve_teacher(teacher_id, new_name, new_phone, agency):
     return None, '선생님을 선택하거나 새로 입력해 주세요.'
 
 
-def resolve_delivery(delivery_school, address, phone, agency, teacher):
+def resolve_delivery(delivery_school, address, phone, agency, teacher, location_detail=''):
     """배송지 조회/생성 후 teacher에 할당.
     Returns (delivery, error_message). error_message is None on success.
     """
     if delivery_school:
+        defaults = {'address': address, 'phone': phone}
+        if location_detail:
+            defaults['location_detail'] = location_detail
         delivery, created = DeliveryAddress.objects.get_or_create(
             agency=agency, name=delivery_school,
-            defaults={'address': address, 'phone': phone},
+            defaults=defaults,
         )
         if not created and address:
             delivery.address = address
             delivery.phone = phone
-            delivery.save(update_fields=['address', 'phone'])
+            if location_detail:
+                delivery.location_detail = location_detail
+            delivery.save(update_fields=['address', 'phone', 'location_detail'])
         teacher.delivery_address = delivery
         teacher.save(update_fields=['delivery_address'])
         return delivery, None

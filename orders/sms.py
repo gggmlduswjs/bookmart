@@ -81,11 +81,16 @@ def send_order_confirmation(order) -> bool:
     """주문 접수 완료 문자"""
     teacher = order.teacher
     receiver = teacher.phone
-    message = (
-        f'[북마트] {teacher.name} 선생님\n'
-        f'{order.delivery.name} 교재 주문이 접수되었습니다.\n'
-        f'주문번호: {order.order_no}'
-    )
+    parts = [
+        f'[북마트] {teacher.name} 선생님',
+        f'{order.delivery.name} 교재 주문이 접수되었습니다.',
+    ]
+    if order.agency:
+        parts.append(f'업체: {order.agency.name}')
+    if order.requested_delivery_date:
+        parts.append(f'요청 배송일: {order.requested_delivery_date}')
+    parts.append(f'주문번호: {order.order_no}')
+    message = '\n'.join(parts)
     return send_sms(receiver, message)
 
 

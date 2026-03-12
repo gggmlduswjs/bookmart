@@ -7,6 +7,24 @@
 <form method="get" class="search-bar">
   <label>시작일</label><input type="date" name="date_from" value="{{ date_from }}">
   <label>종료일</label><input type="date" name="date_to" value="{{ date_to }}">
+  {% if request.user.is_admin %}
+  {% if agency_categories %}
+  <label for="filter-category">업체분류</label>
+  <select name="category" id="filter-category">
+    <option value="">전체 분류</option>
+    {% for cat in agency_categories %}
+    <option value="{{ cat }}" {% if category_filter == cat %}selected{% endif %}>{{ cat }}</option>
+    {% endfor %}
+  </select>
+  {% endif %}
+  <label for="filter-agency">업체</label>
+  <select name="agency" id="filter-agency">
+    <option value="">전체 업체</option>
+    {% for a in agencies %}
+    <option value="{{ a.pk }}" {% if agency_filter == a.pk|stringformat:"s" %}selected{% endif %}>{{ a.name }}{% if a.agency_category %} ({{ a.agency_category }}){% endif %}</option>
+    {% endfor %}
+  </select>
+  {% endif %}
   <button type="submit" class="btn btn-dark btn-sm">조회</button>
   <a href="{% url 'export_sales' %}?date_from={{ date_from }}&date_to={{ date_to }}" class="btn btn-outline btn-sm">엑셀 저장</a>
 </form>

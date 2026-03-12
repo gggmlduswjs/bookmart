@@ -302,10 +302,11 @@ def delete_email_imap(account_id, account_pw, uid_str):
         mail = imaplib.IMAP4_SSL(NAVER_IMAP_HOST, NAVER_IMAP_PORT)
         mail.login(account_id, account_pw)
         mail.select('INBOX', readonly=False)
+        mail.uid('copy', uid_str.encode(), '&vPSwuA-')  # 휴지통으로 복사
         mail.uid('store', uid_str.encode(), '+FLAGS', '(\\Deleted)')
         mail.expunge()
         mail.logout()
-        logger.info('IMAP %s: UID %s 삭제 완료', account_id, uid_str)
+        logger.info('IMAP %s: UID %s 휴지통 이동 완료', account_id, uid_str)
         return True
     except Exception as e:
         logger.error('IMAP 삭제 오류 (%s, UID %s): %s', account_id, uid_str, e)
@@ -321,10 +322,11 @@ def delete_emails_imap(account_id, account_pw, uid_list):
         mail.login(account_id, account_pw)
         mail.select('INBOX', readonly=False)
         for uid_str in uid_list:
+            mail.uid('copy', uid_str.encode(), '&vPSwuA-')  # 휴지통으로 복사
             mail.uid('store', uid_str.encode(), '+FLAGS', '(\\Deleted)')
         mail.expunge()
         mail.logout()
-        logger.info('IMAP %s: %d건 삭제 완료', account_id, len(uid_list))
+        logger.info('IMAP %s: %d건 휴지통 이동 완료', account_id, len(uid_list))
     except Exception as e:
         logger.error('IMAP 일괄 삭제 오류 (%s): %s', account_id, e)
 

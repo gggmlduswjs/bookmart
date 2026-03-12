@@ -233,6 +233,8 @@ def delivery_create(request):
                 name=form.cleaned_data['name'],
                 address=form.cleaned_data['address'],
                 phone=form.cleaned_data['phone'],
+                location_detail=form.cleaned_data.get('location_detail', ''),
+                region=form.cleaned_data.get('region', ''),
             )
             messages.success(request, f"학교 '{form.cleaned_data['name']}'이 등록되었습니다.")
             return redirect('delivery_list')

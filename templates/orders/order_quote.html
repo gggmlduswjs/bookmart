@@ -190,6 +190,7 @@
     <div class="header-left">
       <div class="date-line">{{ order.ordered_at|date:"Y" }}년 &nbsp; {{ order.ordered_at|date:"n" }}월 &nbsp; {{ order.ordered_at|date:"j" }}일</div>
       <div class="school-line">{{ order.delivery.name }} &nbsp; 귀중</div>
+      {% if order.agency %}<div style="font-size:12px;color:#555">업체: {{ order.agency.name }}</div>{% endif %}
       <div class="remark-line">아래와 같이 견적합니다.</div>
     </div>
     <div class="header-right">

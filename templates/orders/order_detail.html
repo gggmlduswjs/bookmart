@@ -22,7 +22,10 @@
   <div class="content-box" style="width:260px;flex-shrink:0">
     <table class="form-table" style="width:100%">
       <tr><th style="width:80px">주문번호</th><td style="font-size:11px">{{ order.order_no }}</td></tr>
-      <tr><th>배송지</th><td><strong>{{ order.delivery.name }}</strong></td></tr>
+      <tr><th>배송지</th><td><strong>{{ order.delivery.name }}</strong>{% if order.delivery.location_detail %} <span style="font-size:11px;color:#64748b">({{ order.delivery.location_detail }})</span>{% endif %}</td></tr>
+      {% if order.delivery.region %}
+      <tr><th>지역</th><td>{{ order.delivery.get_region_display }}</td></tr>
+      {% endif %}
       <tr><th>선생님</th><td>{{ order.teacher.name }}</td></tr>
       {% if request.user.is_admin %}
       <tr><th>업체</th><td>{{ order.agency.name }}</td></tr>
@@ -38,6 +41,9 @@
         </td>
       </tr>
       <tr><th>주문일시</th><td style="font-size:11px">{{ order.ordered_at|date:"Y-m-d H:i" }}</td></tr>
+      {% if order.requested_delivery_date %}
+      <tr><th>요청 배송일</th><td style="font-size:11px;{% if order.requested_delivery_date < today %}color:#dc2626;font-weight:bold{% endif %}">{{ order.requested_delivery_date|date:"Y-m-d" }}</td></tr>
+      {% endif %}
       {% if order.carrier %}
       <tr>
         <th>배송방법</th>

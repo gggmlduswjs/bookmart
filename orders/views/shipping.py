@@ -52,6 +52,25 @@ def order_deliver(request, pk):
     return redirect('order_detail', pk=pk)
 
 
+def _group_by_region(orders):
+    """Group orders by delivery region: 서울, 경기, 지방, 미분류"""
+    region_labels = {'seoul': '서울', 'gyeonggi': '경기', 'regional': '지방'}
+    groups = {'seoul': [], 'gyeonggi': [], 'regional': [], '': []}
+    for order in orders:
+        r = order.delivery.region if order.delivery else ''
+        groups.setdefault(r, []).append(order)
+    result = []
+    for key in ['seoul', 'gyeonggi', 'regional', '']:
+        if groups.get(key):
+            result.append({
+                'label': region_labels.get(key, '미분류'),
+                'region': key,
+                'orders': groups[key],
+                'count': len(groups[key]),
+            })
+    return result
+
+
 @role_required('admin')
 def delivery_manage(request):
     """배송관리 페이지: 접수/발송중 주문 일괄 처리"""
@@ -126,6 +145,8 @@ def delivery_manage(request):
         'pending_orders': pending_orders,
         'shipping_orders': shipping_orders,
         'delivered_orders': delivered_orders,
+        'pending_groups': _group_by_region(pending_orders),
+        'shipping_groups': _group_by_region(shipping_orders),
         'pending_count': pending_orders.count(),
         'shipping_count': shipping_orders.count(),
         'delivered_count': delivered_orders.count() if hasattr(delivered_orders, 'count') else len(delivered_orders),

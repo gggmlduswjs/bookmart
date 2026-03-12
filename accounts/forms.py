@@ -65,6 +65,11 @@ class DeliveryAddressForm(forms.Form):
     name = forms.CharField(label='학교명')
     address = forms.CharField(label='주소', required=False)
     phone = forms.CharField(label='전화번호', required=False)
+    location_detail = forms.CharField(label='위치 상세', required=False,
+                                       widget=forms.TextInput(attrs={'placeholder': '4층 컴퓨터실 등'}))
+    region = forms.ChoiceField(label='지역 분류', required=False, choices=[
+        ('', '선택안함'), ('seoul', '서울'), ('gyeonggi', '경기'), ('regional', '지방'),
+    ])
 
 
 class IndividualRegisterForm(forms.Form):

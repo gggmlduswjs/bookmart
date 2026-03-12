@@ -7,10 +7,19 @@
 <!-- 필터 -->
 <form method="get" class="search-bar">
   {% if request.user.is_admin %}
+  {% if agency_categories %}
+  <label for="filter-category">업체분류</label>
+  <select name="category" id="filter-category" onchange="this.form.submit()">
+    <option value="">전체 분류</option>
+    {% for cat in agency_categories %}
+    <option value="{{ cat }}" {% if category_filter == cat %}selected{% endif %}>{{ cat }}</option>
+    {% endfor %}
+  </select>
+  {% endif %}
   <label>업체</label>
   <select name="agency">
     {% for a in agencies %}
-    <option value="{{ a.pk }}" {% if a.pk|stringformat:"s" == agency_id %}selected{% endif %}>{{ a.name }}</option>
+    <option value="{{ a.pk }}" {% if a.pk|stringformat:"s" == agency_id %}selected{% endif %}>{{ a.name }}{% if a.agency_category %} ({{ a.agency_category }}){% endif %}</option>
     {% endfor %}
   </select>
   {% endif %}

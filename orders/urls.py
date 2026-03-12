@@ -10,6 +10,7 @@ urlpatterns = [
     path('s/<str:slug>/orders/', views_simple.simple_order_list, name='simple_order_list'),
     path('s/<str:slug>/delivery/', views_simple.simple_delivery_status, name='simple_delivery_status'),
     path('s/<str:slug>/parse-excel/', views_simple.simple_parse_excel, name='simple_parse_excel'),
+    path('s/<str:slug>/set-password/', views_simple.simple_set_password, name='simple_set_password'),
 
     # ── 대시보드 ──────────────────────────────────────────────────────────────
     path('dashboard/', views.dashboard, name='dashboard'),
@@ -104,4 +105,8 @@ urlpatterns = [
     path('orders/call/gdrive-auth/', views.gdrive_auth_start, name='gdrive_auth_start'),
     path('orders/call/gdrive-callback/', views.gdrive_auth_callback, name='gdrive_auth_callback'),
     path('webhook/call-recording/', views.call_recording_webhook, name='call_recording_webhook'),
+
+    # ── 모바일 배송 ──────────────────────────────────────────────────────────
+    path('m/delivery/', views.mobile_delivery_list, name='mobile_delivery_list'),
+    path('m/delivery/done/', views.mobile_delivery_done, name='mobile_delivery_done'),
 ]

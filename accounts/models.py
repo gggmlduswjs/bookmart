@@ -65,6 +65,8 @@ class User(AbstractBaseUser, PermissionsMixin):
         max_length=8, null=True, blank=True, unique=True, verbose_name='간편주문 코드'
     )
 
+    agency_category = models.CharField(max_length=30, blank=True, verbose_name='업체 분류',
+                                       help_text='아이센, 미래정보, 참다손 등')
     is_individual = models.BooleanField(default=False, verbose_name='개인선생님')
     supply_rate_override = models.DecimalField(
         max_digits=5, decimal_places=2, null=True, blank=True,

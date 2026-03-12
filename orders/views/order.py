@@ -27,6 +27,8 @@ def order_list(request):
     date_to = request.GET.get('date_to', '')
     delivery_id = request.GET.get('delivery', '')
     source = request.GET.get('source', '')
+    agency_category = request.GET.get('agency_category', '')
+    region = request.GET.get('region', '')
     q = request.GET.get('q', '').strip()
 
     if status:
@@ -39,6 +41,10 @@ def order_list(request):
         qs = qs.filter(delivery_id=delivery_id)
     if source:
         qs = qs.filter(source=source)
+    if agency_category:
+        qs = qs.filter(agency__agency_category=agency_category)
+    if region:
+        qs = qs.filter(delivery__region=region)
     if q:
         qs = qs.filter(
             Q(order_no__icontains=q) |
@@ -53,6 +59,12 @@ def order_list(request):
 
     deliveries = get_delivery_queryset(request.user)
 
+    agency_categories = (
+        User.objects.filter(role='agency', is_active=True, agency_category__gt='')
+        .values_list('agency_category', flat=True).distinct().order_by('agency_category')
+    )
+    region_choices = [('seoul', '서울'), ('gyeonggi', '경기'), ('regional', '지방')]
+
     page_number = request.GET.get('page', 1)
     paginator = Paginator(qs.order_by('-ordered_at'), 50)
     page_obj = paginator.get_page(page_number)
@@ -64,8 +76,12 @@ def order_list(request):
         'filters': {
             'status': status, 'date_from': date_from,
             'date_to': date_to, 'delivery': delivery_id,
-            'source': source, 'q': q,
+            'source': source, 'agency_category': agency_category,
+            'region': region, 'q': q,
         },
+        'agency_categories': agency_categories,
+        'region_choices': region_choices,
+        'today': timezone.localtime().date(),
         'past_city': past_city,
         'past_region': past_region,
     })
@@ -226,13 +242,14 @@ def individual_order_create(request):
 
 @login_required
 def order_detail(request, pk):
-    order = get_object_or_404(get_order_queryset(request.user), pk=pk)
+    order = get_object_or_404(get_order_queryset(request.user).select_related('delivery'), pk=pk)
     items = order.items.select_related('book', 'book__publisher')
     status_logs = order.status_logs.select_related('changed_by')
     return render(request, 'orders/order_detail.html', {
         'order': order,
         'items': items,
         'status_logs': status_logs,
+        'today': timezone.localtime().date(),
         'can_cancel': (
             order.status == Order.Status.PENDING
             and (
@@ -313,7 +330,9 @@ def order_edit(request, pk):
         order.memo = request.POST.get('memo', '')
         order.carrier = request.POST.get('carrier', '').strip()
         order.tracking_no = request.POST.get('tracking_no', '').strip() if order.carrier == 'hanjin' else ''
-        order.save(update_fields=['memo', 'carrier', 'tracking_no'])
+        requested_delivery_date = request.POST.get('requested_delivery_date', '').strip() or None
+        order.requested_delivery_date = requested_delivery_date
+        order.save(update_fields=['memo', 'carrier', 'tracking_no', 'requested_delivery_date'])
 
         delivery = order.delivery
         new_school = request.POST.get('delivery_school', '').strip()
@@ -332,6 +351,10 @@ def order_edit(request, pk):
         if new_phone:
             delivery.phone = new_phone
             delivery.save(update_fields=['phone'])
+        new_location_detail = request.POST.get('location_detail', '').strip()
+        if new_location_detail != (delivery.location_detail or ''):
+            delivery.location_detail = new_location_detail
+            delivery.save(update_fields=['location_detail'])
 
         new_items = parse_post_items(request.POST)
 
@@ -399,6 +422,13 @@ def order_create_admin(request):
         if not items:
             messages.error(request, '주문할 교재를 1권 이상 선택하세요.')
         else:
+            # location_detail 저장
+            location_detail = request.POST.get('location_detail', '').strip()
+            if location_detail and teacher.delivery_address:
+                teacher.delivery_address.location_detail = location_detail
+                teacher.delivery_address.save(update_fields=['location_detail'])
+
+            requested_delivery_date = request.POST.get('requested_delivery_date', '').strip() or None
             order = Order.objects.create(
                 order_no=Order.generate_order_no(),
                 agency=agency,
@@ -406,6 +436,7 @@ def order_create_admin(request):
                 delivery=teacher.delivery_address,
                 memo=request.POST.get('memo', ''),
                 source=Order.Source.ADMIN,
+                requested_delivery_date=requested_delivery_date,
             )
             create_order_items(order, items)
             OrderStatusLog.objects.create(

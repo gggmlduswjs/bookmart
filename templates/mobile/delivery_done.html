@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>배송완료 - 북마트</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, 'Malgun Gothic', sans-serif;
+      background: #f1f5f9;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+    }
+    .done-card {
+      background: #fff;
+      border-radius: 16px;
+      padding: 40px;
+      text-align: center;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+      max-width: 360px;
+      width: 90%;
+    }
+    .done-icon {
+      font-size: 60px;
+      margin-bottom: 16px;
+    }
+    .done-title {
+      font-size: 22px;
+      font-weight: 700;
+      color: #059669;
+      margin-bottom: 8px;
+    }
+    .done-desc {
+      font-size: 15px;
+      color: #64748b;
+      margin-bottom: 24px;
+    }
+    .done-btn {
+      display: inline-block;
+      background: #1e40af;
+      color: #fff;
+      padding: 14px 36px;
+      border-radius: 10px;
+      text-decoration: none;
+      font-size: 16px;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+<div class="done-card">
+  <div class="done-icon">&#x2705;</div>
+  <div class="done-title">배송완료 처리됨</div>
+  <div class="done-desc">{{ count }}건 배송완료 + SMS 발송</div>
+  <a href="{% url 'mobile_delivery_list' %}" class="done-btn">돌아가기</a>
+</div>
+</body>
+</html>

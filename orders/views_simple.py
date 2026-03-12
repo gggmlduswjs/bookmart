@@ -2,6 +2,8 @@ import json
 import math
 from functools import wraps
 
+from django.contrib import messages
+from django.contrib.auth import login as auth_login
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import Http404, HttpResponse
 
@@ -88,6 +90,7 @@ def simple_landing(request, slug):
                 if existing:
                     request.session['simple_teacher_id'] = existing.pk
                     request.session['simple_agency_code'] = str(agency.agency_code)
+                    auth_login(request, existing, backend='django.contrib.auth.backends.ModelBackend')
                     from django.urls import reverse
                     return HttpResponse(
                         json.dumps({'exists': True, 'redirect': reverse('simple_order', args=[slug])}),
@@ -117,6 +120,7 @@ def simple_landing(request, slug):
                 else:
                     request.session['simple_teacher_id'] = teacher.pk
                     request.session['simple_agency_code'] = str(agency.agency_code)
+                    auth_login(request, teacher, backend='django.contrib.auth.backends.ModelBackend')
                     return redirect('simple_order_list', slug=slug)
 
         else:
@@ -178,9 +182,10 @@ def simple_landing(request, slug):
                     teacher.delivery_address = delivery
                     teacher.save(update_fields=['delivery_address'])
 
-                # 세션에 저장
+                # 세션에 저장 + Django 로그인
                 request.session['simple_teacher_id'] = teacher.pk
                 request.session['simple_agency_code'] = str(agency.agency_code)
+                auth_login(request, teacher, backend='django.contrib.auth.backends.ModelBackend')
                 return redirect('simple_order', slug=slug)
 
     return render(request, 'simple/landing.html', {
@@ -243,6 +248,12 @@ def simple_order(request, slug):
                 delivery.phone = new_phone
                 delivery.save(update_fields=['phone'])
 
+        # Save location_detail separately
+        detail_val = request.POST.get('delivery_detail', '').strip()
+        if detail_val and delivery.location_detail != detail_val:
+            delivery.location_detail = detail_val
+            delivery.save(update_fields=['location_detail'])
+
         items = []
         custom_items = []
         i = 0
@@ -272,6 +283,7 @@ def simple_order(request, slug):
         if not items and not custom_items:
             error = '주문할 교재를 1권 이상 선택하세요.'
         else:
+            requested_delivery_date = request.POST.get('requested_delivery_date', '').strip() or None
             order = Order.objects.create(
                 order_no=Order.generate_order_no(),
                 agency=agency,
@@ -279,6 +291,7 @@ def simple_order(request, slug):
                 delivery=delivery,
                 memo=request.POST.get('memo', ''),
                 source=Order.Source.SIMPLE,
+                requested_delivery_date=requested_delivery_date,
             )
             for book_id, qty in items:
                 try:
@@ -599,4 +612,40 @@ def simple_order_list(request, slug):
         'agency': request.simple_agency,
         'orders': orders,
         'slug': slug,
+    })
+
+
+# ── 비밀번호 설정 ─────────────────────────────────────────────────────────────
+
+@simple_session_required
+def simple_set_password(request, slug):
+    """선생님이 비밀번호를 설정하면 정식 로그인 가능"""
+    agency = request.simple_agency
+    teacher = request.simple_teacher
+
+    if request.method == 'POST':
+        pw1 = request.POST.get('password1', '')
+        pw2 = request.POST.get('password2', '')
+
+        if not pw1:
+            messages.error(request, '비밀번호를 입력해주세요.')
+        elif len(pw1) < 4:
+            messages.error(request, '비밀번호는 4자 이상이어야 합니다.')
+        elif pw1 != pw2:
+            messages.error(request, '비밀번호가 일치하지 않습니다.')
+        else:
+            teacher.set_password(pw1)
+            teacher.must_change_password = False
+            teacher.save(update_fields=['password', 'must_change_password'])
+            # 비밀번호 변경 후 재로그인
+            auth_login(request, teacher, backend='django.contrib.auth.backends.ModelBackend')
+            messages.success(request, '비밀번호가 설정되었습니다. 이제 정식 로그인 페이지에서도 로그인할 수 있습니다.')
+            return redirect('simple_order', slug=slug)
+
+    has_password = teacher.has_usable_password()
+    return render(request, 'simple/set_password.html', {
+        'agency': agency,
+        'slug': slug,
+        'teacher': teacher,
+        'has_password': has_password,
     })
