@@ -114,19 +114,22 @@
   .slide-panel.triple { width: 1600px; right: -1600px; }
   .slide-panel.triple.open { right: 0; }
   .sp-att-col {
-    display: none; overflow: hidden; min-width: 200px; width: 40%;
+    display: none; overflow: hidden; min-width: 0; border-right: 1px solid #e2e8f0;
   }
-  .sp-att-col.visible { display: flex; flex-direction: column; }
+  .sp-att-col.visible { display: flex; flex-direction: column; flex: 1; }
+  .sp-email-col {
+    overflow-y: auto; flex: 1; min-width: 0;
+  }
   .sp-split-left {
-    overflow-y: auto;
-    min-width: 200px; width: 50%; flex: 1;
+    overflow: hidden;
+    min-width: 200px; width: 50%;
+    display: flex;
   }
+  .slide-panel.triple .sp-split-left { width: 65%; }
   .sp-split-right {
     flex: 1; overflow-y: auto;
     min-width: 200px;
   }
-  .slide-panel.triple .sp-split-left { width: 30%; flex: none; }
-  .slide-panel.triple .sp-split-right { min-width: 280px; }
   .sp-resizer {
     width: 5px; cursor: col-resize; background: #e2e8f0;
     flex-shrink: 0; position: relative; transition: background 0.15s;
@@ -194,9 +197,9 @@
   }
   @media (max-width: 768px) {
     .slide-panel-body { flex-direction: column; }
-    .sp-split-left, .sp-att-col.visible { border-bottom: 1px solid #e2e8f0; max-height: 40vh; width: 100% !important; flex: none !important; }
+    .sp-split-left { flex-direction: column; border-bottom: 1px solid #e2e8f0; max-height: 50vh; width: 100% !important; }
     .sp-split-right { flex: 1; }
-    .sp-resizer, #spResizerAtt { display: none !important; }
+    .sp-resizer { display: none !important; }
   }
 </style>
 {% endblock %}
@@ -612,17 +615,18 @@
     </div>
   </div>
   <div class="slide-panel-body" id="spBody">
-    <!-- Attachment preview column (leftmost, hidden by default) -->
-    <div class="sp-att-col" id="spAttCol">
-      <div class="sp-split-label" style="display:flex;justify-content:space-between;align-items:center">
-        <span id="spAttPreviewTitle">첨부파일 미리보기</span>
-        <button type="button" onclick="closeAttPreview()" style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:16px;padding:0 4px">&times;</button>
+    <!-- Left wrapper: attachment preview + email -->
+    <div class="sp-split-left" id="spLeftWrapper">
+      <!-- Attachment preview (hidden by default) -->
+      <div class="sp-att-col" id="spAttCol">
+        <div class="sp-split-label" style="display:flex;justify-content:space-between;align-items:center">
+          <span id="spAttPreviewTitle">첨부파일 미리보기</span>
+          <button type="button" onclick="closeAttPreview()" style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:16px;padding:0 4px">&times;</button>
+        </div>
+        <div id="spAttPreviewBody" style="flex:1;background:#f9fafb;min-height:0"></div>
       </div>
-      <div id="spAttPreviewBody" style="flex:1;background:#f9fafb;min-height:0"></div>
-    </div>
-    <div class="sp-resizer" id="spResizerAtt" style="display:none"></div>
-    <!-- Middle: Email preview -->
-    <div class="sp-split-left">
+      <!-- Email preview -->
+      <div class="sp-email-col">
       <div class="sp-split-label">미리보기</div>
       <div class="sp-preview-body">
         <div class="sp-meta">
@@ -657,7 +661,8 @@
           <div id="spReplyResult" style="display:none;margin-top:4px;font-size:11px;padding:4px 8px;border-radius:4px"></div>
         </div>
       </div>
-    </div>
+      </div><!-- /sp-email-col -->
+    </div><!-- /sp-split-left wrapper -->
     <!-- Resizer handle -->
     <div class="sp-resizer" id="spResizer"></div>
     <!-- Right: Attachment Preview + Order Form -->
@@ -845,7 +850,6 @@ function _loadOrderForm() {
       document.body.style.userSelect = '';
     });
   }
-  setupResizer('spResizerAtt', document.getElementById('spAttCol'));
   setupResizer('spResizer', document.querySelector('.sp-split-left'));
 })();
 
@@ -886,7 +890,7 @@ function openSlidePanel(pk, source) {
   document.getElementById('spReplySection').style.display = 'none';
   // Reset attachment preview (3-column mode)
   document.getElementById('spAttCol').classList.remove('visible');
-  document.getElementById('spResizerAtt').style.display = 'none';
+
   document.getElementById('spAttPreviewBody').innerHTML = '';
   panel.classList.remove('triple');
   // Reset order form container (destroy Alpine tree first)
@@ -1171,7 +1175,7 @@ function closeSlidePanel() {
   panel.classList.remove('open');
   panel.classList.remove('triple');
   document.getElementById('spAttCol').classList.remove('visible');
-  document.getElementById('spResizerAtt').style.display = 'none';
+
   document.getElementById('spAttPreviewBody').innerHTML = '';
   document.body.style.overflow = '';
   _currentPanelPk = null;
@@ -1381,19 +1385,15 @@ function openAttPreview(url, filename) {
   var col = document.getElementById('spAttCol');
   var body = document.getElementById('spAttPreviewBody');
   var title = document.getElementById('spAttPreviewTitle');
-  var resizerAtt = document.getElementById('spResizerAtt');
   title.textContent = filename || '첨부파일 미리보기';
   body.innerHTML = '<iframe src="' + url + '" style="width:100%;height:100%;border:none"></iframe>';
   col.classList.add('visible');
-  resizerAtt.style.display = '';
   panel.classList.add('triple');
 }
 function closeAttPreview() {
   var panel = document.getElementById('slidePanel');
   var col = document.getElementById('spAttCol');
-  var resizerAtt = document.getElementById('spResizerAtt');
   col.classList.remove('visible');
-  resizerAtt.style.display = 'none';
   document.getElementById('spAttPreviewBody').innerHTML = '';
   panel.classList.remove('triple');
 }
