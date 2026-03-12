@@ -35,21 +35,26 @@ def send_sms(receiver: str, message: str) -> bool:
     msg_type = 'LMS' if len(msg_bytes) > 90 else 'SMS'
 
     try:
+        clean_receiver = receiver.replace('-', '')
         resp = requests.post(ALIGO_URL, data={
             'key':      api_key,
             'userid':   user_id,
-            'sender':   sender,
-            'receiver': receiver,
+            'sender':   sender.replace('-', ''),
+            'receiver': clean_receiver,
             'msg':      message,
             'msg_type': msg_type,
         }, timeout=10)
         result = resp.json()
+        logger.info('알리고 응답: %s', result)
         success = str(result.get('result_code')) == '1'
         if not success:
-            logger.warning('알리고 발송 실패: %s', result.get('message'))
+            logger.warning('알리고 발송 실패: %s', result)
+            # 에러 메시지를 last_error에 저장해서 뷰에서 참조 가능
+            send_sms._last_error = result.get('message', str(result))
         return success
     except Exception as e:
         logger.error('SMS 발송 오류: %s', e)
+        send_sms._last_error = str(e)
         return False
 
 
