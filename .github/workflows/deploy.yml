@@ -31,6 +31,12 @@ jobs:
             echo 'GOOGLE_DRIVE_FOLDER_ID=10xR4x8zjeXCiLqGOXMSD8IRpyWgXlN75' >> .env
             sed -i '/^OPENAI_API_KEY/d' .env 2>/dev/null || true
             echo 'OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}' >> .env
+            sed -i '/^ALIGO_API_KEY/d' .env 2>/dev/null || true
+            echo 'ALIGO_API_KEY=${{ secrets.ALIGO_API_KEY }}' >> .env
+            sed -i '/^ALIGO_USER_ID/d' .env 2>/dev/null || true
+            echo 'ALIGO_USER_ID=${{ secrets.ALIGO_USER_ID }}' >> .env
+            sed -i '/^ALIGO_SENDER/d' .env 2>/dev/null || true
+            echo 'ALIGO_SENDER=${{ secrets.ALIGO_SENDER }}' >> .env
             sudo systemctl restart bookmart
             # 에러 로그 확인 (1회성)
             python debug_inbox.py 2>&1 || true
