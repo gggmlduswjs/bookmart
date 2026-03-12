@@ -326,7 +326,7 @@
     .call-error-line { font-size:11px; color:#dc2626; margin-top:3px; }
     .call-parsed-line { font-size:11px; color:#64748b; margin-top:2px; }
 
-    .call-actions { display:flex; gap:5px; flex-shrink:0; }
+    .call-actions { display:flex; gap:5px; margin-top:6px; }
     .call-empty { text-align:center; padding:60px 20px; color:#94a3b8; background:#fff; border:1px solid #e2e8f0; border-radius:10px; }
     .call-empty svg { width:48px; height:48px; stroke:#cbd5e1; margin-bottom:8px; }
     .call-pager { text-align:center; margin-top:16px; font-size:13px; }
@@ -389,17 +389,19 @@
         <div class="call-summary-line" style="color:#94a3b8">{{ rec.transcript|truncatechars:120 }}</div>
         {% endif %}
         {% if rec.error_msg %}<div class="call-error-line">{{ rec.error_msg|truncatechars:80 }}</div>{% endif %}
-      </div>
-      <div class="call-actions">
-        {% if rec.status == 'parsed' %}
-        <a href="{% url 'call_recording_process' pk=rec.pk %}" class="btn btn-orange btn-sm">주문 생성</a>
-        <a href="{% url 'call_recording_skip' pk=rec.pk %}" class="btn btn-outline btn-sm" style="font-size:11px">건너뛰기</a>
-        {% elif rec.status == 'pending' %}
-        <a href="{% url 'call_recording_process' pk=rec.pk %}" class="btn btn-blue btn-sm">파싱</a>
-        <a href="{% url 'call_recording_skip' pk=rec.pk %}" class="btn btn-outline btn-sm" style="font-size:11px">건너뛰기</a>
-        {% elif rec.status == 'failed' %}
-        <a href="{% url 'call_recording_retry' pk=rec.pk %}" class="btn btn-blue btn-sm">재시도</a>
-        <a href="{% url 'call_recording_skip' pk=rec.pk %}" class="btn btn-outline btn-sm" style="font-size:11px">건너뛰기</a>
+        {% if rec.status == 'parsed' or rec.status == 'pending' or rec.status == 'failed' %}
+        <div class="call-actions">
+          {% if rec.status == 'parsed' %}
+          <a href="{% url 'call_recording_process' pk=rec.pk %}" class="btn btn-orange btn-sm">주문 생성</a>
+          <a href="{% url 'call_recording_skip' pk=rec.pk %}" class="btn btn-outline btn-sm" style="font-size:11px">건너뛰기</a>
+          {% elif rec.status == 'pending' %}
+          <a href="{% url 'call_recording_process' pk=rec.pk %}" class="btn btn-blue btn-sm">파싱</a>
+          <a href="{% url 'call_recording_skip' pk=rec.pk %}" class="btn btn-outline btn-sm" style="font-size:11px">건너뛰기</a>
+          {% elif rec.status == 'failed' %}
+          <a href="{% url 'call_recording_retry' pk=rec.pk %}" class="btn btn-blue btn-sm">재시도</a>
+          <a href="{% url 'call_recording_skip' pk=rec.pk %}" class="btn btn-outline btn-sm" style="font-size:11px">건너뛰기</a>
+          {% endif %}
+        </div>
         {% endif %}
       </div>
     </a>
