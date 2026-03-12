@@ -129,50 +129,63 @@ def summarize_transcript(transcript):
     return result.get('summary', ''), result.get('is_order', False), None
 
 
-def _call_openai_chat(prompt):
-    """OpenAI Chat API 호출 공통 함수"""
+def _call_openai_chat(prompt, model='gpt-4o-mini'):
+    """OpenAI Chat API 호출 (rate limit 자동 재시도)"""
+    import time
+
     api_key = settings.OPENAI_API_KEY
     if not api_key:
         return None, 'OPENAI_API_KEY가 설정되지 않았습니다.'
 
-    try:
-        resp = requests.post(
-            'https://api.openai.com/v1/chat/completions',
-            headers={
-                'Authorization': f'Bearer {api_key}',
-                'Content-Type': 'application/json',
-            },
-            json={
-                'model': 'gpt-4o',
-                'messages': [{'role': 'user', 'content': prompt}],
-                'max_tokens': 2000,
-                'temperature': 0.1,
-            },
-            timeout=60,
-        )
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            resp = requests.post(
+                'https://api.openai.com/v1/chat/completions',
+                headers={
+                    'Authorization': f'Bearer {api_key}',
+                    'Content-Type': 'application/json',
+                },
+                json={
+                    'model': model,
+                    'messages': [{'role': 'user', 'content': prompt}],
+                    'max_tokens': 2000,
+                    'temperature': 0.1,
+                },
+                timeout=60,
+            )
 
-        if resp.status_code != 200:
-            error_msg = resp.json().get('error', {}).get('message', resp.text[:200])
-            return None, f'OpenAI API 오류: {error_msg}'
+            # rate limit → 대기 후 재시도
+            if resp.status_code == 429:
+                wait = min(30, 2 ** attempt * 10)
+                logger.warning(f'OpenAI rate limit, {wait}초 대기 (시도 {attempt + 1}/{max_retries})')
+                time.sleep(wait)
+                continue
 
-        content = resp.json()['choices'][0]['message']['content'].strip()
+            if resp.status_code != 200:
+                error_msg = resp.json().get('error', {}).get('message', resp.text[:200])
+                return None, f'OpenAI API 오류: {error_msg}'
 
-        # JSON 추출 (마크다운 코드블록 제거)
-        if content.startswith('```'):
-            content = content.split('\n', 1)[1]
-            content = content.rsplit('```', 1)[0]
-        content = content.strip()
+            content = resp.json()['choices'][0]['message']['content'].strip()
 
-        parsed = json.loads(content)
-        return parsed, None
+            # JSON 추출 (마크다운 코드블록 제거)
+            if content.startswith('```'):
+                content = content.split('\n', 1)[1]
+                content = content.rsplit('```', 1)[0]
+            content = content.strip()
 
-    except json.JSONDecodeError:
-        return None, '파싱 결과를 해석할 수 없습니다.'
-    except requests.Timeout:
-        return None, '파싱 시간 초과.'
-    except Exception as e:
-        logger.exception('OpenAI API error')
-        return None, f'파싱 오류: {str(e)}'
+            parsed = json.loads(content)
+            return parsed, None
+
+        except json.JSONDecodeError:
+            return None, '파싱 결과를 해석할 수 없습니다.'
+        except requests.Timeout:
+            return None, '파싱 시간 초과.'
+        except Exception as e:
+            logger.exception('OpenAI API error')
+            return None, f'파싱 오류: {str(e)}'
+
+    return None, 'OpenAI API rate limit 초과 (재시도 실패)'
 
 
 def parse_order_from_text(transcript, book_list):
