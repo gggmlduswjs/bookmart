@@ -721,11 +721,30 @@ function switchSpTab(tab) {
     fetch('/inbox/' + _currentPanelPk + '/form/')
       .then(function(r) { return r.text(); })
       .then(function(html) {
-        container.innerHTML = html;
-        // Re-init Alpine.js for the new content
-        if (window.Alpine) {
-          Alpine.initTree(container);
-        }
+        // Parse HTML and execute scripts manually (innerHTML doesn't execute scripts)
+        var temp = document.createElement('div');
+        temp.innerHTML = html;
+        container.innerHTML = '';
+        // Move non-script nodes
+        var scripts = [];
+        Array.from(temp.childNodes).forEach(function(node) {
+          if (node.nodeName === 'SCRIPT') {
+            scripts.push(node);
+          } else {
+            container.appendChild(node);
+          }
+        });
+        // Execute scripts in order
+        scripts.forEach(function(oldScript) {
+          var newScript = document.createElement('script');
+          if (oldScript.src) { newScript.src = oldScript.src; }
+          else { newScript.textContent = oldScript.textContent; }
+          document.body.appendChild(newScript);
+        });
+        // Init Alpine on new content after scripts have run
+        setTimeout(function() {
+          if (window.Alpine) { Alpine.initTree(container); }
+        }, 50);
       })
       .catch(function(err) {
         container.innerHTML = '<div style="text-align:center;padding:40px;color:#dc2626">폼 로드 실패: ' + err.message + '</div>';
