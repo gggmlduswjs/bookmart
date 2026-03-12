@@ -479,13 +479,17 @@ def inbox_process(request, pk):
         except Exception:
             logger.exception('이메일 AI 파싱 오류')
 
-    # SMS 답장용 전화번호 추출
+    # SMS 답장용 전화번호 추출 (sender, subject, content 순서로 탐색)
     sms_reply_phone = ''
-    if inbox_msg.source == 'sms' and inbox_msg.sender:
-        phone_match = _re.search(r'(\d[\d\-]{8,})', inbox_msg.sender)
-        if phone_match:
-            sms_reply_phone = phone_match.group(1).replace('-', '')
-            # 하이픈 포맷
+    if inbox_msg.source == 'sms':
+        for text in [inbox_msg.sender, inbox_msg.subject, inbox_msg.content[:200]]:
+            if not text:
+                continue
+            phone_match = _re.search(r'(\d[\d\-]{8,})', text)
+            if phone_match:
+                sms_reply_phone = phone_match.group(1).replace('-', '')
+                break
+        if sms_reply_phone:
             if len(sms_reply_phone) == 11:
                 sms_reply_phone = f'{sms_reply_phone[:3]}-{sms_reply_phone[3:7]}-{sms_reply_phone[7:]}'
             elif len(sms_reply_phone) == 10:
@@ -644,7 +648,13 @@ def sms_webhook(request):
         except UnicodeDecodeError:
             body_str = body.decode('euc-kr', errors='replace')
         data = json.loads(body_str)
-        sender = data.get('from') or data.get('from_number', '')
+        from_name = data.get('from', '')
+        from_number = data.get('from_number') or data.get('number', '')
+        # 이름과 번호 모두 있으면 "이름(번호)" 형식
+        if from_name and from_number and from_number not in from_name:
+            sender = f'{from_name}({from_number})'
+        else:
+            sender = from_name or from_number
         content = data.get('text') or data.get('message', '')
         ts = data.get('sentStamp') or data.get('timestamp')
         received_at = None
