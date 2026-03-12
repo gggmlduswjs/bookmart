@@ -20,99 +20,93 @@
       border: 1px solid #999;
     }
 
-    /* ── 제목 ── */
-    .quote-title {
-      text-align: center;
-      font-size: 28px;
-      font-weight: bold;
-      letter-spacing: 20px;
-      padding: 8px 0 6px;
-      border-bottom: 2px solid #000;
-      margin-bottom: 10px;
+    /* ── 상단 헤더 (2열 테이블) ── */
+    .header-tbl {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 2px;
     }
-
-    /* ── 본문 영역 (왼쪽: 귀중, 오른쪽: 공급자) ── */
-    .header-area {
-      display: flex;
-      gap: 10px;
-      margin-bottom: 6px;
-    }
-    .header-left {
-      flex: 1;
-      min-width: 200px;
-      padding-right: 10px;
+    .header-tbl td {
+      border: 1px solid #000;
+      padding: 4px 8px;
       font-size: 12px;
-      line-height: 2.0;
+      vertical-align: middle;
     }
-    .header-left .date-line { margin-bottom: 10px; }
-    .header-left .school-line {
-      font-size: 14px;
+    .header-tbl .label {
+      background: #f5f5f0;
+      text-align: center;
       font-weight: bold;
-      margin-bottom: 6px;
+      white-space: nowrap;
+      width: 70px;
     }
-    .header-left .remark-line { margin-top: 14px; }
-
-    .header-right {
-      flex: 0 0 400px;
+    .header-tbl .title-cell {
+      text-align: center;
+      font-size: 24px;
+      font-weight: bold;
+      letter-spacing: 12px;
+      padding: 8px;
+      border: none;
+    }
+    .header-tbl .half-left {
+      width: 50%;
+      border-right: none;
+    }
+    .header-tbl .half-right {
+      width: 50%;
+      border-left: none;
     }
 
-    /* ── 공급자 테이블 ── */
-    .supplier-tbl {
+    /* ── 좌우 분할 헤더 ── */
+    .info-row {
+      display: table;
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .info-left, .info-right {
+      display: table-cell;
+      width: 50%;
+      vertical-align: top;
+    }
+    .info-left table, .info-right table {
       width: 100%;
       border-collapse: collapse;
       font-size: 11px;
-      table-layout: fixed;
     }
-    .supplier-tbl th, .supplier-tbl td {
+    .info-left td, .info-right td {
       border: 1px solid #000;
-      padding: 4px 6px;
-      overflow: hidden;
-      word-break: keep-all;
+      padding: 3px 6px;
+      vertical-align: middle;
     }
-    .supplier-tbl th {
+    .info-left .lbl, .info-right .lbl {
       background: #f5f5f0;
       text-align: center;
       font-weight: bold;
       white-space: nowrap;
-      width: 65px;
+      width: 55px;
     }
-    .supplier-tbl td {
-      text-align: left;
-    }
-    .supplier-tbl .label-cell {
-      writing-mode: vertical-rl;
-      text-orientation: upright;
-      text-align: center;
-      font-weight: bold;
+    .info-right .lbl { width: 50px; }
+    .school-name {
       font-size: 13px;
-      letter-spacing: 8px;
-      width: 32px;
-      min-width: 32px;
-      max-width: 32px;
-      background: #f5f5f0;
-      padding: 8px 2px;
+      font-weight: bold;
     }
 
-    /* ── 금액 행 ── */
-    .amount-row {
-      display: flex;
-      border: 2px solid #000;
-      margin-bottom: 0;
-      font-size: 13px;
+    /* ── 금액/합계 행 ── */
+    .summary-tbl {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: -1px;
+    }
+    .summary-tbl td {
+      border: 1px solid #000;
+      padding: 4px 8px;
+      font-size: 12px;
       font-weight: bold;
     }
-    .amount-row .a-label {
-      padding: 7px 14px;
+    .summary-tbl .lbl {
       background: #f5f5f0;
-      border-right: 2px solid #000;
-      white-space: nowrap;
-      letter-spacing: 4px;
-    }
-    .amount-row .a-value {
-      flex: 1;
-      padding: 7px 14px;
       text-align: center;
-      font-size: 14px;
+      white-space: nowrap;
+      width: 80px;
     }
 
     /* ── 품목 테이블 ── */
@@ -123,40 +117,54 @@
     }
     .items-tbl th, .items-tbl td {
       border: 1px solid #000;
-      padding: 5px 6px;
+      padding: 4px 6px;
     }
     .items-tbl thead th {
       background: #f5f5f0;
       font-weight: bold;
       text-align: center;
       font-size: 11px;
+      white-space: nowrap;
     }
     .items-tbl tbody td {
       font-size: 11px;
-      overflow: hidden;
-      word-break: keep-all;
     }
     .items-tbl .r { text-align: right; font-family: 'Consolas', monospace; white-space: nowrap; }
     .items-tbl .c { text-align: center; white-space: nowrap; }
-    .items-tbl .name-cell { text-align: left; word-break: break-all; }
-    .items-tbl tbody tr:last-child td { border-bottom: 2px solid #000; }
+    .items-tbl .name-cell { text-align: left; }
 
     /* 합계 행 */
     .items-tbl .total-row td {
       font-weight: bold;
       font-size: 12px;
       border-top: 2px solid #000;
-      border-bottom: 2px solid #000;
     }
 
-    /* ── 계좌 ── */
+    /* ── 하단 정보 ── */
+    .footer-tbl {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: -1px;
+    }
+    .footer-tbl td {
+      border: 1px solid #000;
+      padding: 3px 6px;
+      font-size: 11px;
+    }
+    .footer-tbl .lbl {
+      background: #f5f5f0;
+      text-align: center;
+      font-weight: bold;
+      white-space: nowrap;
+      width: 80px;
+    }
+
     .bank-info {
       text-align: center;
       font-size: 12px;
       font-weight: bold;
-      padding: 8px 0;
-      margin-top: 4px;
-      border: 1px solid #000;
+      padding: 6px 0;
+      margin-top: 6px;
     }
 
     /* ── 인쇄 ── */
@@ -192,95 +200,115 @@
 <body>
 <div class="quote-wrap">
 
-  <!-- 제목 -->
-  <div class="quote-title">견 적 서</div>
+  <!-- 상단: 일자 + 제목 + 등록번호 -->
+  <table class="header-tbl">
+    <tr>
+      <td class="label" style="width:65px">발행일자</td>
+      <td style="width:120px">{{ order.ordered_at|date:"Y-m-d" }}</td>
+      <td class="title-cell" rowspan="2">견 적 서</td>
+      <td class="label" style="width:55px">등 록<br>번 호</td>
+      <td style="width:150px">108-91-20797</td>
+    </tr>
+    <tr>
+      <td class="label">견적번호</td>
+      <td style="font-size:10px">{{ order.order_no }}</td>
+      <td class="label">상 호</td>
+      <td>북마트E&C</td>
+    </tr>
+  </table>
 
-  <!-- 헤더: 왼쪽 (수신), 오른쪽 (공급자) -->
-  <div class="header-area">
-    <div class="header-left">
-      <div class="date-line">{{ order.ordered_at|date:"Y" }}년 &nbsp; {{ order.ordered_at|date:"n" }}월 &nbsp; {{ order.ordered_at|date:"j" }}일</div>
-      <div class="school-line">{{ order.delivery.name }} &nbsp; 귀중</div>
-      {% if order.agency %}<div style="font-size:12px;color:#555">업체: {{ order.agency.name }}</div>{% endif %}
-      <div class="remark-line">아래와 같이 견적합니다.</div>
-    </div>
-    <div class="header-right">
-      <table class="supplier-tbl">
+  <!-- 좌: 수신자 / 우: 공급자 -->
+  <div class="info-row">
+    <div class="info-left">
+      <table>
         <tr>
-          <td class="label-cell" rowspan="5">공 급 자</td>
-          <th>등록번호</th>
-          <td colspan="3">108-91-20797</td>
+          <td colspan="3" style="font-size:13px;font-weight:bold;padding:5px 8px">
+            {{ order.delivery.name }}
+            {{ order.teacher.name }}{% if order.agency %}<span style="font-size:10px;color:#555">({{ order.agency.name }})</span>{% endif %}
+            &nbsp;
+            <span style="font-size:11px;font-weight:normal">{{ order.teacher.phone|default:"" }}</span>
+          </td>
         </tr>
         <tr>
-          <th>상 호</th>
-          <td>북마트E&C</td>
-          <th>성 명</th>
+          <td colspan="3" style="font-size:11px;padding:4px 8px">
+            {% if order.delivery.address %}{{ order.delivery.address }}{% endif %}
+            {% if order.delivery.location_detail %} ({{ order.delivery.location_detail }}){% endif %}
+          </td>
+        </tr>
+      </table>
+    </div>
+    <div class="info-right">
+      <table>
+        <tr>
+          <td class="lbl">성 명</td>
           <td>전우득</td>
         </tr>
         <tr>
-          <th>사업장 주소</th>
-          <td colspan="3" style="font-size:10px">경기도 고양시 일산동구 일산로207, 지층 13-1호</td>
+          <td class="lbl">주 소</td>
+          <td style="font-size:10px">고양시 일산동구 일산로207, 지층 13-1호</td>
         </tr>
         <tr>
-          <th>업 태</th>
-          <td>도소매</td>
-          <th>종 목</th>
-          <td>서 적</td>
-        </tr>
-        <tr>
-          <th>전화번호</th>
-          <td colspan="3" style="font-size:10px">02-833-0864 / 031-917-0864 / 팩스:031-917-0866</td>
+          <td class="lbl">전 화</td>
+          <td style="font-size:10px">02-833-0864 / 031-917-0864</td>
         </tr>
       </table>
     </div>
   </div>
 
-  <!-- 금액 -->
-  <div class="amount-row">
-    <div class="a-label">金 額 (공급가액)</div>
-    <div class="a-value">일금 {{ amount_korean }}원정</div>
-  </div>
+  <!-- 합계 행 -->
+  <table class="summary-tbl">
+    <tr>
+      <td class="lbl">합 계</td>
+      <td style="text-align:center;font-size:14px;letter-spacing:2px">
+        일금 {{ amount_korean }}원정 &nbsp; (&#8361;{{ total_amount|floatformat:0 }})
+      </td>
+    </tr>
+  </table>
 
-  <!-- 품목 -->
+  <!-- 품목 테이블 -->
   <table class="items-tbl">
     <thead>
       <tr>
-        <th style="width:40%">품 명</th>
-        <th style="width:40px">단위</th>
-        <th style="width:80px">공급가</th>
-        <th style="width:55px">수량</th>
-        <th style="width:100px">공급가합계</th>
-        <th style="width:80px">출판사</th>
+        <th style="width:30px">NO</th>
+        <th style="width:70px">출판사</th>
+        <th>품 명 (도서명)</th>
+        <th style="width:40px">부수</th>
+        <th style="width:70px">정 가</th>
+        <th style="width:70px">공급가</th>
+        <th style="width:80px">금 액</th>
       </tr>
     </thead>
     <tbody>
       {% for item in items %}
       <tr>
-        <td class="name-cell">{{ item.display_name }}</td>
-        <td class="c"></td>
-        <td class="r">{{ item.list_price|floatformat:0 }}</td>
-        <td class="c">{{ item.quantity }}</td>
-        <td class="r">{{ item.list_price_total|floatformat:0 }}</td>
+        <td class="c">{{ forloop.counter }}</td>
         <td class="c" style="font-size:10px">{{ item.display_publisher }}</td>
+        <td class="name-cell">{{ item.display_name }}</td>
+        <td class="c">{{ item.quantity }}</td>
+        <td class="r">{{ item.list_price|floatformat:0 }}</td>
+        <td class="r">{{ item.unit_price|floatformat:0 }}</td>
+        <td class="r">{{ item.list_price_total|floatformat:0 }}</td>
       </tr>
       {% endfor %}
       {% for i in empty_rows %}
       <tr>
-        <td>&nbsp;</td><td></td><td></td><td></td><td></td><td></td>
+        <td>&nbsp;</td><td></td><td></td><td></td><td></td><td></td><td></td>
       </tr>
       {% endfor %}
       <tr class="total-row">
-        <td class="c" style="font-weight:bold">합계</td>
-        <td></td>
-        <td></td>
+        <td colspan="3" class="c">합 계</td>
         <td class="c">{{ total_qty }}</td>
-        <td class="r">{{ total_amount|floatformat:0 }}</td>
         <td></td>
+        <td></td>
+        <td class="r">{{ total_amount|floatformat:0 }}</td>
       </tr>
     </tbody>
   </table>
 
-  <!-- 계좌 -->
-  <div class="bank-info">국민은행 493601-01-149387 전우득(북마트E앤C)</div>
+  <!-- 계좌 + 비고 -->
+  <div class="bank-info">
+    **국민 493601-01-149387 예금주 전우득 **
+  </div>
 
   <!-- 버튼 -->
   <div class="btn-bar">
