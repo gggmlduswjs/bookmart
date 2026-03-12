@@ -1,6 +1,19 @@
 {% extends 'base.html' %}
 {% block title %}거래내역{% endblock %}
 
+{% block extra_css %}
+<style>
+  @media (max-width: 768px) {
+    .search-bar { flex-wrap: wrap; gap: 6px !important; }
+    .search-bar select, .search-bar input { font-size: 13px !important; }
+    .summary-cards { flex-wrap: wrap !important; }
+    .summary-cards > div { min-width: 45% !important; flex: 1 1 45% !important; }
+    .scroll-hint { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .data-table { min-width: 600px; }
+  }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="page-title">거래내역</div>
 
@@ -41,7 +54,7 @@
 
 {% if selected_agency %}
 <!-- 집계 요약 -->
-<div style="display:flex;gap:8px;margin-bottom:12px">
+<div class="summary-cards" style="display:flex;gap:8px;margin-bottom:12px">
   <div class="content-box" style="flex:1;padding:10px 14px;text-align:center">
     <div style="font-size:11px;color:#888;margin-bottom:4px">매출 누계</div>
     <div style="font-size:16px;font-weight:bold">{{ total_sales|floatformat:0 }}원</div>
@@ -61,7 +74,7 @@
 </div>
 
 <!-- 거래 내역 -->
-<div class="content-box">
+<div class="content-box scroll-hint">
   <table class="data-table">
     <thead>
       <tr>

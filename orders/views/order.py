@@ -521,3 +521,24 @@ def order_restore(request, pk):
         _audit(request, AuditLog.Action.ORDER_RESTORE, order, f'주문 {order.order_no} 복구')
         messages.success(request, f'주문 {order.order_no}을 복구했습니다.')
     return redirect('order_list')
+
+
+@role_required('admin')
+def order_search_api(request):
+    """AJAX: 명령 팔레트에서 주문 검색"""
+    from django.http import JsonResponse
+    q = request.GET.get('q', '').strip()
+    if len(q) < 2:
+        return JsonResponse({'results': []})
+    orders = Order.objects.filter(
+        Q(order_no__icontains=q) | Q(teacher__name__icontains=q) |
+        Q(delivery__name__icontains=q) | Q(agency__name__icontains=q)
+    ).filter(is_deleted=False).select_related('teacher', 'delivery')[:5]
+    return JsonResponse({'results': [
+        {
+            'url': f'/orders/{o.pk}/',
+            'label': f'{o.order_no} — {o.teacher.name} ({o.delivery.name})',
+            'badge': o.get_status_display(),
+        }
+        for o in orders
+    ]})

@@ -2,18 +2,37 @@
 {% block title %}주문 상세 — {{ order.order_no }}{% endblock %}
 
 {% block content %}
-<div class="page-title">
-  주문 상세
-  <a href="{% url 'order_list' %}" class="btn btn-gray btn-sm">← 목록</a>
-  {% if request.user.is_admin or request.user.is_agency %}
-  <a href="{% url 'order_invoice' order.pk %}" target="_blank" class="btn btn-dark btn-sm">거래명세서</a>
-  <a href="{% url 'order_quote' order.pk %}" target="_blank" class="btn btn-outline btn-sm">견적서</a>
-  <a href="{% url 'quote_email' order.pk %}" class="btn btn-outline btn-sm" style="color:#e8720c;border-color:#e8720c">견적서 메일</a>
-  {% endif %}
+<div class="page-title" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+  <span>주문 상세</span>
+  <a id="backToListBtn" href="{% url 'order_list' %}" class="btn btn-gray btn-sm">← 목록</a>
   {% if request.user.is_admin %}
-  <a href="{% url 'order_copy' order.pk %}" class="btn btn-outline btn-sm">복사 주문</a>
-  <a href="{% url 'order_edit' order.pk %}" class="btn btn-blue btn-sm">수정</a>
-  <a href="{% url 'return_create_from_order' order.pk %}" class="btn btn-outline btn-sm" style="color:#d97706;border-color:#d97706">이 주문 반품</a>
+  <span id="prevNextNav" style="display:none;font-size:12px">
+    <a id="prevOrderBtn" href="#" class="btn btn-outline btn-sm" style="padding:3px 8px" title="이전 주문 (←)">←</a>
+    <a id="nextOrderBtn" href="#" class="btn btn-outline btn-sm" style="padding:3px 8px" title="다음 주문 (→)">→</a>
+  </span>
+  {% endif %}
+  <span style="flex:1"></span>
+  {% if request.user.is_admin and order.status == 'pending' %}
+  <a href="#" class="btn btn-orange btn-sm" onclick="event.preventDefault();document.getElementById('ship-section').scrollIntoView({behavior:'smooth',block:'center'})">발송 처리</a>
+  {% elif request.user.is_admin and order.status == 'shipping' %}
+  <a href="#" class="btn btn-sm" style="background:#059669;color:#fff;border:none" onclick="event.preventDefault();document.getElementById('deliver-section').scrollIntoView({behavior:'smooth',block:'center'})">배송완료</a>
+  {% endif %}
+  {% if request.user.is_admin or request.user.is_agency %}
+  <div style="position:relative;display:inline-block" x-data="{open:false}" @click.outside="open=false">
+    <button class="btn btn-outline btn-sm" @click="open=!open" style="padding:4px 10px">⋮ 더보기</button>
+    <div x-show="open" x-cloak x-transition.opacity
+         style="position:absolute;right:0;top:100%;z-index:40;background:#fff;border:1px solid #e2e8f0;border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,0.1);min-width:150px;padding:4px 0;margin-top:4px">
+      <a href="{% url 'order_invoice' order.pk %}" target="_blank" style="display:block;padding:7px 14px;font-size:12px;color:#334155;text-decoration:none" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background=''">거래명세서</a>
+      <a href="{% url 'order_quote' order.pk %}" target="_blank" style="display:block;padding:7px 14px;font-size:12px;color:#334155;text-decoration:none" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background=''">견적서</a>
+      <a href="{% url 'quote_email' order.pk %}" style="display:block;padding:7px 14px;font-size:12px;color:#e8720c;text-decoration:none" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background=''">견적서 메일</a>
+      {% if request.user.is_admin %}
+      <div style="border-top:1px solid #e2e8f0;margin:4px 0"></div>
+      <a href="{% url 'order_copy' order.pk %}" style="display:block;padding:7px 14px;font-size:12px;color:#334155;text-decoration:none" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background=''">복사 주문</a>
+      <a href="{% url 'order_edit' order.pk %}" style="display:block;padding:7px 14px;font-size:12px;color:#2563eb;text-decoration:none" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background=''">수정</a>
+      <a href="{% url 'return_create_from_order' order.pk %}" style="display:block;padding:7px 14px;font-size:12px;color:#d97706;text-decoration:none" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background=''">이 주문 반품</a>
+      {% endif %}
+    </div>
+  </div>
   {% endif %}
 </div>
 
@@ -97,7 +116,7 @@
 
     <!-- 총판 상태 변경 버튼 -->
     {% if can_ship %}
-    <div style="padding:10px;border-top:1px solid #eee" x-data="{carrier:'hanjin'}">
+    <div id="ship-section" style="padding:10px;border-top:1px solid #eee" x-data="{carrier:'hanjin'}">
       <form method="post" action="{% url 'order_ship' order.pk %}">
         {% csrf_token %}
         <div style="margin-bottom:6px;display:flex;gap:10px;font-size:12px">
@@ -113,16 +132,17 @@
                  aria-label="운송장번호"
                  style="width:100%;padding:4px 6px;border:1px solid #bbb;font-size:12px;box-sizing:border-box">
         </div>
-        <button type="submit" class="btn btn-orange" style="width:100%"
-                onclick="return confirm('발송 처리하시겠습니까?\n선생님께 문자가 자동 발송됩니다.')">발송 처리</button>
+        <button type="button" class="btn btn-orange" style="width:100%"
+                onclick="showConfirm({title:'발송 처리',message:'발송 처리하시겠습니까?\n선생님께 문자가 자동 발송됩니다.',confirmText:'발송 처리',confirmClass:'btn-orange',onConfirm:()=>this.closest('form').submit()})">발송 처리</button>
       </form>
     </div>
     {% endif %}
     {% if can_deliver %}
-    <div style="padding:10px;border-top:1px solid #eee">
+    <div id="deliver-section" style="padding:10px;border-top:1px solid #eee">
       <form method="post" action="{% url 'order_deliver' order.pk %}">
         {% csrf_token %}
-        <button type="submit" class="btn btn-green" style="width:100%" onclick="return confirm('배송완료 처리하시겠습니까?')">배송완료 처리</button>
+        <button type="button" class="btn btn-green" style="width:100%"
+                onclick="showConfirm({title:'배송완료',message:'배송완료 처리하시겠습니까?',confirmText:'배송완료',confirmClass:'btn-green',onConfirm:()=>this.closest('form').submit()})">배송완료 처리</button>
       </form>
     </div>
     {% endif %}
@@ -164,15 +184,17 @@
 
     <div style="text-align:right;display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">
       {% if can_cancel %}
-      <form method="post" action="{% url 'order_cancel' order.pk %}" onsubmit="return confirm('주문을 취소하시겠습니까?')">
+      <form method="post" action="{% url 'order_cancel' order.pk %}" id="cancelForm">
         {% csrf_token %}
-        <button type="submit" class="btn btn-red btn-sm">주문 취소</button>
+        <button type="button" class="btn btn-red btn-sm"
+                onclick="showConfirm({title:'주문 취소',message:'주문을 취소하시겠습니까?',confirmText:'취소',confirmClass:'btn-red',onConfirm:()=>document.getElementById('cancelForm').submit()})">주문 취소</button>
       </form>
       {% endif %}
       {% if request.user.is_admin %}
-      <form method="post" action="{% url 'order_delete' order.pk %}" onsubmit="return confirm('주문을 삭제합니다. (24시간 내 복구 가능)\n삭제하시겠습니까?')">
+      <form method="post" action="{% url 'order_delete' order.pk %}" id="deleteForm">
         {% csrf_token %}
-        <button type="submit" class="btn btn-red btn-sm" style="background:#fff;color:#dc2626;border:1px solid #dc2626">삭제</button>
+        <button type="button" class="btn btn-red btn-sm" style="background:#fff;color:#dc2626;border:1px solid #dc2626"
+                onclick="showConfirm({title:'주문 삭제',message:'주문을 삭제합니다. (24시간 내 복구 가능)\n삭제하시겠습니까?',confirmText:'삭제',confirmClass:'btn-red',onConfirm:()=>document.getElementById('deleteForm').submit()})">삭제</button>
       </form>
       {% endif %}
     </div>

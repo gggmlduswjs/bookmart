@@ -48,6 +48,38 @@
   .new-fields label { font-size: 11px; color: #666; width: 60px; flex-shrink: 0; }
   .new-fields input { flex: 1; padding: 4px 8px; border: 1px solid #bbb; font-size: 12px; }
   @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+  /* 접이식 섹션 */
+  .collapsible-header {
+    display: flex; align-items: center; justify-content: space-between;
+    cursor: pointer; padding: 12px 14px; user-select: none;
+  }
+  .collapsible-header:hover { background: #f8fafc; }
+  .collapsible-header .section-num {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 24px; height: 24px; border-radius: 50%;
+    background: #2563eb; color: #fff; font-size: 12px; font-weight: 700; margin-right: 8px;
+  }
+  .collapsible-header .section-title { font-size: 14px; font-weight: 700; color: #334155; }
+  .collapsible-header .section-summary { font-size: 12px; color: #64748b; margin-left: 12px; }
+  .collapsible-header .chevron {
+    transition: transform 0.2s; font-size: 14px; color: #94a3b8;
+  }
+  .collapsible-body { padding: 0 14px 12px; }
+  /* 하단 고정 요약바 */
+  .sticky-summary {
+    position: sticky; bottom: 0; z-index: 100;
+    background: #1e293b; color: #fff; padding: 10px 16px;
+    border-radius: 8px; margin-top: 12px;
+    display: flex; align-items: center; justify-content: space-between;
+    box-shadow: 0 -4px 16px rgba(0,0,0,0.1);
+  }
+  .sticky-summary .summary-info {
+    font-size: 13px; display: flex; gap: 12px; align-items: center;
+  }
+  .sticky-summary .summary-info span { opacity: 0.8; }
+  .sticky-summary .summary-total {
+    font-size: 18px; font-weight: 800; color: #fbbf24;
+  }
 </style>
 {% endblock %}
 
@@ -73,7 +105,20 @@
   <input type="hidden" name="delivery_phone" :value="deliveryPhone">
 
   <!-- 업체/선생님/배송지 -->
-  <div class="content-box" style="padding:12px 14px;margin-bottom:10px">
+  <div class="content-box" style="padding:0;margin-bottom:10px">
+    <div class="collapsible-header" @click="section1Open = !section1Open">
+      <div style="display:flex;align-items:center">
+        <span class="section-num">1</span>
+        <span class="section-title">업체 / 선생님 / 배송지</span>
+        <span class="section-summary" x-show="!section1Open && agencyId" x-cloak>
+          <span x-text="ALL_AGENCIES.find(a => a.id == agencyId)?.name || ''"></span>
+          <template x-if="teacherQuery"> &gt; <span x-text="teacherQuery"></span></template>
+          <template x-if="deliverySchool"> &gt; <span x-text="deliverySchool"></span></template>
+        </span>
+      </div>
+      <span class="chevron" :style="section1Open ? 'transform:rotate(180deg)' : ''">▼</span>
+    </div>
+    <div class="collapsible-body" x-show="section1Open" x-collapse>
     <table class="form-table">
       <tr>
         <th>업체</th>
@@ -84,6 +129,7 @@
               <option :value="a.id" x-text="a.name"></option>
             </template>
           </select>
+          <div class="field-error" x-show="errors.agency" x-text="errors.agency" style="color:#dc2626;font-size:12px;margin-top:4px"></div>
         </td>
       </tr>
       <tr>
@@ -106,6 +152,7 @@
           <template x-if="agencyId && !teacherId && teacherQuery.length >= 1">
             <span style="font-size:11px;color:#2563eb;margin-left:6px;cursor:pointer" @click="isNewTeacher=true">+ 신규 등록</span>
           </template>
+          <div class="field-error" x-show="errors.teacher" x-text="errors.teacher" style="color:#dc2626;font-size:12px;margin-top:4px"></div>
         </td>
       </tr>
     </table>
@@ -130,6 +177,7 @@
           <th>학교명</th>
           <td>
             <input type="text" x-model="deliverySchool" style="width:240px;padding:4px 8px;border:1px solid #bbb;font-size:12px" placeholder="OO초등학교">
+            <div class="field-error" x-show="errors.delivery" x-text="errors.delivery" style="color:#dc2626;font-size:12px;margin-top:4px"></div>
           </td>
         </tr>
         <tr>
@@ -160,6 +208,7 @@
           </td>
         </tr>
       </table>
+    </div>
     </div>
   </div>
 
@@ -267,6 +316,7 @@
       </tbody>
     </table>
   </div>
+  <div class="field-error" x-show="errors.items" x-text="errors.items" style="color:#dc2626;font-size:12px;margin-top:4px;padding:0 4px"></div>
 
   <div class="order-total-bar">
     <button type="button" class="btn btn-outline btn-sm" @click="addRow" style="float:left">+ 행 추가</button>
@@ -282,6 +332,19 @@
   <div style="margin-top:12px">
     <button type="button" class="btn btn-orange" @click="submitOrder" style="padding:6px 30px">주문 완료</button>
     <a href="{% url 'order_list' %}" class="btn btn-outline" style="margin-left:8px">취소</a>
+  </div>
+
+  <!-- 하단 고정 요약바 -->
+  <div class="sticky-summary" x-show="agencyId || rows.some(r => r.book_id || (r.is_custom && r.custom_name))">
+    <div class="summary-info">
+      <span x-show="agencyId" x-text="ALL_AGENCIES.find(a => a.id == agencyId)?.name || ''"></span>
+      <span x-show="teacherQuery" x-text="'> ' + teacherQuery"></span>
+      <span x-show="deliverySchool" x-text="'> ' + deliverySchool"></span>
+    </div>
+    <div style="display:flex;align-items:center;gap:16px">
+      <div>합계 <span class="summary-total" x-text="total().toLocaleString()"></span>원</div>
+      <button type="button" class="btn btn-orange" @click="submitOrder" style="padding:8px 24px">주문 완료</button>
+    </div>
   </div>
 </form>
 {% endblock %}
@@ -308,6 +371,9 @@ function adminOrderForm() {
     acIdx: { agency: -1, teacher: -1 },
     // 엑셀 업로드
     excelLoading: false, excelUnmatched: [],
+    errors: {},
+    section1Open: true,
+    section2Open: false,
     // 교재
     rows: [{ book_id: '', qty: 1, unit_price: 0, bookQuery: '', showBookList: false, filteredBooks: [], bookAcIdx: -1 }],
 
@@ -495,10 +561,18 @@ function adminOrderForm() {
       finally { this.excelLoading = false; e.target.value = ''; }
     },
     submitOrder() {
-      if (!this.agencyId) { alert('업체를 선택하세요.'); return; }
-      if (!this.teacherId && !this.newTeacherName) { alert('선생님을 선택하거나 신규 등록하세요.'); return; }
-      if (!this.deliverySchool) { alert('학교명을 입력하세요.'); return; }
-      if (!this.rows.some(r => (r.book_id || (r.is_custom && r.custom_name)) && r.qty > 0)) { alert('주문할 교재를 선택하세요.'); return; }
+      this.errors = {};
+      if (!this.agencyId) this.errors.agency = '업체를 선택하세요.';
+      if (!this.teacherId && !this.newTeacherName) this.errors.teacher = '선생님을 선택하거나 신규 등록하세요.';
+      if (!this.deliverySchool) this.errors.delivery = '학교명을 입력하세요.';
+      if (!this.rows.some(r => (r.book_id || (r.is_custom && r.custom_name)) && r.qty > 0)) this.errors.items = '주문할 교재를 선택하세요.';
+      if (Object.keys(this.errors).length) {
+        this.$nextTick(() => {
+          var el = document.querySelector('.field-error');
+          if (el) el.scrollIntoView({behavior:'smooth', block:'center'});
+        });
+        return;
+      }
       this.$el.closest('form').submit();
     },
   }

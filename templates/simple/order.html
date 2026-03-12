@@ -52,14 +52,44 @@
   .tab-order button:first-child { border-radius: 8px 0 0 8px; }
   .tab-order button:last-child { border-radius: 0 8px 8px 0; }
   .tab-order button.active { background: #2563eb; color: #fff; border-color: #2563eb; }
+  .book-search-wrap { position: relative; margin-bottom: 12px; }
+  .book-search-input {
+    width: 100%; padding: 10px 12px 10px 36px; border: 1px solid #cbd5e1;
+    border-radius: 8px; font-size: 14px; font-family: inherit;
+    outline: none; transition: border-color 0.15s;
+  }
+  .book-search-input:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.12); }
+  .book-search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); font-size: 16px; color: #94a3b8; }
+  .book-search-results {
+    position: absolute; top: 100%; left: 0; right: 0; z-index: 200;
+    background: #fff; border: 1px solid #e2e8f0; border-top: none;
+    border-radius: 0 0 8px 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+    max-height: 280px; overflow-y: auto;
+  }
+  .book-result-item {
+    padding: 8px 12px; cursor: pointer; font-size: 13px;
+    border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center;
+  }
+  .book-result-item:hover { background: #eff6ff; }
+  .book-result-item .book-name { font-weight: 600; }
+  .book-result-item .book-meta { color: #64748b; font-size: 11px; }
+  .book-result-item .book-price { color: #2563eb; font-size: 12px; font-weight: 600; }
+  .recent-books { margin-bottom: 14px; }
+  .recent-book-chip {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 4px 10px; background: #f1f5f9; border: 1px solid #e2e8f0;
+    border-radius: 16px; font-size: 12px; color: #334155; cursor: pointer;
+    margin: 0 4px 4px 0; transition: all 0.15s;
+  }
+  .recent-book-chip:hover { background: #dbeafe; border-color: #93c5fd; }
 {% endblock %}
 
 {% block content %}
 <div class="simple-nav">
-  <a href="{% url 'simple_order' slug=slug %}" class="active">주문하기</a>
-  <a href="{% url 'simple_order_list' slug=slug %}">주문내역</a>
-  <a href="{% url 'simple_delivery_status' slug=slug %}">배송현황</a>
-  <a href="{% url 'simple_set_password' slug=slug %}">비밀번호</a>
+  <a href="{% url 'simple_order' slug=slug %}" class="active"><span class="nav-icon">📝</span> 주문</a>
+  <a href="{% url 'simple_order_list' slug=slug %}"><span class="nav-icon">📋</span> 내역</a>
+  <a href="{% url 'simple_delivery_status' slug=slug %}"><span class="nav-icon">🚚</span> 배송</a>
+  <a href="{% url 'simple_set_password' slug=slug %}"><span class="nav-icon">🔒</span> 설정</a>
 </div>
 
 <div class="simple-card" style="padding:16px" x-data="orderForm()">
@@ -130,6 +160,33 @@
     <input type="hidden" name="delivery_address" :value="deliveryAddr">
     <input type="hidden" name="delivery_detail" :value="deliveryDetail">
     <input type="hidden" name="delivery_phone" :value="deliveryPhone">
+
+    <!-- 교재 검색 -->
+    <div class="book-search-wrap" x-show="orderTab === 'direct'">
+      <span class="book-search-icon">🔍</span>
+      <input type="text" class="book-search-input" x-model="bookSearchQuery" @input="searchBooks()" @focus="showSearchResults = bookSearchQuery.length > 0" @click.outside="showSearchResults = false" placeholder="교재명 또는 시리즈 검색..." autocomplete="off">
+      <div class="book-search-results" x-show="showSearchResults && bookSearchResults.length" x-cloak>
+        <template x-for="b in bookSearchResults" :key="b.id">
+          <div class="book-result-item" @click="addBookFromSearch(b)">
+            <div>
+              <span class="book-name" x-text="b.name"></span>
+              <span class="book-meta" x-text="b.series + ' · ' + b.publisher"></span>
+            </div>
+            <span class="book-price" x-text="b.list_price.toLocaleString() + '원'"></span>
+          </div>
+        </template>
+      </div>
+    </div>
+
+    <!-- 최근 주문 교재 -->
+    <template x-if="recentBooks.length > 0 && orderTab === 'direct'">
+      <div class="recent-books">
+        <div style="font-size:12px;font-weight:600;color:#64748b;margin-bottom:6px">⭐ 최근 주문 교재</div>
+        <template x-for="rb in recentBooks" :key="rb.id">
+          <span class="recent-book-chip" @click="addRecentBook(rb)" x-text="rb.name"></span>
+        </template>
+      </div>
+    </template>
 
     <div class="order-row-wrap" style="border:1px solid #e2e8f0;border-radius:10px 10px 0 0;overflow:hidden">
       <table class="data-table">
@@ -215,6 +272,7 @@
       </div>
     </div>
 
+    <div x-show="orderError" x-text="orderError" style="color:#dc2626;font-size:13px;margin-top:8px;padding:6px 10px;background:#fef2f2;border-radius:6px" x-cloak></div>
     <button type="button" class="btn btn-primary btn-block" style="margin-top:8px" @click="submitOrder">주문 완료</button>
   </form>
 </div>
@@ -234,6 +292,15 @@ function orderForm() {
     deliveryPhone: '{{ delivery.phone|escapejs }}',
     // 엑셀
     excelLoading: false, excelUnmatched: [],
+    // 교재 검색
+    bookSearchQuery: '',
+    bookSearchResults: [],
+    showSearchResults: false,
+    recentBooks: (() => {
+      try { return JSON.parse('{{ recent_books_json|escapejs }}'); }
+      catch(e) { return []; }
+    })(),
+    orderError: '',
     // 교재
     rows: (() => {
       const copy = {{ copy_rows_json|safe }};
@@ -307,9 +374,34 @@ function orderForm() {
       } catch (err) { alert('업로드 실패: ' + err.message); }
       finally { this.excelLoading = false; e.target.value = ''; }
     },
+    searchBooks() {
+      var q = this.bookSearchQuery.toLowerCase().replace(/\s/g, '');
+      if (!q || q.length < 1) { this.bookSearchResults = []; this.showSearchResults = false; return; }
+      this.bookSearchResults = BOOKS.filter(function(b) {
+        var name = b.name.toLowerCase().replace(/\s/g, '');
+        var series = b.series.toLowerCase().replace(/\s/g, '');
+        var pub = b.publisher.toLowerCase().replace(/\s/g, '');
+        return name.includes(q) || series.includes(q) || pub.includes(q);
+      }).slice(0, 10);
+      this.showSearchResults = true;
+    },
+    addBookFromSearch(book) {
+      this.rows.push({ series: book.series || '', book_id: String(book.id), qty: 1, list_price: book.list_price, is_custom: false });
+      this.bookSearchQuery = '';
+      this.showSearchResults = false;
+    },
+    addRecentBook(book) {
+      // Don't add duplicates
+      if (this.rows.some(function(r) { return r.book_id == String(book.id); })) {
+        return;
+      }
+      this.rows.push({ series: book.series || '', book_id: String(book.id), qty: 1, list_price: book.list_price, is_custom: false });
+    },
     submitOrder() {
+      this.orderError = '';
       if (!this.rows.some(r => (r.book_id || (r.is_custom && r.custom_name)) && r.qty > 0)) {
-        alert('주문할 교재를 선택하세요.'); return;
+        this.orderError = '주문할 교재를 선택하세요.';
+        return;
       }
       this.$el.closest('form').submit();
     }

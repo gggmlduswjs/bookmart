@@ -48,6 +48,56 @@
     background:#3b82f6;
   }
   .data-table td a[href*="inbox"]:hover { background:#f0f4ff; }
+
+  /* Slide panel */
+  .slide-panel-overlay {
+    display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.3); z-index: 500;
+  }
+  .slide-panel-overlay.open { display: block; }
+  .slide-panel {
+    position: fixed; top: 0; right: -480px; bottom: 0;
+    width: 480px; max-width: 100vw;
+    background: #fff; z-index: 501;
+    box-shadow: -4px 0 20px rgba(0,0,0,0.15);
+    transition: right 0.25s ease;
+    display: flex; flex-direction: column;
+  }
+  .slide-panel.open { right: 0; }
+  .slide-panel-header {
+    background: #334155; color: #fff;
+    padding: 14px 20px; display: flex;
+    justify-content: space-between; align-items: center;
+    flex-shrink: 0;
+  }
+  .slide-panel-header h3 { font-size: 15px; font-weight: 600; margin: 0; }
+  .slide-panel-close {
+    background: none; border: none; color: rgba(255,255,255,0.7);
+    font-size: 22px; cursor: pointer; padding: 0 4px;
+  }
+  .slide-panel-body {
+    flex: 1; overflow-y: auto; padding: 16px 20px;
+  }
+  .slide-panel-footer {
+    padding: 12px 20px; border-top: 1px solid #e2e8f0;
+    display: flex; gap: 8px; flex-shrink: 0;
+  }
+  .sp-meta { font-size: 12px; color: #64748b; margin-bottom: 12px; }
+  .sp-meta strong { color: #334155; }
+  .sp-content {
+    background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px;
+    padding: 12px; font-size: 12px; line-height: 1.7;
+    max-height: 300px; overflow-y: auto;
+    white-space: pre-wrap; word-break: break-all;
+  }
+  .sp-attachments { margin-top: 12px; }
+  .sp-attachments .att-item {
+    display: flex; align-items: center; gap: 6px;
+    padding: 4px 0; font-size: 12px;
+  }
+  @media (max-width: 640px) {
+    .slide-panel { width: 100vw; right: -100vw; }
+  }
 </style>
 {% endblock %}
 
@@ -130,7 +180,7 @@
         </thead>
         <tbody>
           {% for msg in email_messages %}
-          <tr class="{% if not msg.is_read %}unread{% elif msg.is_read and not msg.is_processed %}read{% endif %}" style="{% if msg.is_processed %}opacity:0.5{% endif %}">
+          <tr class="{% if not msg.is_read %}unread{% elif msg.is_read and not msg.is_processed %}read{% endif %}" style="{% if msg.is_processed %}opacity:0.5;{% endif %}cursor:pointer" onclick="if(!event.target.closest('input,button,.call-actions,a.btn')){openSlidePanel({{ msg.pk }}, '{{ msg.sender|escapejs }}', '{{ msg.subject|escapejs|truncatechars:50 }}', '{{ msg.received_at|date:'m/d H:i' }}', '{{ msg.content|escapejs|truncatechars:500 }}', '{% url 'inbox_process' msg.pk %}', [{% for att in msg.attachments.all %}'{{ att.filename|escapejs }}'{% if not forloop.last %},{% endif %}{% endfor %}]);}">
             <td class="center">
               <input type="checkbox" name="msg_ids" value="{{ msg.pk }}" class="msg-check-email" aria-label="{{ msg.sender }} 메일 선택">
             </td>
@@ -140,7 +190,7 @@
               {{ msg.sender }}
             </td>
             <td>
-              <a href="{% url 'inbox_process' msg.pk %}" style="color:inherit;text-decoration:none;display:block">
+              <div style="color:inherit;display:block">
                 {% if msg.subject %}
                 <div style="font-weight:bold;margin-bottom:2px">{{ msg.subject }}</div>
                 {% endif %}
@@ -150,7 +200,7 @@
                   첨부 {{ msg.attachment_count }}건
                 </div>
                 {% endif %}
-              </a>
+              </div>
             </td>
             <td class="center" style="font-size:11px">{{ msg.received_at|date:"m/d H:i" }}</td>
             <td class="center">
@@ -164,10 +214,10 @@
               {% endif %}
             </td>
             <td class="center" style="white-space:nowrap">
-              <a href="{% url 'inbox_process' msg.pk %}" class="btn btn-outline btn-sm">보기</a>
+              <a href="{% url 'inbox_process' msg.pk %}" class="btn btn-outline btn-sm">전체 처리</a>
               {% if not msg.is_processed %}
               <button type="button" class="btn btn-orange btn-sm"
-                      onclick="singleSkip('{% url 'inbox_single_skip' msg.pk %}')">처리</button>
+                      onclick="event.stopPropagation();singleSkip('{% url 'inbox_single_skip' msg.pk %}')">처리</button>
               {% endif %}
             </td>
           </tr>
@@ -381,6 +431,31 @@
   {% endif %}
 </div>
 
+<!-- Slide Panel -->
+<div class="slide-panel-overlay" id="slidePanelOverlay" onclick="closeSlidePanel()"></div>
+<div class="slide-panel" id="slidePanel">
+  <div class="slide-panel-header">
+    <h3 id="spTitle">메시지 미리보기</h3>
+    <button class="slide-panel-close" onclick="closeSlidePanel()">&times;</button>
+  </div>
+  <div class="slide-panel-body">
+    <div class="sp-meta">
+      <div><strong>발신:</strong> <span id="spSender"></span></div>
+      <div><strong>제목:</strong> <span id="spSubject"></span></div>
+      <div><strong>수신:</strong> <span id="spTime"></span></div>
+    </div>
+    <div class="sp-content" id="spContent">로딩 중...</div>
+    <div class="sp-attachments" id="spAttachments" style="display:none">
+      <div style="font-size:11px;font-weight:600;color:#64748b;margin-bottom:4px">첨부파일</div>
+      <div id="spAttList"></div>
+    </div>
+  </div>
+  <div class="slide-panel-footer">
+    <a id="spProcessLink" href="#" class="btn btn-orange btn-sm" style="flex:1;text-align:center;text-decoration:none">주문 처리 →</a>
+    <button id="spSkipBtn" class="btn btn-outline btn-sm" style="flex:0 0 auto" onclick="skipFromPanel()">처리완료</button>
+  </div>
+</div>
+
 <form id="singleSkipForm" method="post" style="display:none">
   {% csrf_token %}
 </form>
@@ -431,5 +506,61 @@ function confirmSelected(type) {
   }
   return confirm(checked.length + '건을 처리완료하시겠습니까?');
 }
+
+/* ── Slide Panel ── */
+var _currentPanelPk = null;
+
+function openSlidePanel(pk, sender, subject, time, content, processUrl, attachments) {
+  _currentPanelPk = pk;
+  document.getElementById('spSender').textContent = sender || '';
+  document.getElementById('spSubject').textContent = subject || '(제목 없음)';
+  document.getElementById('spTime').textContent = time || '';
+  document.getElementById('spContent').textContent = content || '(내용 없음)';
+  document.getElementById('spProcessLink').href = processUrl;
+
+  var attDiv = document.getElementById('spAttachments');
+  var attList = document.getElementById('spAttList');
+  attList.innerHTML = '';
+  if (attachments && attachments.length > 0) {
+    attDiv.style.display = '';
+    for (var i = 0; i < attachments.length; i++) {
+      var d = document.createElement('div');
+      d.className = 'att-item';
+      d.textContent = '\ud83d\udcce ' + attachments[i];
+      attList.appendChild(d);
+    }
+  } else {
+    attDiv.style.display = 'none';
+  }
+
+  document.getElementById('slidePanelOverlay').classList.add('open');
+  document.getElementById('slidePanel').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeSlidePanel() {
+  document.getElementById('slidePanelOverlay').classList.remove('open');
+  document.getElementById('slidePanel').classList.remove('open');
+  document.body.style.overflow = '';
+  _currentPanelPk = null;
+}
+
+function skipFromPanel() {
+  if (!_currentPanelPk) return;
+  if (!confirm('이 메시지를 처리완료로 표시하시겠습니까?')) return;
+  var form = document.createElement('form');
+  form.method = 'POST';
+  form.action = '/inbox/' + _currentPanelPk + '/skip/';
+  var csrf = document.createElement('input');
+  csrf.type = 'hidden'; csrf.name = 'csrfmiddlewaretoken';
+  csrf.value = document.querySelector('[name=csrfmiddlewaretoken]').value;
+  form.appendChild(csrf);
+  document.body.appendChild(form);
+  form.submit();
+}
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') closeSlidePanel();
+});
 </script>
 {% endblock %}

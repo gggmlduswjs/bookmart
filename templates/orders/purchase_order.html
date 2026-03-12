@@ -1,6 +1,17 @@
 {% extends 'base.html' %}
 {% block title %}발주 집계{% endblock %}
 
+{% block extra_css %}
+<style>
+  @media (max-width: 768px) {
+    .search-bar { flex-wrap: wrap; gap: 6px !important; }
+    .search-bar select, .search-bar input { font-size: 13px !important; }
+    .scroll-hint { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .data-table { min-width: 400px; }
+  }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="page-title">발주 집계 (출판사별)</div>
 
@@ -23,7 +34,7 @@
       총 {{ pub.total_qty }}권 / {{ pub.total_amount|floatformat:0 }}원
     </span>
   </div>
-  <div class="content-box" style="margin-bottom:0">
+  <div class="content-box scroll-hint" style="margin-bottom:0">
     <table class="data-table">
       <thead>
         <tr>

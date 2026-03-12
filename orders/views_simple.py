@@ -340,6 +340,27 @@ def simple_order(request, slug):
         except (Order.DoesNotExist, ValueError):
             pass
 
+    # 최근 주문 교재
+    recent_items = OrderItem.objects.filter(
+        order__teacher=teacher, book__isnull=False
+    ).select_related('book').order_by('-order__ordered_at').values_list('book_id', flat=True)
+    seen = set()
+    recent_book_ids = []
+    for bid in recent_items:
+        if bid not in seen:
+            seen.add(bid)
+            recent_book_ids.append(bid)
+        if len(recent_book_ids) >= 10:
+            break
+    recent_books_qs = Book.objects.filter(id__in=recent_book_ids, is_active=True).select_related('publisher')
+    recent_books_json = json.dumps([{
+        'id': b.id,
+        'series': b.series or '기타',
+        'name': b.name,
+        'publisher': b.publisher.name,
+        'list_price': b.list_price,
+    } for b in recent_books_qs], ensure_ascii=False)
+
     return render(request, 'simple/order.html', {
         'agency': agency,
         'teacher': teacher,
@@ -349,6 +370,7 @@ def simple_order(request, slug):
         'slug': slug,
         'error': error,
         'copy_rows_json': copy_rows_json,
+        'recent_books_json': recent_books_json,
     })
 
 

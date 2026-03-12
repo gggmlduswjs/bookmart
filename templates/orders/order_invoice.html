@@ -20,7 +20,7 @@
       --date-x: 33mm;  --date-y: 13.5mm;
       --no-x: 33mm;    --no-y: 20.5mm;
       --client-x: 6mm; --client-y: 26mm;
-      --client-phone-x: 85mm; --client-phone-y: 26mm;
+      --client-phone-x: 58mm; --client-phone-y: 26mm;
       --client-addr-x: 6mm; --client-addr-y: 35mm;
       --total-x: 22mm; --total-y: 43mm;
       --code-x: 55mm;  --code-y: 43mm;
@@ -82,9 +82,9 @@
     /* ── 데이터 위치 ── */
     .v-date   { left: var(--date-x); top: var(--date-y); font-size: 12px; }
     .v-no     { left: var(--no-x);   top: var(--no-y);   font-size: 11px; font-weight: bold; }
-    .v-client { left: var(--client-x); top: var(--client-y); font-size: 14px; font-weight: bold; max-width: 78mm; overflow: hidden; text-overflow: ellipsis; }
+    .v-client { left: var(--client-x); top: var(--client-y); font-size: 15px; font-weight: bold; max-width: 50mm; overflow: hidden; text-overflow: ellipsis; }
     .v-cphone { left: var(--client-phone-x); top: var(--client-phone-y); font-size: 12px; }
-    .v-caddr  { left: var(--client-addr-x);  top: var(--client-addr-y);  font-size: 10px; max-width: 97mm; white-space: normal; line-height: 1.3; }
+.v-caddr  { left: var(--client-addr-x);  top: var(--client-addr-y);  font-size: 10px; max-width: 97mm; white-space: normal; line-height: 1.3; }
     .v-total  { left: var(--total-x); top: var(--total-y); font-size: 16px; font-weight: bold; }
     .v-code   { left: var(--code-x);  top: var(--code-y);  font-size: 11px; }
     .v-page   { left: var(--page-x);  top: var(--page-y);  font-size: 10px; }
@@ -392,11 +392,11 @@
     <!-- 데이터 (화면+인쇄 모두 출력) -->
     <span class="v-date">{{ order.ordered_at|date:"Y-m-d" }}</span>
     <span class="v-no">{{ order.order_no }}</span>
-    <span class="v-client">{{ order.delivery.name }} {{ order.teacher.name }}{% if order.agency %}<span style="font-size:10px;font-weight:normal">({{ order.agency.name }})</span>{% endif %}</span>
+    <span class="v-client">{{ order.delivery.name }} {{ order.teacher.name }}</span>
     <span class="v-cphone">{{ order.delivery.phone|default:order.teacher.phone|default:"" }}</span>
     <span class="v-caddr">{{ order.delivery.address|default:"" }}</span>
     <span class="v-total">{{ total_amount|floatformat:0 }}</span>
-    <span class="v-code">({{ order.agency.name }})</span>
+    <span class="v-code">{% if order.agency %}({{ order.agency.name }}){% endif %}</span>
     <span class="v-page">1/1</span>
     <span class="v-reg">108-91-20797</span>
     <span class="v-biz">북마트e&c</span>

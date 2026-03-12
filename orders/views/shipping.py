@@ -209,3 +209,87 @@ def order_quick_deliver(request):
     send_delivery_notification(order)
 
     return JsonResponse({'ok': True, 'order_no': order.order_no})
+
+
+@role_required('admin')
+@require_POST
+def order_quick_unship(request):
+    """AJAX: 발송처리 실행취소 (shipping → pending)"""
+    try:
+        data = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({'ok': False, 'error': '잘못된 요청'}, status=400)
+
+    pk = data.get('order_id')
+    order = get_object_or_404(Order, pk=pk, status=Order.Status.SHIPPING)
+    order.status = Order.Status.PENDING
+    order.save(update_fields=['status'])
+
+    OrderStatusLog.objects.create(
+        order=order, old_status='shipping', new_status='pending',
+        changed_by=request.user, memo='발송 실행취소',
+    )
+    _audit(request, AuditLog.Action.ORDER_SHIP, order, f'[실행취소] 주문 {order.order_no} 발송→접수')
+
+    return JsonResponse({'ok': True, 'order_no': order.order_no})
+
+
+@role_required('admin')
+@require_POST
+def order_quick_undeliver(request):
+    """AJAX: 배송완료 실행취소 (delivered → shipping)"""
+    try:
+        data = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({'ok': False, 'error': '잘못된 요청'}, status=400)
+
+    pk = data.get('order_id')
+    order = get_object_or_404(Order, pk=pk, status=Order.Status.DELIVERED)
+    order.status = Order.Status.SHIPPING
+    order.save(update_fields=['status'])
+
+    OrderStatusLog.objects.create(
+        order=order, old_status='delivered', new_status='shipping',
+        changed_by=request.user, memo='배송완료 실행취소',
+    )
+    _audit(request, AuditLog.Action.ORDER_DELIVER, order, f'[실행취소] 주문 {order.order_no} 배송완료→발송중')
+
+    return JsonResponse({'ok': True, 'order_no': order.order_no})
+
+
+@role_required('admin')
+@require_POST
+def order_bulk_tracking(request):
+    """AJAX: 운송장번호 일괄 입력"""
+    try:
+        data = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({'ok': False, 'error': '잘못된 요청'}, status=400)
+
+    items = data.get('items', [])
+    if not items:
+        return JsonResponse({'ok': False, 'error': '입력 데이터가 없습니다.'}, status=400)
+
+    results = []
+    for item in items:
+        order_no = item.get('order_no', '').strip()
+        tracking_no = item.get('tracking_no', '').strip()
+        if not order_no or not tracking_no:
+            continue
+        try:
+            order = Order.objects.get(order_no=order_no, status=Order.Status.PENDING)
+            order.carrier = 'hanjin'
+            order.tracking_no = tracking_no
+            order.status = Order.Status.SHIPPING
+            order.save(update_fields=['status', 'carrier', 'tracking_no'])
+            OrderStatusLog.objects.create(
+                order=order, old_status='pending', new_status='shipping',
+                changed_by=request.user, memo=f'일괄 운송장 입력',
+            )
+            _audit(request, AuditLog.Action.ORDER_SHIP, order, f'[일괄운송장] 주문 {order.order_no} 발송')
+            send_ship_notification(order)
+            results.append({'order_no': order_no, 'ok': True, 'delivery_name': order.delivery.name if order.delivery else ''})
+        except Order.DoesNotExist:
+            results.append({'order_no': order_no, 'ok': False, 'error': '주문을 찾을 수 없습니다'})
+
+    return JsonResponse({'ok': True, 'results': results, 'count': sum(1 for r in results if r['ok'])})

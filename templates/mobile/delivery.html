@@ -7,16 +7,18 @@
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      font-family: -apple-system, 'Malgun Gothic', sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Malgun Gothic', sans-serif;
+      font-size: 14px;
       background: #f1f5f9;
       color: #1e293b;
+      -webkit-font-smoothing: antialiased;
     }
+    a { color: #2563eb; text-decoration: none; }
+
     .top-bar {
-      background: #1e40af;
+      background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
       color: #fff;
       padding: 16px 20px;
-      font-size: 18px;
-      font-weight: 700;
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -24,23 +26,29 @@
       top: 0;
       z-index: 10;
     }
+    .top-bar-left {
+      display: flex; align-items: center; gap: 10px;
+    }
+    .top-bar-left a { color: rgba(255,255,255,0.8); font-size: 18px; text-decoration: none; }
+    .top-bar-title { font-size: 18px; font-weight: 700; }
     .top-bar .count {
       background: rgba(255,255,255,0.2);
-      padding: 4px 12px;
+      padding: 4px 14px;
       border-radius: 20px;
-      font-size: 14px;
+      font-size: 14px; font-weight: 600;
     }
-    .region-group {
-      margin: 12px;
-    }
+
+    .region-group { margin: 12px 16px; }
     .region-title {
-      font-size: 15px;
-      font-weight: 700;
-      color: #475569;
-      padding: 8px 4px;
+      font-size: 14px; font-weight: 700; color: #475569;
+      padding: 8px 4px; margin-bottom: 8px;
       border-bottom: 2px solid #cbd5e1;
-      margin-bottom: 8px;
+      display: flex; justify-content: space-between; align-items: center;
     }
+    .region-title .region-count {
+      font-size: 12px; color: #94a3b8; font-weight: 400;
+    }
+
     .order-card {
       background: #fff;
       border: 1px solid #e2e8f0;
@@ -48,63 +56,62 @@
       padding: 16px;
       margin-bottom: 10px;
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       gap: 14px;
+      transition: border-color 0.15s, background 0.15s;
+      cursor: pointer;
     }
     .order-card.selected {
       border-color: #2563eb;
       background: #eff6ff;
     }
     .order-check {
-      width: 28px;
-      height: 28px;
-      flex-shrink: 0;
+      width: 24px; height: 24px;
+      flex-shrink: 0; margin-top: 2px;
       accent-color: #2563eb;
     }
-    .order-info {
-      flex: 1;
-      min-width: 0;
-    }
+    .order-info { flex: 1; min-width: 0; }
     .order-school {
-      font-size: 16px;
-      font-weight: 700;
-      margin-bottom: 4px;
+      font-size: 16px; font-weight: 700; margin-bottom: 4px;
+      display: flex; align-items: center; gap: 6px;
     }
     .order-detail {
-      font-size: 13px;
-      color: #64748b;
-      line-height: 1.5;
+      font-size: 13px; color: #64748b; line-height: 1.6;
     }
     .order-detail .location {
-      color: #e8720c;
-      font-weight: 600;
+      color: #e8720c; font-weight: 600;
     }
-    .order-phone {
+    .order-detail .address-line {
+      display: flex; align-items: center; gap: 4px;
+    }
+    .order-detail .map-link {
+      font-size: 11px; color: #2563eb; background: #eff6ff;
+      padding: 1px 6px; border-radius: 4px; white-space: nowrap;
+    }
+    .order-actions {
       flex-shrink: 0;
+      display: flex; flex-direction: column; align-items: center; gap: 8px;
     }
-    .order-phone a {
+    .phone-btn {
       display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 44px;
-      height: 44px;
-      background: #059669;
-      color: #fff;
+      align-items: center; justify-content: center;
+      width: 44px; height: 44px;
+      background: #059669; color: #fff;
       border-radius: 50%;
       text-decoration: none;
       font-size: 20px;
     }
+
     .bottom-bar {
       position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
+      bottom: 0; left: 0; right: 0;
       background: #fff;
       border-top: 1px solid #e2e8f0;
-      padding: 12px 20px;
+      padding: 12px 16px;
       display: flex;
       gap: 10px;
       z-index: 10;
+      box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
     }
     .bottom-bar button {
       flex: 1;
@@ -114,71 +121,110 @@
       border: none;
       border-radius: 10px;
       cursor: pointer;
+      font-family: inherit;
+      transition: opacity 0.15s;
     }
     .btn-select-all {
-      background: #f1f5f9;
-      color: #475569;
+      background: #f1f5f9; color: #475569;
+      flex: 0 0 auto; padding: 14px 20px;
     }
-    .btn-done {
-      background: #059669;
-      color: #fff;
-    }
-    .btn-done:disabled {
-      background: #94a3b8;
-    }
-    .spacer { height: 80px; }
+    .btn-done { background: #059669; color: #fff; }
+    .btn-done:disabled { background: #94a3b8; }
+    .spacer { height: 90px; }
+
     .empty-msg {
-      text-align: center;
-      padding: 60px 20px;
-      color: #94a3b8;
-      font-size: 16px;
+      text-align: center; padding: 60px 20px;
     }
-    .back-link {
-      color: rgba(255,255,255,0.8);
-      text-decoration: none;
-      font-size: 14px;
+    .empty-msg .empty-icon { font-size: 48px; opacity: 0.4; margin-bottom: 12px; }
+    .empty-msg .empty-text { color: #94a3b8; font-size: 16px; }
+    .empty-msg .empty-link {
+      display: inline-block; margin-top: 12px;
+      padding: 8px 20px; background: #2563eb; color: #fff;
+      border-radius: 8px; font-size: 14px; font-weight: 600;
+    }
+
+    /* Toast */
+    .toast-container {
+      position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
+      z-index: 100; max-width: 90%;
+    }
+    .toast {
+      background: #1e293b; color: #fff; padding: 12px 20px;
+      border-radius: 10px; font-size: 14px; font-weight: 600;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+      display: flex; align-items: center; gap: 10px;
+      animation: slideDown 0.3s ease;
+    }
+    @keyframes slideDown {
+      from { opacity: 0; transform: translateY(-10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .toast .undo-btn {
+      background: none; border: 1px solid rgba(255,255,255,0.4);
+      color: #fff; padding: 4px 12px; border-radius: 6px;
+      cursor: pointer; font-size: 12px; font-family: inherit;
+      white-space: nowrap;
     }
   </style>
 </head>
 <body>
 
 <div class="top-bar">
-  <div>
-    <a href="/dashboard/" class="back-link">&larr;</a>
-    &nbsp; 배송 관리
+  <div class="top-bar-left">
+    <a href="/dashboard/">&larr;</a>
+    <span class="top-bar-title">배송 관리</span>
   </div>
   <span class="count">{{ total_count }}건</span>
 </div>
+
+<div class="toast-container" id="toastContainer" style="display:none"></div>
 
 <form method="post" action="{% url 'mobile_delivery_done' %}" id="deliveryForm">
   {% csrf_token %}
 
   {% for region_key, group in groups %}
   <div class="region-group">
-    <div class="region-title">{{ group.label }} ({{ group.orders|length }}건)</div>
+    <div class="region-title">
+      {{ group.label }}
+      <span class="region-count">{{ group.orders|length }}건</span>
+    </div>
     {% for order in group.orders %}
     <label class="order-card" id="card-{{ order.pk }}">
       <input type="checkbox" name="ids" value="{{ order.pk }}" class="order-check"
              onchange="toggleCard(this, {{ order.pk }}); updateCount()">
       <div class="order-info">
-        <div class="order-school">{{ order.delivery.name }}</div>
+        <div class="order-school">
+          {{ order.delivery.name }}
+          {% if order.tracking_no %}
+          <span style="font-size:11px;color:#94a3b8;font-weight:400">{{ order.tracking_no }}</span>
+          {% endif %}
+        </div>
         <div class="order-detail">
-          {% if order.delivery.location_detail %}<span class="location">{{ order.delivery.location_detail }}</span><br>{% endif %}
+          {% if order.delivery.location_detail %}<span class="location">📍 {{ order.delivery.location_detail }}</span><br>{% endif %}
+          {% if order.delivery.address %}
+          <div class="address-line">
+            <span style="color:#475569">{{ order.delivery.address|truncatechars:30 }}</span>
+            <a href="https://map.naver.com/v5/search/{{ order.delivery.address|urlencode }}" target="_blank" class="map-link" onclick="event.stopPropagation()">지도</a>
+          </div>
+          {% endif %}
           {{ order.agency.name }} / {{ order.teacher.name }}<br>
-          {{ order.item_count }}종 / {{ order.total_amt|floatformat:0 }}원
-          {% if order.tracking_no %}<br>운송장: {{ order.tracking_no }}{% endif %}
+          {{ order.item_count }}종 · {{ order.total_amt|floatformat:0 }}원
         </div>
       </div>
-      <div class="order-phone">
+      <div class="order-actions">
         {% if order.teacher.phone %}
-        <a href="tel:{{ order.teacher.phone }}" onclick="event.stopPropagation()">&#x1F4DE;</a>
+        <a href="tel:{{ order.teacher.phone }}" class="phone-btn" onclick="event.stopPropagation()">📞</a>
         {% endif %}
       </div>
     </label>
     {% endfor %}
   </div>
   {% empty %}
-  <div class="empty-msg">배송중인 주문이 없습니다.</div>
+  <div class="empty-msg">
+    <div class="empty-icon">🚚</div>
+    <div class="empty-text">배송할 주문이 없습니다</div>
+    <a href="/dashboard/" class="empty-link">대시보드로 이동</a>
+  </div>
   {% endfor %}
 
   <div class="spacer"></div>

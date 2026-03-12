@@ -3,381 +3,208 @@
 
 {% block extra_css %}
 <style>
-  /* Greeting bar */
-  .greeting-bar {
-    background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
-    color: #fff;
-    padding: 18px 24px;
-    border-radius: 10px;
-    font-size: 18px;
-    font-weight: 600;
-    margin-bottom: 20px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
+  /* Urgent alerts */
+  .urgent-alert {
+    background: #fef2f2; border: 1px solid #fca5a5; border-radius: 10px;
+    padding: 14px 20px; margin-bottom: 16px;
+    display: flex; align-items: center; gap: 12px;
   }
-  .greeting-bar .greeting-count {
-    font-size: 24px;
-    font-weight: 800;
-    color: #fbbf24;
-  }
+  .urgent-alert .alert-icon { font-size: 24px; flex-shrink: 0; }
+  .urgent-alert .alert-body { flex: 1; }
+  .urgent-alert .alert-title { font-weight: 700; color: #dc2626; font-size: 14px; }
+  .urgent-alert .alert-desc { font-size: 12px; color: #991b1b; margin-top: 2px; }
+  .urgent-alert .alert-action { flex-shrink: 0; }
 
-  /* Action cards grid */
-  .action-cards {
-    display: grid;
-    grid-template-columns: repeat(5, 1fr);
-    gap: 14px;
-    margin-bottom: 24px;
+  /* Core metrics */
+  .metrics-row {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 14px; margin-bottom: 20px;
   }
-  .action-card {
-    background: #fff;
-    border: 1px solid #e2e8f0;
-    border-radius: 10px;
-    padding: 18px 16px;
-    text-decoration: none;
-    color: inherit;
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    transition: box-shadow 0.2s, transform 0.15s;
-    cursor: pointer;
+  .metric-card {
+    background: #fff; border: 1px solid #e2e8f0; border-radius: 10px;
+    padding: 18px 20px; text-decoration: none; color: inherit;
+    display: flex; align-items: center; gap: 14px;
+    transition: box-shadow 0.2s, transform 0.15s; cursor: pointer;
   }
-  .action-card:hover {
-    box-shadow: 0 6px 20px rgba(0,0,0,0.08);
-    transform: translateY(-2px);
+  .metric-card:hover {
+    box-shadow: 0 6px 20px rgba(0,0,0,0.08); transform: translateY(-2px);
   }
-  .action-card .card-icon {
-    font-size: 28px;
-    width: 48px;
-    height: 48px;
-    border-radius: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
+  .metric-card .card-icon {
+    font-size: 28px; width: 48px; height: 48px; border-radius: 12px;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
   }
-  .action-card .card-icon.inbox { background: #fef3c7; color: #f59e0b; }
-  .action-card .card-icon.pending { background: #dbeafe; color: #2563eb; }
-  .action-card .card-icon.shipping { background: #d1fae5; color: #059669; }
-  .action-card .card-icon.returns { background: #fce7f3; color: #db2777; }
-  .action-card .card-icon.calls { background: #ede9fe; color: #7c3aed; }
-  .action-card .card-info {
-    display: flex;
-    flex-direction: column;
-  }
-  .action-card .card-count {
-    font-size: 28px;
-    font-weight: 800;
-    line-height: 1.1;
-    color: #1e293b;
-  }
-  .action-card .card-label {
-    font-size: 13px;
-    color: #64748b;
-    margin-top: 2px;
-    font-weight: 500;
-  }
+  .metric-card .card-icon.inbox { background: #fef3c7; }
+  .metric-card .card-icon.pending { background: #dbeafe; }
+  .metric-card .card-icon.shipping { background: #d1fae5; }
+  .metric-card .card-count { font-size: 28px; font-weight: 800; color: #1e293b; line-height: 1; }
+  .metric-card .card-label { font-size: 13px; color: #64748b; margin-top: 2px; }
 
-  /* Deadline section */
-  .deadline-section {
-    background: #fff;
-    border: 1px solid #e2e8f0;
-    border-radius: 10px;
-    padding: 20px 24px;
-    margin-bottom: 24px;
+  /* Compact deadline */
+  .deadline-compact {
+    background: #fff; border: 1px solid #e2e8f0; border-radius: 10px;
+    padding: 14px 20px; margin-bottom: 20px;
+    display: flex; align-items: center; gap: 16px; font-size: 13px;
   }
-  .deadline-section-title {
-    font-size: 15px;
-    font-weight: 700;
-    color: #334155;
-    margin-bottom: 16px;
-  }
-  .deadline-bars {
-    display: flex;
-    gap: 24px;
-  }
-  .deadline-bar-item {
-    flex: 1;
-  }
-  .deadline-bar-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 8px;
-  }
-  .deadline-bar-label {
-    font-size: 14px;
-    font-weight: 600;
-    color: #334155;
-  }
-  .deadline-bar-time {
-    font-size: 13px;
-    color: #64748b;
-  }
-  .deadline-bar-track {
-    width: 100%;
-    height: 10px;
-    background: #e2e8f0;
-    border-radius: 6px;
-    overflow: hidden;
-  }
-  .deadline-bar-fill {
-    height: 100%;
-    border-radius: 6px;
-    transition: width 0.5s ease, background 0.3s;
-  }
-  .deadline-bar-fill.ok { background: #059669; }
-  .deadline-bar-fill.warn { background: #f59e0b; }
-  .deadline-bar-fill.past { background: #dc2626; }
-  .deadline-bar-remain {
-    font-size: 13px;
-    margin-top: 6px;
-    font-weight: 500;
-  }
-  .deadline-bar-remain.ok { color: #059669; }
-  .deadline-bar-remain.warn { color: #f59e0b; }
-  .deadline-bar-remain.past { color: #dc2626; font-weight: 600; }
+  .deadline-compact .dl-icon { font-size: 18px; flex-shrink: 0; }
+  .deadline-compact .dl-item { display: flex; align-items: center; gap: 6px; }
+  .deadline-compact .dl-label { font-weight: 600; color: #334155; }
+  .deadline-compact .dl-time { color: #64748b; }
+  .deadline-compact .dl-remain { font-weight: 600; }
+  .deadline-compact .dl-remain.ok { color: #059669; }
+  .deadline-compact .dl-remain.warn { color: #f59e0b; }
+  .deadline-compact .dl-remain.past { color: #dc2626; }
+  .deadline-compact .dl-sep { color: #cbd5e1; margin: 0 4px; }
 
-  /* Mid section two columns */
-  .dash-mid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 16px;
-    margin-bottom: 24px;
+  /* Todo section */
+  .todo-section {
+    background: #fff; border: 1px solid #e2e8f0; border-radius: 10px;
+    overflow: hidden; margin-bottom: 20px;
   }
-  .dash-section {
-    background: #fff;
-    border: 1px solid #e2e8f0;
-    border-radius: 10px;
-    overflow: hidden;
+  .todo-section-title {
+    background: #334155; color: #f1f5f9; padding: 12px 20px;
+    font-size: 14px; font-weight: 600;
+    display: flex; justify-content: space-between; align-items: center;
   }
-  .dash-section-title {
-    background: #334155;
-    color: #f1f5f9;
-    padding: 12px 18px;
-    font-size: 14px;
-    font-weight: 600;
+  .todo-section-title .todo-count {
+    background: rgba(255,255,255,0.2); padding: 2px 10px;
+    border-radius: 10px; font-size: 12px;
   }
-  .dash-section-body {
-    padding: 12px 16px;
+  .todo-list { padding: 0; margin: 0; list-style: none; }
+  .todo-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 20px; border-bottom: 1px solid #f1f5f9;
+    font-size: 13px; transition: background 0.1s;
   }
-  .dash-sub-title {
-    font-size: 12px;
-    font-weight: 700;
-    color: #64748b;
-    text-transform: uppercase;
-    letter-spacing: 0.3px;
-    margin: 14px 0 6px;
-    padding-bottom: 4px;
-    border-bottom: 1px solid #f1f5f9;
+  .todo-item:last-child { border-bottom: none; }
+  .todo-item:hover { background: #f8fafc; }
+  .todo-item .todo-icon { font-size: 16px; flex-shrink: 0; width: 24px; text-align: center; }
+  .todo-item .todo-body { flex: 1; min-width: 0; }
+  .todo-item .todo-title { font-weight: 600; color: #1e293b; }
+  .todo-item .todo-desc {
+    color: #64748b; font-size: 12px; margin-top: 1px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
-  .dash-sub-title:first-child { margin-top: 0; }
+  .todo-item .todo-time { color: #94a3b8; font-size: 11px; flex-shrink: 0; }
+  .todo-item .todo-action { flex-shrink: 0; }
 
-  .dash-section-body ul {
-    list-style: none;
-    padding: 0;
-    margin: 0;
+  /* More section */
+  .more-section {
+    background: #fff; border: 1px solid #e2e8f0; border-radius: 10px;
+    overflow: hidden; margin-bottom: 20px;
   }
-  .dash-section-body li {
-    padding: 7px 0;
-    font-size: 13px;
-    border-bottom: 1px solid #f8fafc;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 8px;
+  .more-header {
+    padding: 12px 20px; cursor: pointer; user-select: none;
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 14px; font-weight: 600; color: #64748b;
   }
-  .dash-section-body li:last-child { border-bottom: none; }
-  .dash-section-body li a {
-    color: #1e40af;
-    text-decoration: none;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    flex: 1;
-    min-width: 0;
+  .more-header:hover { background: #f8fafc; }
+  .more-body { padding: 0 20px 16px; }
+  .more-body .sub-title {
+    font-size: 12px; font-weight: 700; color: #64748b;
+    text-transform: uppercase; letter-spacing: 0.3px;
+    margin: 14px 0 6px; padding-bottom: 4px; border-bottom: 1px solid #f1f5f9;
   }
-  .dash-section-body li a:hover { text-decoration: underline; }
-  .dash-section-body li .item-time {
-    color: #94a3b8;
-    font-size: 11px;
-    white-space: nowrap;
-    flex-shrink: 0;
+  .more-body .sub-title:first-child { margin-top: 0; }
+  .more-body ul { list-style: none; padding: 0; margin: 0; }
+  .more-body li {
+    padding: 6px 0; font-size: 13px; border-bottom: 1px solid #f8fafc;
+    display: flex; justify-content: space-between; align-items: center;
   }
-  .dash-section-body .empty {
-    color: #94a3b8;
-    font-size: 13px;
-    padding: 10px 0;
-    text-align: center;
-  }
-  .source-icon {
-    font-size: 14px;
-    flex-shrink: 0;
-  }
-
-  /* Activity feed */
+  .more-body li:last-child { border-bottom: none; }
+  .more-body li a { color: #1e40af; text-decoration: none; }
+  .more-body li a:hover { text-decoration: underline; }
+  .more-body .empty { color: #94a3b8; font-size: 13px; padding: 10px 0; text-align: center; }
   .activity-item {
-    display: flex;
-    gap: 10px;
-    padding: 7px 0;
-    font-size: 13px;
-    border-bottom: 1px solid #f8fafc;
-    align-items: flex-start;
+    display: flex; gap: 10px; padding: 6px 0; font-size: 13px;
+    border-bottom: 1px solid #f8fafc; align-items: flex-start;
   }
   .activity-item:last-child { border-bottom: none; }
-  .activity-time {
-    color: #94a3b8;
-    font-size: 11px;
-    white-space: nowrap;
-    flex-shrink: 0;
-    min-width: 38px;
-  }
-  .activity-body {
-    flex: 1;
-    min-width: 0;
-  }
-  .activity-action {
-    font-weight: 600;
-    color: #334155;
-  }
-  .activity-detail {
-    color: #64748b;
-    font-size: 12px;
-    margin-top: 1px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
+  .activity-time { color: #94a3b8; font-size: 11px; white-space: nowrap; min-width: 38px; }
+  .activity-action { font-weight: 600; color: #334155; }
+  .activity-detail { color: #64748b; font-size: 12px; margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-  /* Quick action buttons */
+  /* Quick buttons */
   .dash-buttons {
-    display: flex;
-    gap: 12px;
-    margin-bottom: 20px;
+    display: flex; gap: 12px; margin-bottom: 20px;
   }
   .dash-buttons .btn {
-    padding: 12px 28px;
-    font-size: 14px;
-    font-weight: 600;
-    border-radius: 8px;
-    text-decoration: none;
-    text-align: center;
-    transition: opacity 0.15s;
+    padding: 12px 28px; font-size: 14px; font-weight: 600;
+    border-radius: 8px; text-decoration: none; text-align: center;
+    transition: opacity 0.15s; border: none;
   }
   .dash-buttons .btn:hover { opacity: 0.9; }
-  .dash-buttons .btn-orange {
-    background: #f59e0b;
-    color: #fff;
-    border: none;
-  }
-  .dash-buttons .btn-dark {
-    background: #1e293b;
-    color: #fff;
-    border: none;
-  }
-  .dash-buttons .btn-blue {
-    background: #2563eb;
-    color: #fff;
-    border: none;
-  }
-  .dash-buttons .btn-outline {
-    background: #fff;
-    color: #334155;
-    border: 1px solid #cbd5e1;
-  }
-  .dash-buttons .btn-outline:hover {
-    background: #f8fafc;
-  }
+  .dash-buttons .btn-orange { background: #f59e0b; color: #fff; }
+  .dash-buttons .btn-dark { background: #1e293b; color: #fff; }
+  .dash-buttons .btn-blue { background: #2563eb; color: #fff; }
+  .dash-buttons .btn-outline { background: #fff; color: #334155; border: 1px solid #cbd5e1; }
+  .dash-buttons .btn-outline:hover { background: #f8fafc; }
 
-  /* Responsive */
-  @media (max-width: 1024px) {
-    .action-cards {
-      grid-template-columns: repeat(3, 1fr);
-    }
-  }
   @media (max-width: 768px) {
-    .action-cards {
-      grid-template-columns: 1fr;
-    }
-    .dash-mid {
-      grid-template-columns: 1fr;
-    }
-    .deadline-bars {
-      flex-direction: column;
-      gap: 16px;
-    }
-    .dash-buttons {
-      flex-wrap: wrap;
-    }
-    .dash-buttons .btn {
-      flex: 1;
-      min-width: 120px;
-    }
-    .greeting-bar {
-      font-size: 16px;
-      padding: 14px 18px;
-    }
+    .metrics-row { grid-template-columns: 1fr; }
+    .deadline-compact { flex-wrap: wrap; }
+    .dash-buttons { flex-wrap: wrap; }
+    .dash-buttons .btn { flex: 1; min-width: 120px; }
   }
 </style>
 {% endblock %}
 
 {% block content %}
-<!-- Greeting bar -->
-<div class="greeting-bar">
-  <span>&#x1F44B;</span>
-  <span>오늘 처리할 건이 <span class="greeting-count">{{ unprocessed_inbox|add:pending_orders|add:call_pending }}</span>건 있어요</span>
-</div>
-
-<!-- 5 Action Cards -->
-<div class="action-cards">
-  <a href="{% url 'inbox_list' %}?tab=email&hide_done=1" class="action-card">
-    <div class="card-icon inbox">&#x1F4EC;</div>
-    <div class="card-info">
-      <span class="card-count">{{ unprocessed_inbox }}</span>
-      <span class="card-label">수신함</span>
-    </div>
-  </a>
-  <a href="{% url 'delivery_manage' %}?tab=pending" class="action-card">
-    <div class="card-icon pending">&#x1F4E6;</div>
-    <div class="card-info">
-      <span class="card-count">{{ pending_orders }}</span>
-      <span class="card-label">발송 대기</span>
-    </div>
-  </a>
-  <a href="{% url 'delivery_manage' %}?tab=shipping" class="action-card">
-    <div class="card-icon shipping">&#x1F69B;</div>
-    <div class="card-info">
-      <span class="card-count">{{ shipping_orders }}</span>
-      <span class="card-label">발송중</span>
-    </div>
-  </a>
-  <a href="{% url 'return_list' %}" class="action-card">
-    <div class="card-icon returns">&#x1F504;</div>
-    <div class="card-info">
-      <span class="card-count">{{ pending_returns|length }}</span>
-      <span class="card-label">반품 대기</span>
-    </div>
-  </a>
-  <a href="{% url 'call_inbox' %}" class="action-card">
-    <div class="card-icon calls">&#x1F4DE;</div>
-    <div class="card-info">
-      <span class="card-count">{{ call_pending }}</span>
-      <span class="card-label">통화 대기</span>
-    </div>
-  </a>
-</div>
-
-{% if overdue_delivery_count > 0 or upcoming_delivery %}
-<div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px 20px;margin-bottom:20px">
-  {% if overdue_delivery_count > 0 %}
-  <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:12px 16px;margin-bottom:12px;display:flex;align-items:center;gap:10px">
-    <span style="font-size:20px">&#x26A0;</span>
-    <div>
-      <div style="font-weight:700;color:#dc2626;font-size:14px">요청 배송일 초과 {{ overdue_delivery_count }}건</div>
-      <div style="font-size:12px;color:#991b1b">배송일이 지난 주문이 있습니다. 즉시 확인해주세요.</div>
-    </div>
+<!-- 1. Urgent Alerts (conditional) -->
+{% if overdue_delivery_count > 0 %}
+<div class="urgent-alert">
+  <span class="alert-icon">&#x26A0;</span>
+  <div class="alert-body">
+    <div class="alert-title">요청 배송일 초과 {{ overdue_delivery_count }}건</div>
+    <div class="alert-desc">배송일이 지난 주문이 있습니다. 즉시 확인해주세요.</div>
   </div>
-  {% endif %}
+  <a href="{% url 'order_list' %}?status=pending" class="btn btn-sm" style="background:#dc2626;color:#fff;border:none;padding:6px 16px;border-radius:6px;text-decoration:none;font-size:12px;font-weight:600">확인하기</a>
+</div>
+{% endif %}
+
+<!-- 2. Core Metrics (3 cards) -->
+<div class="metrics-row">
+  <a href="{% url 'inbox_list' %}?tab=email&hide_done=1" class="metric-card">
+    <div class="card-icon inbox">&#x1F4EC;</div>
+    <div>
+      <div class="card-count">{{ unprocessed_inbox|add:call_pending }}</div>
+      <div class="card-label">미처리 (수신함 + 통화)</div>
+    </div>
+  </a>
+  <a href="{% url 'delivery_manage' %}?tab=pending" class="metric-card">
+    <div class="card-icon pending">&#x1F4E6;</div>
+    <div>
+      <div class="card-count">{{ pending_orders }}</div>
+      <div class="card-label">발송 대기</div>
+    </div>
+  </a>
+  <a href="{% url 'delivery_manage' %}?tab=shipping" class="metric-card">
+    <div class="card-icon shipping">&#x1F69B;</div>
+    <div>
+      <div class="card-count">{{ shipping_orders }}</div>
+      <div class="card-label">발송중</div>
+    </div>
+  </a>
+</div>
+
+<!-- 3. Compact Deadline Timer -->
+<div class="deadline-compact">
+  <span class="dl-icon">&#x23F0;</span>
+  <div class="dl-item">
+    <span class="dl-label">시내</span>
+    <span class="dl-time">11:20</span>
+    <span class="dl-remain ok" id="dl-city-text">계산중...</span>
+  </div>
+  <span class="dl-sep">|</span>
+  <div class="dl-item">
+    <span class="dl-label">지방</span>
+    <span class="dl-time">13:50</span>
+    <span class="dl-remain ok" id="dl-region-text">계산중...</span>
+  </div>
+</div>
+
+<!-- 4. Upcoming Delivery Dates -->
+{% if upcoming_delivery %}
+<div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:14px 20px;margin-bottom:20px">
   <div style="font-size:13px;font-weight:600;color:#334155;margin-bottom:8px">&#x1F4C5; 요청 배송일 임박 주문</div>
   <div style="display:flex;flex-direction:column;gap:4px">
     {% for order in upcoming_delivery %}
@@ -397,130 +224,105 @@
 </div>
 {% endif %}
 
-<!-- Deadline Progress Bars -->
-<div class="deadline-section">
-  <div class="deadline-section-title">&#x23F0; 마감 시간</div>
-  <div class="deadline-bars">
-    <div class="deadline-bar-item">
-      <div class="deadline-bar-header">
-        <span class="deadline-bar-label">시내 마감</span>
-        <span class="deadline-bar-time">11:20</span>
-      </div>
-      <div class="deadline-bar-track">
-        <div class="deadline-bar-fill ok" id="dl-city-bar" style="width:0%"></div>
-      </div>
-      <div class="deadline-bar-remain ok" id="dl-city-text"></div>
-    </div>
-    <div class="deadline-bar-item">
-      <div class="deadline-bar-header">
-        <span class="deadline-bar-label">지방 마감</span>
-        <span class="deadline-bar-time">13:50</span>
-      </div>
-      <div class="deadline-bar-track">
-        <div class="deadline-bar-fill ok" id="dl-region-bar" style="width:0%"></div>
-      </div>
-      <div class="deadline-bar-remain ok" id="dl-region-text"></div>
-    </div>
+<!-- 5. Todo List (single column, full width) -->
+<div class="todo-section" x-data="{showAll: false}">
+  <div class="todo-section-title">
+    <span>&#x1F4CB; 오늘 할 일</span>
+    <span class="todo-count" x-text="'{{ recent_inbox|length }}건 수신함 + {{ pending_order_list|length }}건 발송대기 + {{ pending_returns|length }}건 반품'"></span>
   </div>
+  <ul class="todo-list">
+    {% for msg in recent_inbox %}
+    <li class="todo-item" {% if forloop.counter > 5 %}x-show="showAll" x-cloak{% endif %}>
+      <span class="todo-icon">{% if msg.source == 'email' %}&#x1F4E7;{% else %}&#x1F4AC;{% endif %}</span>
+      <div class="todo-body">
+        <div class="todo-title">{{ msg.sender|truncatechars:25 }}</div>
+        <div class="todo-desc">수신함 미처리</div>
+      </div>
+      <span class="todo-time">{{ msg.received_at|date:"m/d H:i" }}</span>
+      <a href="{% url 'inbox_process' msg.pk %}" class="btn btn-outline btn-sm todo-action" style="padding:3px 10px;font-size:11px">처리</a>
+    </li>
+    {% endfor %}
+    {% for order in pending_order_list %}
+    <li class="todo-item" {% if forloop.counter0|add:recent_inbox|length > 4 %}x-show="showAll" x-cloak{% endif %}>
+      <span class="todo-icon">&#x1F4E6;</span>
+      <div class="todo-body">
+        <div class="todo-title">{{ order.order_no }} — {{ order.delivery.name|truncatechars:15 }}</div>
+        <div class="todo-desc">발송 대기</div>
+      </div>
+      <span class="todo-time">{{ order.ordered_at|date:"m/d H:i" }}</span>
+      <a href="{% url 'order_detail' order.pk %}" class="btn btn-outline btn-sm todo-action" style="padding:3px 10px;font-size:11px">상세</a>
+    </li>
+    {% endfor %}
+    {% for ret in pending_returns %}
+    <li class="todo-item" x-show="showAll" x-cloak>
+      <span class="todo-icon">&#x1F504;</span>
+      <div class="todo-body">
+        <div class="todo-title">{{ ret.return_no }} — {{ ret.delivery.name|truncatechars:15 }}</div>
+        <div class="todo-desc">반품 대기</div>
+      </div>
+      <span class="todo-time">{{ ret.requested_at|date:"m/d H:i" }}</span>
+      <a href="{% url 'return_detail' ret.pk %}" class="btn btn-outline btn-sm todo-action" style="padding:3px 10px;font-size:11px">상세</a>
+    </li>
+    {% endfor %}
+    {% if not recent_inbox and not pending_order_list and not pending_returns %}
+    <li class="todo-item" style="justify-content:center;color:#94a3b8;padding:20px">할 일이 없습니다 🎉</li>
+    {% endif %}
+  </ul>
+  {% with total_todos=recent_inbox|length|add:pending_order_list|length|add:pending_returns|length %}
+  {% if total_todos > 5 %}
+  <div style="padding:10px 20px;text-align:center;border-top:1px solid #f1f5f9">
+    <button @click="showAll = !showAll" style="background:none;border:none;color:#2563eb;font-size:12px;font-weight:600;cursor:pointer">
+      <span x-show="!showAll">전체 보기 ({{ total_todos }}건) ▼</span>
+      <span x-show="showAll">접기 ▲</span>
+    </button>
+  </div>
+  {% endif %}
+  {% endwith %}
 </div>
 
-<!-- Two-column mid section -->
-<div class="dash-mid">
-  <!-- Left: 오늘 할 일 -->
-  <div class="dash-section">
-    <div class="dash-section-title">&#x1F4CB; 오늘 할 일</div>
-    <div class="dash-section-body">
-      <div class="dash-sub-title">미처리 수신함</div>
-      <ul>
-        {% for msg in recent_inbox %}
-        <li>
-          <a href="{% url 'inbox_process' msg.pk %}">
-            <span class="source-icon">{% if msg.source == 'email' %}&#x1F4E7;{% else %}&#x1F4AC;{% endif %}</span>
-            <span>{{ msg.sender|truncatechars:20 }}</span>
-          </a>
-          <span class="item-time">{{ msg.received_at|date:"m/d H:i" }}</span>
-        </li>
-        {% empty %}
-        <li class="empty">미처리 메시지가 없습니다</li>
-        {% endfor %}
-      </ul>
-
-      <div class="dash-sub-title">발송 대기 주문</div>
-      <ul>
-        {% for order in pending_order_list %}
-        <li>
-          <a href="{% url 'order_detail' order.pk %}">
-            <span>{{ order.order_no }}</span>
-            <span style="color:#64748b;margin-left:4px">{{ order.delivery.name|truncatechars:12 }}</span>
-          </a>
-          <span class="item-time">{{ order.ordered_at|date:"m/d H:i" }}</span>
-        </li>
-        {% empty %}
-        <li class="empty">발송 대기 주문이 없습니다</li>
-        {% endfor %}
-      </ul>
-
-      <div class="dash-sub-title">반품 대기</div>
-      <ul>
-        {% for ret in pending_returns %}
-        <li>
-          <a href="{% url 'return_detail' ret.pk %}">
-            <span>{{ ret.return_no }}</span>
-            <span style="color:#64748b;margin-left:4px">{{ ret.delivery.name|truncatechars:12 }}</span>
-          </a>
-          <span class="item-time">{{ ret.requested_at|date:"m/d H:i" }}</span>
-        </li>
-        {% empty %}
-        <li class="empty">반품 대기 건이 없습니다</li>
-        {% endfor %}
-      </ul>
-    </div>
+<!-- 6. More (collapsed) -->
+<div class="more-section" x-data="{open: false}">
+  <div class="more-header" @click="open = !open">
+    <span>&#x1F4CA; 최근 활동 / 통계</span>
+    <span :style="open ? 'transform:rotate(180deg)' : ''" style="transition:transform 0.2s;font-size:12px">▼</span>
   </div>
-
-  <!-- Right: 최근 활동 + 최근 발송 완료 -->
-  <div class="dash-section">
-    <div class="dash-section-title">&#x1F4CA; 최근 활동</div>
-    <div class="dash-section-body">
-      <div class="dash-sub-title">활동 기록</div>
-      {% for log in recent_activity %}
-      <div class="activity-item">
-        <span class="activity-time">{{ log.created_at|date:"H:i" }}</span>
-        <div class="activity-body">
-          <div class="activity-action">{{ log.get_action_display }}</div>
-          {% if log.detail %}<div class="activity-detail">{{ log.detail|truncatechars:50 }}</div>{% endif %}
-        </div>
+  <div class="more-body" x-show="open" x-collapse x-cloak>
+    <div class="sub-title">활동 기록</div>
+    {% for log in recent_activity %}
+    <div class="activity-item">
+      <span class="activity-time">{{ log.created_at|date:"H:i" }}</span>
+      <div style="flex:1;min-width:0">
+        <div class="activity-action">{{ log.get_action_display }}</div>
+        {% if log.detail %}<div class="activity-detail">{{ log.detail|truncatechars:50 }}</div>{% endif %}
       </div>
-      {% empty %}
-      <div class="empty">아직 활동 기록이 없습니다</div>
-      {% endfor %}
-
-      <div class="dash-sub-title" style="margin-top:18px">최근 발송 완료</div>
-      <ul>
-        {% for order in recent_delivered %}
-        <li>
-          <a href="{% url 'order_detail' order.pk %}">
-            <span>{{ order.order_no }}</span>
-            <span style="color:#64748b;margin-left:4px">{{ order.delivery.name|truncatechars:12 }}</span>
-          </a>
-          <span class="item-time">{{ order.ordered_at|date:"m/d H:i" }}</span>
-        </li>
-        {% empty %}
-        <li class="empty">최근 발송 완료 내역이 없습니다</li>
-        {% endfor %}
-      </ul>
-
-      {% if category_stats %}
-      <div class="dash-sub-title" style="margin-top:18px">오늘 업체분류별 주문</div>
-      <ul>
-        {% for stat in category_stats %}
-        <li>
-          <span>{{ stat.agency__agency_category|default:"미분류" }}</span>
-          <span class="item-time" style="font-weight:600;color:#334155;font-size:13px">{{ stat.cnt }}건</span>
-        </li>
-        {% endfor %}
-      </ul>
-      {% endif %}
     </div>
+    {% empty %}
+    <div class="empty">아직 활동 기록이 없습니다</div>
+    {% endfor %}
+
+    <div class="sub-title" style="margin-top:18px">최근 발송 완료</div>
+    <ul>
+      {% for order in recent_delivered %}
+      <li>
+        <a href="{% url 'order_detail' order.pk %}">{{ order.order_no }} <span style="color:#64748b;margin-left:4px">{{ order.delivery.name|truncatechars:12 }}</span></a>
+        <span style="color:#94a3b8;font-size:11px">{{ order.ordered_at|date:"m/d H:i" }}</span>
+      </li>
+      {% empty %}
+      <li class="empty">최근 발송 완료 내역이 없습니다</li>
+      {% endfor %}
+    </ul>
+
+    {% if category_stats %}
+    <div class="sub-title" style="margin-top:18px">오늘 업체분류별 주문</div>
+    <ul>
+      {% for stat in category_stats %}
+      <li>
+        <span>{{ stat.agency__agency_category|default:"미분류" }}</span>
+        <span style="font-weight:600;color:#334155;font-size:13px">{{ stat.cnt }}건</span>
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
   </div>
 </div>
 
@@ -536,55 +338,30 @@
 {% block extra_js %}
 <script>
 (function(){
-  // Deadline configuration: start of business day (08:00) to deadline
-  var BUSINESS_START_HOUR = 8;
   var CITY_DEADLINE = {h: 11, m: 20};
   var REGION_DEADLINE = {h: 13, m: 50};
 
   function updateDeadlines(){
     var now = new Date();
-    updateBar(now, CITY_DEADLINE, 'dl-city-bar', 'dl-city-text');
-    updateBar(now, REGION_DEADLINE, 'dl-region-bar', 'dl-region-text');
+    updateText(now, CITY_DEADLINE, 'dl-city-text');
+    updateText(now, REGION_DEADLINE, 'dl-region-text');
   }
 
-  function updateBar(now, deadline, barId, textId){
+  function updateText(now, deadline, textId){
     var target = new Date(now);
     target.setHours(deadline.h, deadline.m, 0, 0);
-
-    var start = new Date(now);
-    start.setHours(BUSINESS_START_HOUR, 0, 0, 0);
-
-    var barEl = document.getElementById(barId);
-    var textEl = document.getElementById(textId);
-    if(!barEl || !textEl) return;
+    var el = document.getElementById(textId);
+    if(!el) return;
 
     var diff = target - now;
-    var totalSpan = target - start;
-
     if(diff <= 0){
-      // Past deadline
-      barEl.style.width = '100%';
-      barEl.className = 'deadline-bar-fill past';
-      textEl.textContent = '마감';
-      textEl.className = 'deadline-bar-remain past';
+      el.textContent = '마감';
+      el.className = 'dl-remain past';
     } else {
-      var elapsed = now - start;
-      var pct = Math.max(0, Math.min(100, (elapsed / totalSpan) * 100));
-      barEl.style.width = pct + '%';
-
       var h = Math.floor(diff / 3600000);
       var m = Math.floor((diff % 3600000) / 60000);
-      var remainText = h > 0 ? h + '시간 ' + m + '분 남음' : m + '분 남음';
-      textEl.textContent = remainText;
-
-      // Color based on remaining time
-      if(diff < 1800000){ // less than 30 min
-        barEl.className = 'deadline-bar-fill warn';
-        textEl.className = 'deadline-bar-remain warn';
-      } else {
-        barEl.className = 'deadline-bar-fill ok';
-        textEl.className = 'deadline-bar-remain ok';
-      }
+      el.textContent = '(' + (h > 0 ? h + '시간 ' : '') + m + '분 남음)';
+      el.className = diff < 1800000 ? 'dl-remain warn' : 'dl-remain ok';
     }
   }
 

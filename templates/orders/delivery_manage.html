@@ -59,6 +59,7 @@
       선택 발송 처리
     </button>
     <span style="font-size:12px;color:#94a3b8">운송장번호를 입력하면 선생님에게 문자가 발송됩니다</span>
+    <button type="button" class="btn btn-blue btn-sm" onclick="document.getElementById('bulk-tracking-modal').style.display='flex'">일괄 운송장 입력</button>
   </div>
 
   <div class="content-box scroll-hint">
@@ -115,7 +116,7 @@
         </tr>
         {% endfor %}
         {% empty %}
-        <tr><td colspan="12" class="center" style="padding:20px;color:#94a3b8">발송 대기중인 주문이 없습니다.</td></tr>
+        <tr><td colspan="12" style="padding:40px 20px;text-align:center"><div style="font-size:40px;margin-bottom:8px;opacity:0.5">📦</div><span style="color:#94a3b8">발송 대기중인 주문이 없습니다.</span></td></tr>
         {% endfor %}
       </tbody>
     </table>
@@ -186,7 +187,7 @@
         </tr>
         {% endfor %}
         {% empty %}
-        <tr><td colspan="11" class="center" style="padding:20px;color:#94a3b8">배송중인 주문이 없습니다.</td></tr>
+        <tr><td colspan="11" style="padding:40px 20px;text-align:center"><div style="font-size:40px;margin-bottom:8px;opacity:0.5">🚚</div><span style="color:#94a3b8">배송중인 주문이 없습니다.</span></td></tr>
         {% endfor %}
       </tbody>
     </table>
@@ -235,14 +236,124 @@
         <td class="center"><a href="{% url 'order_detail' order.pk %}" class="btn btn-sm btn-outline" style="padding:1px 6px;font-size:10px">상세</a></td>
       </tr>
       {% empty %}
-      <tr><td colspan="10" class="center" style="padding:20px;color:#94a3b8">배송완료된 주문이 없습니다.</td></tr>
+      <tr><td colspan="10" style="padding:40px 20px;text-align:center"><div style="font-size:40px;margin-bottom:8px;opacity:0.5">✅</div><span style="color:#94a3b8">배송완료된 주문이 없습니다.</span></td></tr>
       {% endfor %}
     </tbody>
   </table>
 </div>
 {% endif %}
 
+<!-- 일괄 운송장 입력 모달 -->
+<div id="bulk-tracking-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:1000;align-items:center;justify-content:center"
+     x-data="bulkTrackingModal()" @keydown.escape.window="closeModal()">
+  <div style="background:#fff;border-radius:12px;padding:24px;width:90%;max-width:560px;max-height:80vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.2)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <h3 style="font-size:16px;font-weight:700;color:#1e293b;margin:0">일괄 운송장 입력</h3>
+      <button @click="closeModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#94a3b8">&times;</button>
+    </div>
+
+    <p style="font-size:12px;color:#64748b;margin-bottom:12px">주문번호와 운송장번호를 붙여넣으세요. (탭, 쉼표, 또는 공백으로 구분)</p>
+
+    <textarea x-model="rawInput" @input="parseInput()"
+              style="width:100%;height:120px;padding:10px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;font-family:monospace;resize:vertical"
+              placeholder="ORD2403-001  1234567890&#10;ORD2403-002  1234567891&#10;ORD2403-003  1234567892"></textarea>
+
+    <template x-if="parsed.length > 0">
+      <div style="margin-top:12px">
+        <div style="font-size:12px;font-weight:600;color:#334155;margin-bottom:6px">미리보기: <span x-text="parsed.length"></span>건</div>
+        <div style="border:1px solid #e2e8f0;border-radius:6px;overflow:hidden;max-height:200px;overflow-y:auto">
+          <template x-for="(item, i) in parsed" :key="i">
+            <div style="display:flex;align-items:center;padding:8px 12px;font-size:12px;border-bottom:1px solid #f1f5f9;gap:8px">
+              <span style="font-weight:600;min-width:100px" x-text="item.order_no"></span>
+              <span style="color:#64748b;font-family:monospace" x-text="item.tracking_no"></span>
+            </div>
+          </template>
+        </div>
+      </div>
+    </template>
+
+    <template x-if="resultMsg">
+      <div style="margin-top:12px;padding:10px;border-radius:6px;font-size:12px"
+           :style="resultError ? 'background:#fef2f2;color:#991b1b' : 'background:#ecfdf5;color:#065f46'"
+           x-text="resultMsg"></div>
+    </template>
+
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px">
+      <button @click="closeModal()" class="btn btn-outline btn-sm">취소</button>
+      <button @click="submitBulk()" class="btn btn-blue btn-sm" :disabled="!parsed.length || submitting">
+        <span x-show="!submitting">일괄 적용</span>
+        <span x-show="submitting">처리중...</span>
+      </button>
+    </div>
+  </div>
+</div>
+
 <script>
+function getCsrf() {
+  return document.cookie.split(';').map(function(c){ return c.trim(); }).find(function(c){ return c.startsWith('csrftoken='); })?.split('=')[1] ||
+         document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+}
+
+function bulkTrackingModal() {
+  return {
+    rawInput: '',
+    parsed: [],
+    submitting: false,
+    resultMsg: '',
+    resultError: false,
+
+    parseInput() {
+      var lines = this.rawInput.trim().split('\n').filter(function(l) { return l.trim(); });
+      this.parsed = [];
+      for (var i = 0; i < lines.length; i++) {
+        var parts = lines[i].trim().split(/[\t,\s]+/).filter(function(p) { return p; });
+        if (parts.length >= 2) {
+          this.parsed.push({ order_no: parts[0], tracking_no: parts[parts.length - 1] });
+        }
+      }
+      this.resultMsg = '';
+    },
+
+    submitBulk() {
+      var self = this;
+      if (!this.parsed.length) return;
+      this.submitting = true;
+      this.resultMsg = '';
+
+      fetch('/orders/api/bulk-tracking/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+        body: JSON.stringify({ items: this.parsed })
+      })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (data.ok) {
+          self.resultMsg = data.count + '건 발송 처리 완료.';
+          self.resultError = false;
+          if (data.count > 0) {
+            setTimeout(function() { location.reload(); }, 1500);
+          }
+        } else {
+          self.resultMsg = data.error || '처리 실패';
+          self.resultError = true;
+        }
+      })
+      .catch(function(err) {
+        self.resultMsg = '요청 실패: ' + err.message;
+        self.resultError = true;
+      })
+      .finally(function() { self.submitting = false; });
+    },
+
+    closeModal() {
+      document.getElementById('bulk-tracking-modal').style.display = 'none';
+      this.rawInput = '';
+      this.parsed = [];
+      this.resultMsg = '';
+    }
+  };
+}
+
 function toggleAll(el, cls) {
   document.querySelectorAll('.' + cls).forEach(function(cb) { cb.checked = el.checked; });
 }

@@ -15,10 +15,11 @@
 <!-- 필터 -->
 <form method="get" class="search-bar" id="filterForm">
   <input type="text" name="q" value="{{ filters.q }}" placeholder="주문번호/선생님/학교/업체/운송장 검색"
-         aria-label="주문 검색" style="width:220px;padding:4px 8px;border:1px solid #bbb;font-size:12px">
+         aria-label="주문 검색" style="width:220px;padding:4px 8px;border:1px solid #bbb;font-size:12px"
+         x-data x-init="$el._timer=null" @input="clearTimeout($el._timer);$el._timer=setTimeout(()=>$el.form.submit(),500)">
 
   <label for="filter-status">상태</label>
-  <select name="status" id="filter-status">
+  <select name="status" id="filter-status" onchange="this.form.submit()">
     <option value="">전체</option>
     {% for val, label in status_choices %}
     <option value="{{ val }}" {% if filters.status == val %}selected{% endif %}>{{ label }}</option>
@@ -27,7 +28,7 @@
 
   {% if not request.user.is_teacher %}
   <label for="filter-delivery">배송지</label>
-  <select name="delivery" id="filter-delivery">
+  <select name="delivery" id="filter-delivery" onchange="this.form.submit()">
     <option value="">전체</option>
     {% for d in deliveries %}
     <option value="{{ d.pk }}" {% if filters.delivery == d.pk|stringformat:"s" %}selected{% endif %}>{{ d.name }}</option>
@@ -37,7 +38,7 @@
 
   {% if request.user.is_admin %}
   <label for="filter-source">경로</label>
-  <select name="source" id="filter-source">
+  <select name="source" id="filter-source" onchange="this.form.submit()">
     <option value="">전체</option>
     <option value="simple" {% if filters.source == 'simple' %}selected{% endif %}>간편주문</option>
     <option value="inbox" {% if filters.source == 'inbox' %}selected{% endif %}>수신함</option>
@@ -46,7 +47,7 @@
   </select>
 
   <label for="filter-category">업체분류</label>
-  <select name="agency_category" id="filter-category">
+  <select name="agency_category" id="filter-category" onchange="this.form.submit()">
     <option value="">전체</option>
     {% for cat in agency_categories %}
     <option value="{{ cat }}" {% if filters.agency_category == cat %}selected{% endif %}>{{ cat }}</option>
@@ -54,7 +55,7 @@
   </select>
 
   <label for="filter-region">지역</label>
-  <select name="region" id="filter-region">
+  <select name="region" id="filter-region" onchange="this.form.submit()">
     <option value="">전체</option>
     {% for val, label in region_choices %}
     <option value="{{ val }}" {% if filters.region == val %}selected{% endif %}>{{ label }}</option>
@@ -63,10 +64,10 @@
   {% endif %}
 
   <label for="filter-date-from">시작일</label>
-  <input type="date" name="date_from" id="filter-date-from" value="{{ filters.date_from }}">
+  <input type="date" name="date_from" id="filter-date-from" value="{{ filters.date_from }}" onchange="this.form.submit()">
 
   <label for="filter-date-to">종료일</label>
-  <input type="date" name="date_to" id="filter-date-to" value="{{ filters.date_to }}">
+  <input type="date" name="date_to" id="filter-date-to" value="{{ filters.date_to }}" onchange="this.form.submit()">
 
   <button type="submit" class="btn btn-dark btn-sm">조회</button>
   <a href="{% url 'order_list' %}" class="btn btn-outline btn-sm" id="filterReset">초기화</a>
@@ -108,16 +109,16 @@
       {% for order in orders %}
       <tr data-order-id="{{ order.pk }}" onclick="if(!event.target.closest('input,button,a,.kebab-menu,.popover')){location.href='{% url 'order_detail' order.pk %}'}" style="cursor:pointer">
         {% if not request.user.is_teacher %}
-        <td class="center" style="padding:10px 10px">
+        <td class="center" data-label="선택" style="padding:10px 10px">
           <input type="checkbox" class="order-chk" value="{{ order.pk }}" aria-label="주문 {{ order.order_no }} 선택" onclick="handleCheckboxClick(event, this)">
         </td>
         {% endif %}
-        <td style="font-size:11px;padding:10px 10px">{{ order.order_no }}</td>
-        {% if not request.user.is_teacher %}<td style="padding:10px 10px">{{ order.teacher.name }}</td>{% endif %}
-        <td style="padding:10px 10px">{{ order.delivery.name }}</td>
-        {% if request.user.is_admin %}<td style="padding:10px 10px">{{ order.agency.name }}</td>{% endif %}
+        <td data-label="주문번호" style="font-size:11px;padding:10px 10px">{{ order.order_no }}</td>
+        {% if not request.user.is_teacher %}<td data-label="선생님" style="padding:10px 10px">{{ order.teacher.name }}</td>{% endif %}
+        <td data-label="배송지" style="padding:10px 10px">{{ order.delivery.name }}</td>
+        {% if request.user.is_admin %}<td data-label="업체" style="padding:10px 10px">{{ order.agency.name }}</td>{% endif %}
         {% if request.user.is_admin %}
-        <td class="center" style="font-size:11px;padding:10px 10px">
+        <td data-label="경로" class="center" style="font-size:11px;padding:10px 10px">
           {% if order.source == 'simple' or order.source == 'teacher' %}<span class="badge badge-green">간편주문</span>
           {% elif order.source == 'inbox' %}<span class="badge badge-orange">수신함</span>
           {% elif order.source == 'call' %}<span class="badge badge-blue">통화주문</span>
@@ -127,14 +128,14 @@
         {% endif %}
 
         {% if request.user.is_admin %}
-        <td style="font-size:11px;padding:10px 10px{% if order.requested_delivery_date and order.requested_delivery_date < today %};color:#dc2626;font-weight:600{% endif %}">
+        <td data-label="요청배송일" style="font-size:11px;padding:10px 10px{% if order.requested_delivery_date and order.requested_delivery_date < today %};color:#dc2626;font-weight:600{% endif %}">
           {% if order.requested_delivery_date %}{{ order.requested_delivery_date|date:"m/d" }}{% if order.requested_delivery_date < today %} (초과){% endif %}{% else %}—{% endif %}
         </td>
         {% endif %}
 
         {# 상태 셀 - 관리자는 인라인 상태 변경 가능 #}
         {% if request.user.is_admin %}
-        <td class="center" style="padding:10px 10px;position:relative"
+        <td data-label="상태" class="center" style="padding:10px 10px;position:relative"
             x-data="statusPopover({{ order.pk }}, '{{ order.status }}', '{{ order.carrier|default:'' }}', '{{ order.tracking_no|default:'' }}')"
             @click.outside="open = false">
           <button type="button"
@@ -145,46 +146,52 @@
             {% if order.status == 'pending' %}접수{% elif order.status == 'shipping' %}발송중{% elif order.status == 'delivered' %}발송완료{% elif order.status == 'cancelled' %}취소{% endif %}
           </button>
 
-          <!-- 상태 변경 팝오버 -->
+          <!-- 상태 변경 팝오버 (Alpine-driven) -->
           <div x-show="open" x-cloak x-transition.opacity
                style="position:absolute;top:100%;left:50%;transform:translateX(-50%);z-index:50;
                       background:#fff;border:1px solid #e2e8f0;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.12);
                       padding:12px;min-width:220px;text-align:left;margin-top:4px">
 
-            {% if order.status == 'pending' %}
-            <div style="font-size:12px;font-weight:600;color:#334155;margin-bottom:8px">발송 처리</div>
-            <div style="margin-bottom:6px">
-              <label style="font-size:11px;color:#64748b;display:block;margin-bottom:2px;background:none;padding:0">택배사</label>
-              <select x-model="carrier" style="width:100%;padding:4px 6px;border:1px solid #cbd5e1;border-radius:4px;font-size:12px">
-                <option value="한진택배">한진택배</option>
-                <option value="직접배송">직접배송</option>
-              </select>
-            </div>
-            <div style="margin-bottom:8px">
-              <label style="font-size:11px;color:#64748b;display:block;margin-bottom:2px;background:none;padding:0">운송장번호</label>
-              <input type="text" x-model="trackingNo" placeholder="운송장번호 입력"
-                     style="width:100%;padding:4px 6px;border:1px solid #cbd5e1;border-radius:4px;font-size:12px">
-            </div>
-            <button class="btn btn-blue btn-sm" style="width:100%" @click="submitShip()" :disabled="loading">
-              <span x-show="!loading">발송처리</span>
-              <span x-show="loading">처리중...</span>
-            </button>
+            <template x-if="status === 'pending'">
+              <div>
+                <div style="font-size:12px;font-weight:600;color:#334155;margin-bottom:8px">발송 처리</div>
+                <div style="margin-bottom:6px">
+                  <label style="font-size:11px;color:#64748b;display:block;margin-bottom:2px;background:none;padding:0">택배사</label>
+                  <select x-model="carrier" style="width:100%;padding:4px 6px;border:1px solid #cbd5e1;border-radius:4px;font-size:12px">
+                    <option value="한진택배">한진택배</option>
+                    <option value="직접배송">직접배송</option>
+                  </select>
+                </div>
+                <div style="margin-bottom:8px">
+                  <label style="font-size:11px;color:#64748b;display:block;margin-bottom:2px;background:none;padding:0">운송장번호</label>
+                  <input type="text" x-model="trackingNo" placeholder="운송장번호 입력"
+                         style="width:100%;padding:4px 6px;border:1px solid #cbd5e1;border-radius:4px;font-size:12px">
+                </div>
+                <button class="btn btn-blue btn-sm" style="width:100%" @click="submitShip()" :disabled="loading" type="button">
+                  <span x-show="!loading">발송처리</span>
+                  <span x-show="loading">처리중...</span>
+                </button>
+              </div>
+            </template>
 
-            {% elif order.status == 'shipping' %}
-            <div style="font-size:12px;font-weight:600;color:#334155;margin-bottom:8px">배송 완료 처리</div>
-            <p style="font-size:11px;color:#64748b;margin-bottom:8px">이 주문을 배송완료로 변경합니다.</p>
-            <button class="btn btn-green btn-sm" style="width:100%" @click="submitDeliver()" :disabled="loading">
-              <span x-show="!loading">배송완료</span>
-              <span x-show="loading">처리중...</span>
-            </button>
+            <template x-if="status === 'shipping'">
+              <div>
+                <div style="font-size:12px;font-weight:600;color:#334155;margin-bottom:8px">배송 완료 처리</div>
+                <p style="font-size:11px;color:#64748b;margin-bottom:8px">이 주문을 배송완료로 변경합니다.</p>
+                <button class="btn btn-green btn-sm" style="width:100%" @click="submitDeliver()" :disabled="loading" type="button">
+                  <span x-show="!loading">배송완료</span>
+                  <span x-show="loading">처리중...</span>
+                </button>
+              </div>
+            </template>
 
-            {% else %}
-            <p style="font-size:12px;color:#94a3b8;margin:0">상태 변경 불가</p>
-            {% endif %}
+            <template x-if="status === 'delivered' || status === 'cancelled'">
+              <p style="font-size:12px;color:#94a3b8;margin:0">상태 변경 불가</p>
+            </template>
           </div>
         </td>
         {% else %}
-        <td class="center" style="padding:10px 10px">
+        <td data-label="상태" class="center" style="padding:10px 10px">
           {% if order.status == 'pending' %}<span class="badge badge-blue">접수</span>
           {% elif order.status == 'shipping' %}<span class="badge badge-orange">발송중</span>
           {% elif order.status == 'delivered' %}<span class="badge badge-green">발송완료</span>
@@ -193,10 +200,10 @@
         </td>
         {% endif %}
 
-        <td style="font-size:11px;padding:10px 10px">{{ order.ordered_at|date:"Y-m-d H:i" }}</td>
+        <td data-label="주문일시" style="font-size:11px;padding:10px 10px">{{ order.ordered_at|date:"Y-m-d H:i" }}</td>
 
         {# 컨텍스트 액션 메뉴 #}
-        <td class="center" style="padding:10px 6px;position:relative"
+        <td data-label="" class="center" style="padding:10px 6px;position:relative"
             x-data="{ menuOpen: false }" @click.outside="menuOpen = false">
           <button type="button" @click="menuOpen = !menuOpen"
                   style="background:none;border:none;cursor:pointer;font-size:18px;color:#64748b;padding:2px 6px;line-height:1;font-family:inherit"
@@ -226,8 +233,9 @@
       {% empty %}
       <tr>
         <td colspan="9">
-          <div class="empty-state">
-            <p>주문 내역이 없습니다.</p>
+          <div class="empty-state" style="padding:40px 20px;text-align:center">
+            <div style="font-size:48px;margin-bottom:12px;opacity:0.5">📋</div>
+            <p style="color:#64748b;font-size:14px;margin-bottom:12px">주문 내역이 없습니다.</p>
             {% if request.user.is_teacher %}
             <a href="{% url 'order_create' %}" class="btn btn-orange btn-sm">첫 주문을 등록해보세요</a>
             {% endif %}
@@ -268,6 +276,35 @@
 
 <style>
   [x-cloak] { display: none !important; }
+
+  @media (max-width: 768px) {
+    .scroll-hint { overflow: visible !important; }
+    .data-table thead { display: none; }
+    .data-table tbody tr {
+      display: block; padding: 12px;
+      border: 1px solid #e2e8f0; border-radius: 8px;
+      margin-bottom: 8px; background: #fff;
+    }
+    .data-table tbody tr[style*="background:#f1f5f9"] { display: none; }
+    .data-table td {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 3px 0 !important; border: none !important;
+      font-size: 13px !important;
+    }
+    .data-table td::before {
+      content: attr(data-label);
+      font-weight: 600; color: #64748b; font-size: 12px;
+      flex-shrink: 0; margin-right: 8px;
+    }
+    .data-table td[data-label=""]::before,
+    .data-table td:not([data-label])::before { display: none; }
+    .data-table td[data-label="선택"] {
+      position: absolute; top: 12px; right: 12px;
+    }
+    .data-table tbody tr { position: relative; }
+    .search-bar { flex-wrap: wrap; }
+    .search-bar input, .search-bar select { font-size: 13px !important; }
+  }
 </style>
 
 <script>
@@ -315,8 +352,13 @@ function statusPopover(orderId, currentStatus, currentCarrier, currentTrackingNo
         }
         self.status = 'shipping';
         self.open = false;
-        showToast('발송 처리되었습니다.');
-        setTimeout(function(){ location.reload(); }, 800);
+        showToast('발송 처리되었습니다.', 'success', function() {
+          fetch('/orders/api/quick-unship/', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', 'X-CSRFToken': getCsrf()},
+            body: JSON.stringify({order_id: self.orderId})
+          }).then(function(){ location.reload(); });
+        });
       })
       .catch(function(err) {
         showToast('발송 처리에 실패했습니다: ' + err.message, 'error');
@@ -352,8 +394,13 @@ function statusPopover(orderId, currentStatus, currentCarrier, currentTrackingNo
         }
         self.status = 'delivered';
         self.open = false;
-        showToast('배송완료 처리되었습니다.');
-        setTimeout(function(){ location.reload(); }, 800);
+        showToast('배송완료 처리되었습니다.', 'success', function() {
+          fetch('/orders/api/quick-undeliver/', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', 'X-CSRFToken': getCsrf()},
+            body: JSON.stringify({order_id: self.orderId})
+          }).then(function(){ location.reload(); });
+        });
       })
       .catch(function(err) {
         showToast('배송완료 처리에 실패했습니다: ' + err.message, 'error');
@@ -434,80 +481,64 @@ function bulkDelete() {
   var ids = [];
   document.querySelectorAll('.order-chk:checked').forEach(function(cb) { ids.push(cb.value); });
   if (ids.length === 0) { alert('삭제할 주문을 선택해주세요.'); return; }
-  if (!confirm(ids.length + '건의 주문을 삭제하시겠습니까?\n(24시간 내 복구 가능)')) return;
-  var form = document.getElementById('bulkDeleteForm');
-  form.querySelectorAll('input[name=ids]').forEach(function(el) { el.remove(); });
-  ids.forEach(function(id) {
-    var input = document.createElement('input');
-    input.type = 'hidden'; input.name = 'ids'; input.value = id;
-    form.appendChild(input);
+  showConfirm({
+    title: '주문 삭제',
+    message: ids.length + '건의 주문을 삭제하시겠습니까?\n(24시간 내 복구 가능)',
+    confirmText: '삭제',
+    confirmClass: 'btn-red',
+    onConfirm: function() {
+      var form = document.getElementById('bulkDeleteForm');
+      form.querySelectorAll('input[name=ids]').forEach(function(el) { el.remove(); });
+      ids.forEach(function(id) {
+        var input = document.createElement('input');
+        input.type = 'hidden'; input.name = 'ids'; input.value = id;
+        form.appendChild(input);
+      });
+      form.submit();
+    }
   });
-  form.submit();
 }
 
 /* ── 단건 삭제 ── */
 function deleteOrder(pk, orderNo) {
-  if (!confirm('주문 ' + orderNo + '을(를) 삭제하시겠습니까?\n(24시간 내 복구 가능)')) return;
-  var form = document.getElementById('bulkDeleteForm');
-  form.querySelectorAll('input[name=ids]').forEach(function(el) { el.remove(); });
-  var input = document.createElement('input');
-  input.type = 'hidden'; input.name = 'ids'; input.value = pk;
-  form.appendChild(input);
-  form.submit();
+  showConfirm({
+    title: '주문 삭제',
+    message: '주문 ' + orderNo + '을(를) 삭제하시겠습니까?\n(24시간 내 복구 가능)',
+    confirmText: '삭제',
+    confirmClass: 'btn-red',
+    onConfirm: function() {
+      var form = document.getElementById('bulkDeleteForm');
+      form.querySelectorAll('input[name=ids]').forEach(function(el) { el.remove(); });
+      var input = document.createElement('input');
+      input.type = 'hidden'; input.name = 'ids'; input.value = pk;
+      form.appendChild(input);
+      form.submit();
+    }
+  });
 }
 
-/* ── localStorage 필터 저장/복원 ── */
+/* ── 필터 상태 유지 (1.4) ── */
 (function() {
-  var STORAGE_KEY = 'orderListFilters';
-  var filterForm = document.getElementById('filterForm');
-  var filterFields = ['status', 'source', 'date_from', 'date_to', 'agency_category', 'region'];
+  // 현재 URL을 sessionStorage에 저장 (상세→목록 복귀 시 사용)
+  try { sessionStorage.setItem('orderListUrl', location.href); } catch(e) {}
 
-  // URL에 파라미터가 있는지 확인
-  var urlParams = new URLSearchParams(window.location.search);
-  var hasUrlParams = false;
-  filterFields.concat(['q', 'delivery']).forEach(function(k) {
-    if (urlParams.get(k)) hasUrlParams = true;
+  // 현재 목록의 주문 PK 순서 저장 (이전/다음 네비게이션용, 3.4)
+  var orderPks = [];
+  document.querySelectorAll('tr[data-order-id]').forEach(function(tr) {
+    orderPks.push(parseInt(tr.getAttribute('data-order-id')));
   });
-
-  // URL 파라미터 없으면 localStorage에서 복원
-  if (!hasUrlParams && !urlParams.has('page')) {
-    try {
-      var saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
-      if (saved) {
-        var hasAny = false;
-        filterFields.forEach(function(k) {
-          if (saved[k]) hasAny = true;
-        });
-        if (hasAny) {
-          var params = new URLSearchParams();
-          filterFields.forEach(function(k) {
-            if (saved[k]) params.set(k, saved[k]);
-          });
-          window.location.search = params.toString();
-        }
-      }
-    } catch(e) {}
+  if (orderPks.length) {
+    try { sessionStorage.setItem('orderPkList', JSON.stringify(orderPks)); } catch(e) {}
   }
 
-  // 폼 제출 시 필터 저장
-  if (filterForm) {
-    filterForm.addEventListener('submit', function() {
-      var data = {};
-      filterFields.forEach(function(k) {
-        var el = filterForm.querySelector('[name="' + k + '"]');
-        if (el && el.value) data[k] = el.value;
-      });
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-      } catch(e) {}
-    });
-  }
-
-  // 초기화 버튼 클릭 시 localStorage도 삭제
   var resetBtn = document.getElementById('filterReset');
   if (resetBtn) {
     resetBtn.addEventListener('click', function() {
-      try { localStorage.removeItem(STORAGE_KEY); } catch(e) {}
+      try {
+        localStorage.removeItem('orderListFilters');
+        sessionStorage.removeItem('orderListUrl');
+        sessionStorage.removeItem('orderPkList');
+      } catch(e) {}
     });
   }
 })();

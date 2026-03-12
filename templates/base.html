@@ -615,6 +615,39 @@
       vertical-align: middle;
     }
 
+    /* ── Skeleton Shimmer (2.3) ── */
+    @keyframes shimmer {
+      0% { background-position: -400px 0; }
+      100% { background-position: 400px 0; }
+    }
+    .skeleton-row {
+      height: 40px;
+      background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+      background-size: 800px 40px;
+      animation: shimmer 1.5s infinite linear;
+      border-radius: 4px;
+      margin-bottom: 4px;
+    }
+    .skeleton-overlay {
+      position: relative;
+    }
+    .skeleton-overlay::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: rgba(255,255,255,0.7);
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .skeleton-overlay .skeleton-content {
+      position: absolute;
+      inset: 0;
+      z-index: 11;
+      padding: 20px;
+    }
+
     /* ── 푸터 ── */
     #footer {
       margin-left: 200px;
@@ -1031,13 +1064,16 @@
         <span class="cmd-esc">ESC</span>
       </div>
       <div class="cmd-results">
-        <template x-if="filtered.length === 0">
+        <template x-if="allResults.length === 0">
           <div class="cmd-empty">검색 결과가 없습니다</div>
         </template>
-        <template x-for="(cmd, idx) in filtered" :key="cmd.url">
+        <template x-for="(cmd, idx) in allResults" :key="cmd.url + (cmd.badge || '')">
           <a :href="cmd.url" class="cmd-item" :class="{ 'cmd-active': idx === activeIdx }"
              @mouseenter="activeIdx = idx" @click="closePalette()">
             <span class="cmd-label" x-text="cmd.label"></span>
+            <template x-if="cmd.badge">
+              <span style="font-size:11px;background:rgba(59,130,246,0.15);color:#3b82f6;padding:1px 6px;border-radius:3px;margin-left:4px" x-text="cmd.badge"></span>
+            </template>
             <span class="cmd-group" x-text="cmd.group"></span>
           </a>
         </template>
@@ -1049,6 +1085,28 @@
 
 <!-- Toast 알림 컨테이너 (2-3) -->
 <div id="toast-container" style="position:fixed;top:56px;right:16px;z-index:9999;display:flex;flex-direction:column;gap:8px;max-width:400px;"></div>
+
+<!-- Global Confirm Dialog (1.2) -->
+<div x-data="confirmDialog()" x-cloak
+     @show-confirm.document="show($event.detail)"
+     @keydown.escape.window="if(open) cancel()">
+  <div x-show="open" x-transition.opacity
+       style="position:fixed;inset:0;background:rgba(15,23,42,0.5);z-index:10001;display:flex;align-items:center;justify-content:center"
+       @click.self="cancel()">
+    <div x-show="open" x-transition:enter="transition ease-out duration-150"
+         x-transition:enter-start="opacity-0 transform scale-95"
+         x-transition:enter-end="opacity-100 transform scale-100"
+         style="background:#fff;border-radius:12px;padding:24px;width:400px;max-width:90vw;box-shadow:0 20px 60px rgba(0,0,0,0.2)"
+         @keydown.enter.prevent="confirm()">
+      <h3 x-text="title" style="font-size:16px;font-weight:700;margin-bottom:8px;color:#1e293b"></h3>
+      <p x-html="message" style="font-size:13px;color:#64748b;margin-bottom:20px;line-height:1.6;white-space:pre-line"></p>
+      <div style="display:flex;justify-content:flex-end;gap:8px">
+        <button class="btn btn-outline btn-sm" @click="cancel()" type="button">취소</button>
+        <button class="btn btn-sm" :class="confirmClass" @click="confirm()" x-text="confirmText" x-ref="confirmBtn" type="button"></button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- 본문 -->
 <div id="content">
@@ -1113,22 +1171,33 @@ document.querySelectorAll('.toast-msg').forEach(function(el){
 });
 
 // Toast 전역 함수
-function showToast(msg, type) {
+function showToast(msg, type, undoCallback) {
   type = type || 'success';
   var cls = type === 'error' ? 'msg-error' : type === 'warning' ? 'msg-warning' : 'msg-success';
   var div = document.createElement('div');
   div.className = 'msg-box ' + cls;
-  div.style.cssText = 'animation:fadeIn .3s;position:relative;cursor:pointer';
-  div.textContent = msg;
-  div.onclick = function(){ div.remove(); };
+  div.style.cssText = 'animation:fadeIn .3s;position:relative;display:flex;align-items:center;gap:8px';
+  var textSpan = document.createElement('span');
+  textSpan.textContent = msg;
+  textSpan.style.cssText = 'flex:1;cursor:pointer';
+  textSpan.onclick = function(){ div.remove(); };
+  div.appendChild(textSpan);
+  if (undoCallback) {
+    var undoBtn = document.createElement('button');
+    undoBtn.textContent = '실행 취소';
+    undoBtn.style.cssText = 'background:none;border:1px solid rgba(255,255,255,0.5);color:inherit;padding:2px 8px;border-radius:4px;cursor:pointer;font-size:12px;white-space:nowrap;flex-shrink:0';
+    undoBtn.onclick = function(e) { e.stopPropagation(); undoCallback(); div.remove(); };
+    div.appendChild(undoBtn);
+  }
   var cont = document.getElementById('toast-container');
   if (cont) { cont.appendChild(div); }
   else { document.querySelector('#content').prepend(div); }
+  var timeout = undoCallback ? 5000 : (type === 'error' ? 6000 : 3000);
   setTimeout(function(){
     div.style.transition = 'opacity 0.3s';
     div.style.opacity = '0';
     setTimeout(function(){ div.remove(); }, 300);
-  }, type === 'error' ? 6000 : 3000);
+  }, timeout);
 }
 
 // ── 로딩 상태 + 중복 클릭 방지 (2-1) ──
@@ -1174,6 +1243,68 @@ function copyToClipboard(text, btn) {
   });
 }
 
+// ── Global Confirm Dialog (1.2) ──
+function confirmDialog() {
+  return {
+    open: false,
+    title: '',
+    message: '',
+    confirmText: '확인',
+    confirmClass: 'btn-orange',
+    _resolve: null,
+    show(detail) {
+      this.title = detail.title || '확인';
+      this.message = detail.message || '';
+      this.confirmText = detail.confirmText || '확인';
+      this.confirmClass = detail.confirmClass || 'btn-orange';
+      this.open = true;
+      this._resolve = detail.onConfirm;
+      this.$nextTick(() => { if (this.$refs.confirmBtn) this.$refs.confirmBtn.focus(); });
+    },
+    confirm() {
+      this.open = false;
+      if (this._resolve) this._resolve();
+      this._resolve = null;
+    },
+    cancel() {
+      this.open = false;
+      this._resolve = null;
+    }
+  };
+}
+
+function showConfirm(opts) {
+  document.dispatchEvent(new CustomEvent('show-confirm', { detail: opts }));
+}
+
+// ── Keyboard Shortcuts (1.5) ──
+{% if user.is_authenticated and user.is_admin %}
+document.addEventListener('keydown', function(e) {
+  if (e.target.matches('input, textarea, select, [contenteditable]')) return;
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  switch(e.key) {
+    case 'n': case 'N':
+      e.preventDefault();
+      window.location.href = '{% url "order_create_admin" %}';
+      break;
+    case 'i': case 'I':
+      e.preventDefault();
+      window.location.href = '{% url "inbox_list" %}';
+      break;
+    case 'd': case 'D':
+      e.preventDefault();
+      window.location.href = '{% url "delivery_manage" %}';
+      break;
+    case '/':
+      e.preventDefault();
+      var searchInput = document.querySelector('.search-bar input[type=text], .search-bar input[name=q], input[name=q]');
+      if (searchInput) searchInput.focus();
+      else document.dispatchEvent(new CustomEvent('open-cmd-palette'));
+      break;
+  }
+});
+{% endif %}
+
 // ── Command Palette (Ctrl+K) ──
 function commandPalette() {
   return {
@@ -1182,11 +1313,11 @@ function commandPalette() {
     activeIdx: 0,
     commands: [
       { label: '대시보드', url: '/dashboard/', group: '' },
-      { label: '수신함', url: '/inbox/', group: '주문관리' },
+      { label: '수신함', url: '/inbox/', group: '주문관리', badge: 'I' },
       { label: '주문현황', url: '/orders/', group: '주문관리' },
-      { label: '주문 입력', url: '/orders/admin-create/', group: '주문관리' },
+      { label: '주문 입력', url: '/orders/admin-create/', group: '주문관리', badge: 'N' },
       { label: '통화 수신함', url: '/inbox/?tab=call', group: '주문관리' },
-      { label: '배송관리', url: '/orders/delivery/', group: '배송' },
+      { label: '배송관리', url: '/orders/delivery/', group: '배송', badge: 'D' },
       { label: '반품현황', url: '/returns/', group: '주문관리' },
       { label: '교재 목록', url: '/books/', group: '교재관리' },
       { label: '교재 일괄등록', url: '/books/import/', group: '교재관리' },
@@ -1201,6 +1332,8 @@ function commandPalette() {
       { label: '업체 일괄등록', url: '/accounts/agencies/import/', group: '업체관리' }
     ],
     filtered: [],
+    orderResults: [],
+    _searchTimer: null,
     init() {
       this.filtered = this.commands;
     },
@@ -1209,6 +1342,7 @@ function commandPalette() {
       this.query = '';
       this.activeIdx = 0;
       this.filtered = this.commands;
+      this.orderResults = [];
       this.$nextTick(() => { this.$refs.cmdInput && this.$refs.cmdInput.focus(); });
     },
     closePalette() {
@@ -1221,24 +1355,45 @@ function commandPalette() {
       }
     },
     filterCommands() {
+      var self = this;
       var q = this.query.trim().toLowerCase();
-      if (!q) { this.filtered = this.commands; }
+      if (!q) { this.filtered = this.commands; this.orderResults = []; }
       else {
         this.filtered = this.commands.filter(function(c) {
           return c.label.toLowerCase().indexOf(q) !== -1 || c.group.toLowerCase().indexOf(q) !== -1;
         });
       }
       this.activeIdx = 0;
+      // Debounced order search (3+ chars)
+      clearTimeout(this._searchTimer);
+      if (q.length >= 3) {
+        this._searchTimer = setTimeout(function() {
+          fetch('/orders/api/search/?q=' + encodeURIComponent(q))
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+              self.orderResults = (data.results || []).map(function(r) {
+                return { label: r.label, url: r.url, group: '주문 검색', badge: r.badge };
+              });
+            })
+            .catch(function() { self.orderResults = []; });
+        }, 300);
+      } else {
+        this.orderResults = [];
+      }
+    },
+    get allResults() {
+      return this.filtered.concat(this.orderResults);
     },
     moveDown() {
-      if (this.activeIdx < this.filtered.length - 1) this.activeIdx++;
+      if (this.activeIdx < this.allResults.length - 1) this.activeIdx++;
     },
     moveUp() {
       if (this.activeIdx > 0) this.activeIdx--;
     },
     selectCurrent() {
-      if (this.filtered.length > 0 && this.filtered[this.activeIdx]) {
-        window.location.href = this.filtered[this.activeIdx].url;
+      var all = this.allResults;
+      if (all.length > 0 && all[this.activeIdx]) {
+        window.location.href = all[this.activeIdx].url;
         this.closePalette();
       }
     }
