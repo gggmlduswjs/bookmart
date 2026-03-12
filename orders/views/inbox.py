@@ -629,11 +629,27 @@ def sms_webhook(request):
         sender = data.get('from') or data.get('from_number', '')
         content = data.get('text') or data.get('message', '')
         ts = data.get('sentStamp') or data.get('timestamp')
+        received_at = None
         if ts:
-            received_at = timezone.make_aware(
-                datetime.datetime.fromtimestamp(int(ts) / 1000)
-            )
-        else:
+            ts_str = str(ts).strip()
+            # ISO 8601 형식 (Forward SMS 앱의 {time})
+            if 'T' in ts_str or '-' in ts_str[:10]:
+                try:
+                    from django.utils.dateparse import parse_datetime
+                    parsed = parse_datetime(ts_str)
+                    if parsed:
+                        received_at = parsed if timezone.is_aware(parsed) else timezone.make_aware(parsed)
+                except (ValueError, TypeError):
+                    pass
+            # 밀리초 timestamp
+            if not received_at:
+                try:
+                    received_at = timezone.make_aware(
+                        datetime.datetime.fromtimestamp(int(ts_str) / 1000)
+                    )
+                except (ValueError, TypeError, OSError):
+                    pass
+        if not received_at:
             received_at = timezone.now()
 
         if content:
