@@ -3,298 +3,606 @@
 
 {% block extra_css %}
 <style>
-  .inbox-split { display: flex; gap: 14px; align-items: flex-start; }
-  .inbox-msg-box {
-    width: 340px; flex-shrink: 0;
-    background: #fff; border: 1px solid #ccc;
-    display: flex; flex-direction: column;
-    max-height: calc(100vh - 100px);
+  /* ── Layout ── */
+  .detail-split {
+    display: grid;
+    grid-template-columns: 380px 1fr;
+    gap: 16px;
+    align-items: start;
   }
-  @media (max-width: 900px) {
-    .inbox-split { flex-direction: column; }
-    .inbox-msg-box { width: 100%; max-height: none; }
+  @media (max-width: 960px) {
+    .detail-split { grid-template-columns: 1fr; }
   }
-  .inbox-msg-header {
-    background: #555; color: #fff;
-    padding: 8px 12px; font-size: 12px;
-    display: flex; align-items: center; gap: 8px;
+
+  /* ── Left Panel ── */
+  .rec-panel {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    position: sticky;
+    top: 80px;
   }
-  .inbox-msg-meta { padding: 8px 12px; border-bottom: 1px solid #eee; font-size: 11px; color: #666; }
-  .inbox-msg-meta strong { color: #333; }
-  .inbox-msg-body {
-    padding: 10px 12px; font-size: 12px; line-height: 1.7;
-    overflow-y: auto; flex: 1; white-space: pre-wrap; word-break: break-all;
+  @media (max-width: 960px) {
+    .rec-panel { position: static; }
   }
-  .call-summary-box {
-    padding: 10px 12px; border-bottom: 1px solid #eee;
-    font-size: 12px; line-height: 1.5;
+
+  .rec-head {
+    background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+    color: #fff;
+    padding: 16px 18px;
   }
-  .call-summary-box .label { font-size: 10px; font-weight: 700; color: #64748b; margin-bottom: 2px; }
-  .order-row-wrap select, .order-row-wrap input[type=number] {
-    padding: 3px 5px; border: 1px solid #bbb;
-    font-size: 12px; font-family: inherit; height: 26px;
+  .rec-head-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
   }
-  .order-row-wrap select { width: 100%; }
-  .order-row-wrap input[type=number] { width: 60px; text-align: center; }
-  .ac-wrap { position: relative; display: inline-block; }
-  .ac-wrap input[type=text] { width: 200px; padding: 4px 8px; border: 1px solid #bbb; font-size: 12px; font-family: inherit; }
+  .rec-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+  .rec-status.pending     { background: #fef3c7; color: #92400e; }
+  .rec-status.processing  { background: #fef3c7; color: #92400e; }
+  .rec-status.parsed      { background: #d1fae5; color: #065f46; }
+  .rec-status.ordered     { background: #dbeafe; color: #1e40af; }
+  .rec-status.failed      { background: #fee2e2; color: #991b1b; }
+  .rec-status.skipped     { background: #f1f5f9; color: #64748b; }
+  .rec-status::before {
+    content: '';
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+  }
+
+  .rec-phone {
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+  .rec-phone:empty::after {
+    content: '번호 없음';
+    font-size: 13px;
+    opacity: 0.5;
+    font-weight: 400;
+  }
+  .rec-sub {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    font-size: 11px;
+    color: rgba(255,255,255,0.6);
+  }
+  .rec-sub span { display: inline-flex; align-items: center; gap: 4px; }
+
+  /* ── Audio ── */
+  .rec-audio {
+    padding: 12px 18px;
+    border-bottom: 1px solid #f1f5f9;
+    background: #f8fafc;
+  }
+  .rec-audio audio {
+    width: 100%;
+    height: 36px;
+    border-radius: 8px;
+  }
+
+  /* ── Summary ── */
+  .rec-summary {
+    padding: 14px 18px;
+    border-bottom: 1px solid #f1f5f9;
+  }
+  .rec-summary-label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #94a3b8;
+    margin-bottom: 6px;
+  }
+  .rec-summary-text {
+    font-size: 13px;
+    line-height: 1.6;
+    color: #334155;
+  }
+  .rec-order-tag {
+    display: inline-block;
+    margin-top: 6px;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 4px;
+  }
+  .rec-order-tag.is-order  { background: #dbeafe; color: #1e40af; }
+  .rec-order-tag.not-order { background: #f1f5f9; color: #64748b; }
+
+  /* ── Error ── */
+  .rec-error {
+    padding: 12px 18px;
+    border-bottom: 1px solid #f1f5f9;
+    background: #fef2f2;
+  }
+  .rec-error-label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #991b1b;
+    margin-bottom: 4px;
+  }
+  .rec-error-text {
+    font-size: 12px;
+    color: #991b1b;
+    line-height: 1.5;
+  }
+
+  /* ── Transcript ── */
+  .rec-transcript {
+    padding: 14px 18px;
+    max-height: 360px;
+    overflow-y: auto;
+    font-size: 12.5px;
+    line-height: 1.75;
+    color: #475569;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+  .rec-transcript::-webkit-scrollbar { width: 4px; }
+  .rec-transcript::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+  .rec-transcript-empty {
+    padding: 40px 18px;
+    text-align: center;
+    color: #94a3b8;
+    font-size: 13px;
+  }
+
+  /* ── Connected Order ── */
+  .rec-linked-order {
+    padding: 12px 18px;
+    border-top: 1px solid #e2e8f0;
+    background: #eff6ff;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .rec-linked-order-icon {
+    width: 28px; height: 28px;
+    background: #1e40af;
+    color: #fff;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    flex-shrink: 0;
+  }
+
+  /* ── Right Panel: Form ── */
+  .order-form-panel {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    overflow: hidden;
+  }
+  .order-form-head {
+    padding: 14px 18px;
+    border-bottom: 1px solid #e2e8f0;
+    font-size: 15px;
+    font-weight: 700;
+    color: #1e293b;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .order-form-body { padding: 18px; }
+
+  .form-section {
+    margin-bottom: 16px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #f1f5f9;
+  }
+  .form-section:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+
+  .form-section-title {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #94a3b8;
+    margin-bottom: 10px;
+  }
+
+  .form-grid {
+    display: grid;
+    grid-template-columns: 70px 1fr;
+    gap: 8px 10px;
+    align-items: center;
+  }
+  .form-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #475569;
+    text-align: right;
+  }
+  .form-input {
+    padding: 6px 10px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 12px;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    width: 100%;
+    max-width: 260px;
+  }
+  .form-input:focus {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
+  }
+  select.form-input { max-width: 220px; }
+
+  /* ── Autocomplete ── */
+  .ac-wrap { position: relative; display: inline-block; width: 100%; max-width: 260px; }
+  .ac-wrap input { width: 100%; }
   .ac-list {
     position: absolute; top: 100%; left: 0; right: 0; z-index: 100;
-    background: #fff; border: 1px solid #ccc; border-top: none;
-    max-height: 200px; overflow-y: auto; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    background: #fff; border: 1px solid #d1d5db; border-top: none;
+    max-height: 200px; overflow-y: auto;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    border-radius: 0 0 6px 6px;
   }
-  .ac-list div { padding: 6px 10px; font-size: 12px; cursor: pointer; }
-  .ac-list div:hover, .ac-list div.active { background: #e8f0fe; }
-  .ac-list div .sub { color: #888; font-size: 11px; }
-  .new-fields { margin-top: 8px; padding: 8px; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 6px; }
-  .new-fields .form-row { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
-  .new-fields label { font-size: 11px; color: #666; width: 55px; flex-shrink: 0; }
-  .new-fields input { flex: 1; padding: 3px 6px; border: 1px solid #bbb; font-size: 12px; }
-  .status-badge { display:inline-block; padding:2px 8px; font-size:10px; border-radius:10px; font-weight:600; }
-  .status-badge.pending { background:#fef3c7; color:#92400e; }
-  .status-badge.parsed { background:#d1fae5; color:#065f46; }
-  .status-badge.ordered { background:#dbeafe; color:#1e40af; }
-  .status-badge.failed { background:#fee2e2; color:#991b1b; }
-  .status-badge.skipped { background:#f1f5f9; color:#64748b; }
-  .status-badge.processing { background:#fef3c7; color:#92400e; }
+  .ac-list div { padding: 7px 10px; font-size: 12px; cursor: pointer; transition: background 0.1s; }
+  .ac-list div:hover, .ac-list div.active { background: #eff6ff; color: #1e40af; }
+  .ac-list .sub { color: #94a3b8; font-size: 11px; margin-left: 4px; }
+
+  /* ── New Teacher ── */
+  .new-teacher-box {
+    margin-top: 8px;
+    padding: 10px 12px;
+    background: #f8fafc;
+    border: 1px dashed #cbd5e1;
+    border-radius: 8px;
+  }
+  .new-teacher-box .form-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .new-teacher-box .form-row:last-child { margin-bottom: 0; }
+  .new-teacher-box label { font-size: 11px; color: #64748b; width: 50px; flex-shrink: 0; }
+  .new-teacher-box input { flex: 1; padding: 4px 8px; border: 1px solid #d1d5db; border-radius: 5px; font-size: 12px; font-family: inherit; outline: none; }
+  .new-teacher-box input:focus { border-color: #3b82f6; }
+
+  /* ── Book Table ── */
+  .book-table-wrap { margin-top: 4px; }
+  .book-table-wrap select, .book-table-wrap input[type=number] {
+    padding: 4px 6px; border: 1px solid #d1d5db; border-radius: 5px;
+    font-size: 12px; font-family: inherit; height: 28px; outline: none;
+  }
+  .book-table-wrap select { width: 100%; }
+  .book-table-wrap select:focus, .book-table-wrap input:focus { border-color: #3b82f6; }
+  .book-table-wrap input[type=number] { width: 56px; text-align: center; }
+
+  .low-conf-row { background: #fffbeb !important; border-left: 3px solid #eab308; }
+  .custom-row { background: #fff8f0 !important; }
+
+  /* ── Total Bar ── */
+  .order-total-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 0;
+    margin-top: 8px;
+    border-top: 2px solid #e2e8f0;
+  }
+  .order-total-bar .total-amount {
+    font-size: 16px;
+    font-weight: 800;
+    color: #1e40af;
+    letter-spacing: -0.02em;
+  }
+
+  /* ── Action Buttons ── */
+  .action-bar {
+    display: flex;
+    gap: 8px;
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid #f1f5f9;
+  }
+
+  /* ── Status Cards (ordered/failed) ── */
+  .status-card {
+    padding: 28px 24px;
+    text-align: center;
+    border-radius: 10px;
+  }
+  .status-card-icon {
+    width: 48px; height: 48px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    margin-bottom: 12px;
+  }
+  .status-card h3 {
+    font-size: 16px;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+  .status-card p {
+    font-size: 12px;
+    color: #64748b;
+    margin-bottom: 14px;
+    line-height: 1.5;
+  }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="page-title">
   통화 녹음 상세
-  <a href="/inbox/?tab=call" class="btn btn-gray btn-sm">&larr; 수신함</a>
+  <a href="/inbox/?tab=call" class="btn btn-outline btn-sm">&larr; 수신함</a>
 </div>
 
-<div class="inbox-split">
+<div class="detail-split">
 
-  <!-- 왼쪽: 녹음 정보 -->
-  <div class="inbox-msg-box">
-    <div class="inbox-msg-header">
-      <span class="badge badge-green">통화</span>
-      <span class="status-badge {{ rec.status }}">{{ rec.get_status_display }}</span>
-      {% if rec.recorded_at %}{{ rec.recorded_at|date:"m/d H:i" }}{% else %}{{ rec.created_at|date:"m/d H:i" }}{% endif %}
-    </div>
-    <div class="inbox-msg-meta">
-      {% if rec.caller_phone %}<div><strong>발신번호:</strong> {{ rec.caller_phone }}</div>{% endif %}
-      <div><strong>파일:</strong> {{ rec.file_name|default:"(없음)" }}</div>
-      {% if rec.duration_sec %}<div><strong>통화시간:</strong> {{ rec.duration_sec }}초</div>{% endif %}
-      {% if rec.source %}<div><strong>수신경로:</strong> {{ rec.source }}</div>{% endif %}
+  <!-- ════ LEFT: Recording Info ════ -->
+  <div class="rec-panel">
+    <div class="rec-head">
+      <div class="rec-head-row">
+        <span class="rec-status {{ rec.status }}">{{ rec.get_status_display }}</span>
+        {% if rec.is_order is not None %}
+        <span class="rec-order-tag {% if rec.is_order %}is-order{% else %}not-order{% endif %}">
+          {% if rec.is_order %}주문 통화{% else %}일반 통화{% endif %}
+        </span>
+        {% endif %}
+      </div>
+      <div class="rec-phone">{{ rec.caller_phone }}</div>
+      <div class="rec-sub">
+        <span>{{ rec.file_name|default:"파일 없음" }}</span>
+        {% if rec.recorded_at %}<span>{{ rec.recorded_at|date:"Y-m-d H:i" }}</span>{% endif %}
+        <span>{{ rec.created_at|date:"m/d H:i" }} 수신</span>
+        {% if rec.duration_sec %}<span>{{ rec.duration_sec }}초</span>{% endif %}
+      </div>
     </div>
 
     {% if rec.audio_file %}
-    <div style="padding:8px 12px;border-bottom:1px solid #eee">
-      <audio controls style="width:100%;height:32px" preload="metadata">
+    <div class="rec-audio">
+      <audio controls preload="metadata">
         <source src="{{ rec.audio_file.url }}">
       </audio>
     </div>
     {% endif %}
 
     {% if rec.summary %}
-    <div class="call-summary-box" style="background:#f0fdf4">
-      <div class="label">AI 요약</div>
-      <div>{{ rec.summary }}</div>
-      {% if rec.is_order is not None %}
-      <div style="margin-top:4px;font-size:11px">
-        {% if rec.is_order %}<span style="color:#2563eb;font-weight:bold">주문 통화</span>
-        {% else %}<span style="color:#64748b">일반 통화</span>{% endif %}
-      </div>
-      {% endif %}
+    <div class="rec-summary">
+      <div class="rec-summary-label">AI 요약</div>
+      <div class="rec-summary-text">{{ rec.summary }}</div>
     </div>
     {% endif %}
 
     {% if rec.error_msg %}
-    <div class="call-summary-box" style="background:#fef2f2">
-      <div class="label" style="color:#991b1b">오류</div>
-      <div style="color:#991b1b">{{ rec.error_msg }}</div>
+    <div class="rec-error">
+      <div class="rec-error-label">오류</div>
+      <div class="rec-error-text">{{ rec.error_msg }}</div>
     </div>
     {% endif %}
 
     {% if rec.transcript %}
-    <div class="inbox-msg-body">{{ rec.transcript }}</div>
+    <div class="rec-transcript">{{ rec.transcript }}</div>
     {% else %}
-    <div class="inbox-msg-body" style="color:#999;text-align:center;padding:30px">통화 텍스트가 없습니다.</div>
+    <div class="rec-transcript-empty">통화 텍스트가 없습니다</div>
     {% endif %}
 
     {% if rec.order %}
-    <div style="padding:8px 12px;border-top:1px solid #eee;background:#eff6ff">
-      <div style="font-size:11px;font-weight:bold;color:#1e40af;margin-bottom:4px">연결된 주문</div>
-      <a href="{% url 'order_detail' rec.order.pk %}" class="btn btn-blue btn-sm">{{ rec.order.order_no }} 주문 보기</a>
+    <div class="rec-linked-order">
+      <div class="rec-linked-order-icon">&#8594;</div>
+      <div>
+        <div style="font-size:12px;font-weight:700;color:#1e40af">주문 {{ rec.order.order_no }}</div>
+        <a href="{% url 'order_detail' rec.order.pk %}" style="font-size:11px">주문 상세 보기</a>
+      </div>
     </div>
     {% endif %}
   </div>
 
-  <!-- 오른쪽: 주문 입력 폼 -->
-  <div style="flex:1">
-    {% if rec.status == 'ordered' %}
-    <div style="padding:14px;background:#dbeafe;border:1px solid #93c5fd;border-radius:6px;text-align:center">
-      <div style="font-size:14px;font-weight:bold;color:#1e40af">주문이 이미 생성되었습니다</div>
-      <a href="{% url 'order_detail' rec.order.pk %}" class="btn btn-blue" style="margin-top:8px">주문 {{ rec.order.order_no }} 보기</a>
-    </div>
-    {% elif rec.status == 'failed' %}
-    <div style="padding:14px;background:#fef2f2;border:1px solid #fecaca;border-radius:6px;text-align:center">
-      <div style="font-size:14px;font-weight:bold;color:#991b1b">파싱 실패</div>
-      <p style="font-size:12px;color:#666;margin:8px 0">{{ rec.error_msg }}</p>
-      <a href="{% url 'call_recording_retry' rec.pk %}" class="btn btn-blue">재시도</a>
-    </div>
-    {% else %}
-    <form method="post" x-data="callRecordingForm()">
-      {% csrf_token %}
-      <input type="hidden" name="agency_id" :value="agencyId">
-      <input type="hidden" name="teacher_id" :value="teacherId">
-      <input type="hidden" name="new_teacher_name" :value="newTeacherName">
-      <input type="hidden" name="new_teacher_phone" :value="newTeacherPhone">
-      <input type="hidden" name="delivery_school" :value="deliverySchool">
-      <input type="hidden" name="delivery_address" :value="deliveryAddr">
-      <input type="hidden" name="delivery_phone" :value="deliveryPhone">
+  <!-- ════ RIGHT: Order Form ════ -->
+  <div class="order-form-panel">
 
-      <div class="content-box" style="padding:12px 14px;margin-bottom:10px">
-        <table class="form-table">
-          <tr>
-            <th>업체</th>
-            <td>
-              <select x-model="agencyId" @change="onAgencyChange" style="width:200px;padding:4px 6px;border:1px solid #bbb;font-size:12px">
+    {% if rec.status == 'ordered' %}
+    <div class="order-form-body">
+      <div class="status-card" style="background:#eff6ff">
+        <div class="status-card-icon" style="background:#dbeafe;color:#1e40af">&#10003;</div>
+        <h3 style="color:#1e40af">주문이 생성되었습니다</h3>
+        <p>이 통화에서 주문이 이미 등록되었습니다.</p>
+        <a href="{% url 'order_detail' rec.order.pk %}" class="btn btn-blue">주문 {{ rec.order.order_no }} 보기</a>
+      </div>
+    </div>
+
+    {% elif rec.status == 'failed' %}
+    <div class="order-form-body">
+      <div class="status-card" style="background:#fef2f2">
+        <div class="status-card-icon" style="background:#fee2e2;color:#991b1b">!</div>
+        <h3 style="color:#991b1b">처리 실패</h3>
+        <p>{{ rec.error_msg }}</p>
+        <a href="{% url 'call_recording_retry' rec.pk %}" class="btn btn-blue">재시도</a>
+        <a href="/inbox/?tab=call" class="btn btn-outline" style="margin-left:6px">목록으로</a>
+      </div>
+    </div>
+
+    {% else %}
+    <div class="order-form-head">
+      <span>&#128221;</span> 주문 등록
+    </div>
+    <div class="order-form-body">
+      <form method="post" x-data="callRecordingForm()">
+        {% csrf_token %}
+        <input type="hidden" name="agency_id" :value="agencyId">
+        <input type="hidden" name="teacher_id" :value="teacherId">
+        <input type="hidden" name="new_teacher_name" :value="newTeacherName">
+        <input type="hidden" name="new_teacher_phone" :value="newTeacherPhone">
+        <input type="hidden" name="delivery_school" :value="deliverySchool">
+        <input type="hidden" name="delivery_address" :value="deliveryAddr">
+        <input type="hidden" name="delivery_phone" :value="deliveryPhone">
+
+        <!-- 업체/선생님 -->
+        <div class="form-section">
+          <div class="form-section-title">주문 정보</div>
+          <div class="form-grid">
+            <span class="form-label">업체</span>
+            <div>
+              <select x-model="agencyId" @change="onAgencyChange" class="form-input">
                 <option value="">-- 업체 선택 --</option>
                 <template x-for="a in ALL_AGENCIES" :key="a.id">
                   <option :value="a.id" x-text="a.name"></option>
                 </template>
               </select>
-            </td>
-          </tr>
-          <tr>
-            <th>선생님</th>
-            <td>
+            </div>
+
+            <span class="form-label">선생님</span>
+            <div>
               <div class="ac-wrap">
                 <input type="text" x-model="teacherQuery" @input="filterTeachers" @focus="showTeacherList=true"
-                       placeholder="선생님 이름 입력..." :disabled="!agencyId" autocomplete="off">
-                <div class="ac-list" x-show="showTeacherList && filteredTeacherList.length" @click.outside="showTeacherList=false">
+                       class="form-input" placeholder="선생님 검색..." :disabled="!agencyId" autocomplete="off">
+                <div class="ac-list" x-show="showTeacherList && filteredTeacherList.length" @click.outside="showTeacherList=false" x-cloak>
                   <template x-for="(t, i) in filteredTeacherList" :key="t.id">
                     <div @click="selectTeacher(t)" :class="{'active': i === acIdx}">
                       <span x-text="t.name"></span>
-                      <span class="sub" x-text="t.delivery_name ? ' — ' + t.delivery_name : ''"></span>
+                      <span class="sub" x-text="t.delivery_name ? '— ' + t.delivery_name : ''"></span>
                     </div>
                   </template>
                 </div>
               </div>
               <template x-if="agencyId && !teacherId && teacherQuery.length >= 1">
-                <span style="font-size:11px;color:#2563eb;margin-left:6px;cursor:pointer" @click="isNewTeacher=true">+ 신규 등록</span>
+                <span style="font-size:11px;color:#2563eb;cursor:pointer;margin-left:6px" @click="isNewTeacher=true">+ 신규</span>
               </template>
-            </td>
-          </tr>
-        </table>
 
-        <div class="new-fields" x-show="isNewTeacher">
-          <div style="font-size:11px;font-weight:bold;color:#334155;margin-bottom:6px">신규 선생님</div>
-          <div class="form-row"><label>이름 *</label><input type="text" x-model="newTeacherName" placeholder="홍길동"></div>
-          <div class="form-row"><label>전화번호</label><input type="tel" x-model="newTeacherPhone" placeholder="010-1234-5678"></div>
+              <div class="new-teacher-box" x-show="isNewTeacher" x-cloak>
+                <div class="form-row"><label>이름</label><input type="text" x-model="newTeacherName" placeholder="홍길동"></div>
+                <div class="form-row"><label>연락처</label><input type="tel" x-model="newTeacherPhone" placeholder="010-1234-5678"></div>
+              </div>
+            </div>
+          </div>
         </div>
 
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid #eee">
-          <table class="form-table">
-            <tr>
-              <th>학교명</th>
-              <td><input type="text" x-model="deliverySchool" style="width:200px;padding:4px 8px;border:1px solid #bbb;font-size:12px" placeholder="OO초등학교"></td>
-            </tr>
-            <tr>
-              <th>주소</th>
-              <td><input type="text" x-model="deliveryAddr" style="width:280px;padding:4px 8px;border:1px solid #bbb;font-size:12px" placeholder="주소"></td>
-            </tr>
-            <tr>
-              <th>전화</th>
-              <td><input type="tel" x-model="deliveryPhone" style="width:140px;padding:4px 8px;border:1px solid #bbb;font-size:12px" placeholder="010-1234-5678"></td>
-            </tr>
-          </table>
-        </div>
-      </div>
+        <!-- 배송지 -->
+        <div class="form-section">
+          <div class="form-section-title">배송지</div>
+          <div class="form-grid">
+            <span class="form-label">학교명</span>
+            <input type="text" x-model="deliverySchool" class="form-input" placeholder="OO초등학교">
 
-      <!-- 교재 선택 -->
-      <div class="order-row-wrap">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th style="width:28%">시리즈</th>
-              <th style="width:34%">교재</th>
-              <th class="right" style="width:80px">단가</th>
-              <th class="center" style="width:65px">수량</th>
-              <th class="right" style="width:80px">금액</th>
-              <th style="width:28px"></th>
-            </tr>
-          </thead>
-          <tbody>
-            <template x-for="(row, index) in rows" :key="index">
-              <tr :style="row._lowConf ? 'background:#fefce8;border-left:3px solid #eab308' : row.is_custom ? 'background:#fff8f0' : ''">
-                <template x-if="!row.is_custom">
-                  <td>
-                    <select x-model="row.series" @change="row.book_id='';row.unit_price=0">
-                      <option value="">전체</option>
-                      {% for s in series_list %}
-                      <option value="{{ s }}">{{ s }}</option>
-                      {% endfor %}
-                      <option value="기타">기타</option>
-                    </select>
-                  </td>
-                </template>
-                <template x-if="row.is_custom">
-                  <td><span style="font-size:11px;color:#e8720c;font-weight:bold">직접입력</span></td>
-                </template>
-                <template x-if="!row.is_custom">
-                  <td>
-                    <select x-model="row.book_id" @change="updatePrice(row)">
-                      <option value="">교재</option>
-                      <template x-for="b in getBooks(row.series)" :key="b.id">
-                        <option :value="b.id" x-text="b.name"></option>
+            <span class="form-label">주소</span>
+            <input type="text" x-model="deliveryAddr" class="form-input" style="max-width:100%" placeholder="주소">
+
+            <span class="form-label">전화</span>
+            <input type="tel" x-model="deliveryPhone" class="form-input" style="max-width:160px" placeholder="010-1234-5678">
+          </div>
+        </div>
+
+        <!-- 교재 -->
+        <div class="form-section">
+          <div class="form-section-title">교재 선택</div>
+          <div class="book-table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th style="width:26%">시리즈</th>
+                  <th style="width:32%">교재</th>
+                  <th class="right" style="width:70px">단가</th>
+                  <th class="center" style="width:56px">수량</th>
+                  <th class="right" style="width:74px">금액</th>
+                  <th style="width:28px"></th>
+                </tr>
+              </thead>
+              <tbody>
+                <template x-for="(row, index) in rows" :key="index">
+                  <tr :class="row._lowConf ? 'low-conf-row' : row.is_custom ? 'custom-row' : ''">
+                    <template x-if="!row.is_custom">
+                      <td>
+                        <select x-model="row.series" @change="row.book_id='';row.unit_price=0">
+                          <option value="">전체</option>
+                          {% for s in series_list %}
+                          <option value="{{ s }}">{{ s }}</option>
+                          {% endfor %}
+                          <option value="기타">기타</option>
+                        </select>
+                      </td>
+                    </template>
+                    <template x-if="row.is_custom">
+                      <td><span style="font-size:10px;color:#e8720c;font-weight:700">직접입력</span></td>
+                    </template>
+                    <template x-if="!row.is_custom">
+                      <td>
+                        <select x-model="row.book_id" @change="updatePrice(row)">
+                          <option value="">교재 선택</option>
+                          <template x-for="b in getBooks(row.series)" :key="b.id">
+                            <option :value="b.id" x-text="b.name"></option>
+                          </template>
+                        </select>
+                        <input type="hidden" :name="'book_' + index" :value="row.book_id">
+                      </td>
+                    </template>
+                    <template x-if="row.is_custom">
+                      <td>
+                        <input type="text" :name="'custom_name_' + index" x-model="row.custom_name"
+                               style="width:100%;padding:4px 6px;border:1px solid #d1d5db;border-radius:5px;font-size:12px" placeholder="교재명">
+                      </td>
+                    </template>
+                    <td class="right">
+                      <template x-if="!row.is_custom">
+                        <span x-text="row.unit_price ? row.unit_price.toLocaleString()+'원' : '-'" style="color:#64748b;font-size:11px"></span>
                       </template>
-                    </select>
-                    <input type="hidden" :name="'book_' + index" :value="row.book_id">
-                  </td>
+                      <template x-if="row.is_custom">
+                        <input type="number" :name="'custom_price_' + index" x-model.number="row.unit_price"
+                               style="width:56px;text-align:right" placeholder="단가">
+                      </template>
+                    </td>
+                    <td class="center">
+                      <input type="number" :name="'qty_' + index" x-model.number="row.qty" min="1" max="9999">
+                    </td>
+                    <td class="right" style="font-weight:700;font-size:11px;color:#1e293b">
+                      <span x-text="rowAmount(row) ? rowAmount(row).toLocaleString()+'원' : '-'"></span>
+                    </td>
+                    <td class="center">
+                      <button type="button" class="btn btn-sm btn-red" @click="rows.splice(index,1)"
+                              x-show="rows.length>1" style="padding:2px 6px;font-size:10px">&times;</button>
+                    </td>
+                  </tr>
                 </template>
-                <template x-if="row.is_custom">
-                  <td>
-                    <input type="text" :name="'custom_name_' + index" x-model="row.custom_name"
-                           style="width:100%;padding:3px 5px;border:1px solid #bbb;font-size:12px" placeholder="교재명">
-                  </td>
-                </template>
-                <td class="right">
-                  <template x-if="!row.is_custom">
-                    <span x-text="row.unit_price ? row.unit_price.toLocaleString()+'원' : '-'" style="color:#666;font-size:11px"></span>
-                  </template>
-                  <template x-if="row.is_custom">
-                    <input type="number" :name="'custom_price_' + index" x-model.number="row.unit_price"
-                           style="width:60px;padding:3px 5px;border:1px solid #bbb;font-size:11px;text-align:right" placeholder="단가">
-                  </template>
-                </td>
-                <td class="center">
-                  <input type="number" :name="'qty_' + index" x-model.number="row.qty" min="1" max="9999">
-                </td>
-                <td class="right" style="font-weight:bold;font-size:11px">
-                  <span x-text="rowAmount(row) ? rowAmount(row).toLocaleString()+'원' : '-'"></span>
-                </td>
-                <td class="center">
-                  <button type="button" class="btn btn-sm btn-red" @click="rows.splice(index,1)"
-                          x-show="rows.length>1" style="padding:1px 5px">&times;</button>
-                </td>
-              </tr>
-            </template>
-          </tbody>
-        </table>
-      </div>
+              </tbody>
+            </table>
+          </div>
 
-      <div class="order-total-bar">
-        <button type="button" class="btn btn-outline btn-sm" @click="addRow" style="float:left">+ 행 추가</button>
-        <button type="button" class="btn btn-outline btn-sm" @click="addCustomRow" style="float:left;margin-left:4px;color:#e8720c;border-color:#e8720c">+ 직접입력</button>
-        합계: <span x-text="total().toLocaleString()" style="font-size:15px;color:#e8720c"></span>원
-      </div>
+          <div class="order-total-bar">
+            <div style="display:flex;gap:6px">
+              <button type="button" class="btn btn-outline btn-sm" @click="addRow">+ 교재</button>
+              <button type="button" class="btn btn-outline btn-sm" style="color:#e8720c;border-color:#e8720c" @click="addCustomRow">+ 직접입력</button>
+            </div>
+            <div>합계 <span class="total-amount" x-text="total().toLocaleString() + '원'"></span></div>
+          </div>
+        </div>
 
-      <div style="margin-top:8px;display:flex;align-items:center;gap:8px">
-        <label style="white-space:nowrap;background:#777;color:#fff;padding:3px 8px;font-size:12px">메모</label>
-        <input type="text" name="memo" style="flex:1;padding:4px 8px;border:1px solid #bbb;font-size:12px" placeholder="특이사항">
-      </div>
+        <!-- 메모 -->
+        <div class="form-section">
+          <div class="form-grid">
+            <span class="form-label">메모</span>
+            <input type="text" name="memo" class="form-input" style="max-width:100%" placeholder="특이사항 메모">
+          </div>
+        </div>
 
-      <div style="margin-top:10px;display:flex;gap:8px">
-        <button type="button" class="btn btn-orange" @click="submitOrder" style="padding:6px 28px">주문 등록</button>
-        <button type="button" class="btn btn-gray" @click="markSkipped" style="padding:6px 28px">건너뛰기</button>
-      </div>
-    </form>
+        <!-- 버튼 -->
+        <div class="action-bar">
+          <button type="button" class="btn btn-blue" @click="submitOrder" style="padding:8px 32px">주문 등록</button>
+          <button type="button" class="btn btn-outline" @click="markSkipped" style="padding:8px 20px">건너뛰기</button>
+        </div>
+      </form>
+    </div>
     {% endif %}
   </div>
 </div>
@@ -309,7 +617,7 @@ const PARSED = {{ parsed_json|safe }};
 
 function callRecordingForm() {
   return {
-    agencyId: '', ALL_AGENCIES: ALL_AGENCIES,
+    agencyId: '', ALL_AGENCIES,
     teacherId: '', teacherQuery: '',
     showTeacherList: false, filteredTeacherList: [],
     isNewTeacher: false, newTeacherName: '', newTeacherPhone: '',
