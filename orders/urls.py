@@ -75,7 +75,12 @@ urlpatterns = [
     path('inbox/attachment/<int:pk>/preview/', views.attachment_preview, name='attachment_preview'),
     path('inbox/sms-desk/', views.sms_desk, name='sms_desk'),
     path('inbox/send-sms/', views.send_sms_ajax, name='send_sms_ajax'),
+    path('inbox/sms-import/', views.sms_import_xml, name='sms_import_xml'),
     path('webhook/sms/', views.sms_webhook, name='sms_webhook'),
+
+    # ── 극동 임포트 ──────────────────────────────────────────────────────────
+    path('import/legacy/', views.import_legacy, name='import_legacy'),
+    path('import/legacy/delete/', views.import_legacy_delete, name='import_legacy_delete'),
 
     # ── 엑셀 Export ────────────────────────────────────────────────────────────
     path('ledger/export/', views.export_ledger, name='export_ledger'),

@@ -671,6 +671,93 @@ def sms_webhook(request):
 
 
 @role_required('admin')
+def sms_import_xml(request):
+    """SMS Backup & Restore 앱의 XML 파일에서 문자 일괄 가져오기"""
+    if request.method != 'POST' or not request.FILES.get('xml_file'):
+        return render(request, 'orders/sms_import.html', {'result': None})
+
+    from django.utils import timezone
+    import datetime
+    import xml.etree.ElementTree as ET
+
+    xml_file = request.FILES['xml_file']
+    if not xml_file.name.endswith('.xml'):
+        messages.error(request, '.xml 파일만 지원합니다.')
+        return render(request, 'orders/sms_import.html', {'result': None})
+
+    try:
+        tree = ET.parse(xml_file)
+        root = tree.getroot()
+    except ET.ParseError as e:
+        messages.error(request, f'XML 파싱 오류: {e}')
+        return render(request, 'orders/sms_import.html', {'result': None})
+
+    # 기존 SMS 중복 방지: (sender, received_at) 조합
+    existing = set(
+        InboxMessage.objects.filter(source='sms')
+        .values_list('sender', 'received_at')
+    )
+
+    new_count = 0
+    skip_count = 0
+    total = 0
+
+    for sms in root.iter('sms'):
+        total += 1
+        address = sms.get('address', '').strip()
+        body = sms.get('body', '').strip()
+        date_ms = sms.get('date', '')
+        sms_type = sms.get('type', '1')  # 1=수신, 2=발신
+        contact_name = sms.get('contact_name', '').strip()
+
+        if not body:
+            skip_count += 1
+            continue
+
+        # timestamp 파싱
+        try:
+            received_at = timezone.make_aware(
+                datetime.datetime.fromtimestamp(int(date_ms) / 1000)
+            )
+        except (ValueError, TypeError, OSError):
+            received_at = timezone.now()
+
+        # 발신자 표시: 연락처명이 있으면 "이름(번호)", 없으면 번호만
+        if contact_name and contact_name != '(Unknown)':
+            sender = f'{contact_name}({address})'
+        else:
+            sender = address
+
+        # 발신 문자는 subject에 표시
+        subject = '[발신]' if sms_type == '2' else ''
+
+        # 중복 체크
+        if (sender, received_at) in existing:
+            skip_count += 1
+            continue
+
+        InboxMessage.objects.create(
+            source=InboxMessage.Source.SMS,
+            sender=sender,
+            subject=subject,
+            content=body,
+            received_at=received_at,
+            is_processed=True,  # 과거 문자는 처리완료 상태로
+            is_read=True,
+        )
+        existing.add((sender, received_at))
+        new_count += 1
+
+    result = {
+        'total': total,
+        'new_count': new_count,
+        'skip_count': skip_count,
+    }
+    messages.success(request, f'총 {total}건 중 {new_count}건 가져옴 (중복/빈내용 {skip_count}건 건너뜀)')
+    return render(request, 'orders/sms_import.html', {'result': result})
+
+
+@role_required('admin')
 def sms_desk(request):
     """Google Messages + 주문 입력 분할 화면"""
     agencies = User.objects.filter(role='agency', is_active=True).order_by('name')

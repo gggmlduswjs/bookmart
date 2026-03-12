@@ -189,6 +189,7 @@
 <div class="inbox-panel {% if tab == 'sms' %}active{% endif %}">
   <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
     <a href="{% url 'sms_desk' %}" class="btn btn-orange btn-sm">문자 주문 데스크</a>
+    <a href="{% url 'sms_import_xml' %}" class="btn btn-outline btn-sm">문자 백업 가져오기</a>
     {% if hide_done %}
       <a href="?tab=sms{% if search %}&q={{ search|urlencode }}{% endif %}" class="btn btn-outline btn-sm">전체 보기</a>
     {% else %}

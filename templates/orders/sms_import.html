@@ -1,0 +1,34 @@
+{% extends 'base.html' %}
+{% block title %}문자 백업 가져오기{% endblock %}
+
+{% block content %}
+<div style="max-width:600px;margin:0 auto">
+  <h2 style="font-size:18px;margin-bottom:16px">문자 백업 가져오기</h2>
+
+  <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:14px;margin-bottom:20px;font-size:13px;color:#0369a1">
+    <strong>사용 방법</strong><br>
+    1. Play Store에서 <b>SMS Backup &amp; Restore</b> 앱 설치<br>
+    2. 앱에서 백업 실행 → .xml 파일 생성됨<br>
+    3. 아래에 .xml 파일을 업로드하면 수신함에 문자가 추가됩니다<br>
+    <span style="color:#6b7280">※ 수신 + 발신 문자 모두 가져오며, 중복은 자동 건너뜁니다</span>
+  </div>
+
+  <form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    <div style="margin-bottom:16px">
+      <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px">XML 파일 선택</label>
+      <input type="file" name="xml_file" accept=".xml" required
+             style="font-size:13px;padding:8px;border:1px solid #d1d5db;border-radius:6px;width:100%">
+    </div>
+    <button type="submit" class="btn btn-primary">가져오기</button>
+    <a href="{% url 'inbox_list' %}?tab=sms" class="btn btn-outline" style="margin-left:8px">취소</a>
+  </form>
+
+  {% if result %}
+  <div style="margin-top:20px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:14px;font-size:13px">
+    <strong>가져오기 완료</strong><br>
+    전체: {{ result.total }}건 / 신규: <b>{{ result.new_count }}건</b> / 건너뜀: {{ result.skip_count }}건
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
