@@ -626,8 +626,17 @@
         </div>
       </div>
     </div>
-    <!-- Right: Order Form -->
+    <!-- Right: Attachment Preview + Order Form -->
     <div class="sp-split-right" id="spOrderSide">
+      <!-- Attachment preview area -->
+      <div id="spAttPreview" style="display:none">
+        <div class="sp-split-label" style="display:flex;justify-content:space-between;align-items:center">
+          <span id="spAttPreviewTitle">첨부파일 미리보기</span>
+          <button type="button" onclick="closeAttPreview()" style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:16px;padding:0 4px">&times;</button>
+        </div>
+        <div id="spAttPreviewBody" style="border-bottom:1px solid #e2e8f0;background:#f9fafb"></div>
+      </div>
+      <!-- Order form -->
       <div class="sp-split-label">주문 등록</div>
       <div class="sp-order-body" id="spOrderFormContainer" style="padding:16px 20px">
         <div style="text-align:center;padding:40px;color:#94a3b8">폼 로딩 중...</div>
@@ -815,6 +824,9 @@ function openSlidePanel(pk, source) {
   document.getElementById('spSmsSection').style.display = 'none';
   document.getElementById('spCallSection').style.display = 'none';
   document.getElementById('spReplySection').style.display = 'none';
+  // Reset attachment preview
+  document.getElementById('spAttPreview').style.display = 'none';
+  document.getElementById('spAttPreviewBody').innerHTML = '';
   // Reset order form container - destroy Alpine state first
   var orderContainer = document.getElementById('spOrderFormContainer');
   if (window.Alpine) {
@@ -893,19 +905,12 @@ function _loadMessageDetail(pk, source) {
           var html = '<div style="display:flex;align-items:center;gap:6px;width:100%">';
           html += '<a href="' + att.download_url + '" style="color:#2563eb;text-decoration:none;font-size:11px">\ud83d\udcce ' + att.filename + '</a>';
           if (att.preview_url) {
-            html += ' <a href="' + att.preview_url + '" target="_blank" style="color:#e8720c;font-size:10px;margin-left:4px">미리보기</a>';
+            html += ' <a href="#" onclick="openAttPreview(\'' + att.preview_url + '\',\'' + att.filename.replace(/'/g, "\\'") + '\');return false" style="color:#e8720c;font-size:10px;margin-left:4px;cursor:pointer">미리보기</a>';
           }
           if (att.is_excel) {
             html += ' <button type="button" onclick="applyExcelAttachment(' + att.pk + ')" style="font-size:10px;padding:1px 6px;background:#059669;color:#fff;border:none;border-radius:3px;cursor:pointer;margin-left:4px">주문폼 적용</button>';
           }
           html += '</div>';
-          // Inline preview area
-          if (att.is_image) {
-            html += '<div style="margin-top:6px;width:100%"><img src="' + att.preview_url + '" style="max-width:100%;max-height:300px;border:1px solid #e2e8f0;border-radius:4px" alt="' + att.filename + '"></div>';
-          }
-          if (att.is_pdf) {
-            html += '<div style="margin-top:6px;width:100%"><iframe src="' + att.preview_url + '" style="width:100%;height:300px;border:1px solid #e2e8f0;border-radius:4px"></iframe></div>';
-          }
           d.innerHTML = html;
           attList.appendChild(d);
         });
@@ -1295,6 +1300,21 @@ function sendReplyFromPanel() {
         btn.textContent = '문자 발송';
       });
   }
+}
+
+/* ── Attachment preview in right panel ── */
+function openAttPreview(url, filename) {
+  var wrap = document.getElementById('spAttPreview');
+  var body = document.getElementById('spAttPreviewBody');
+  var title = document.getElementById('spAttPreviewTitle');
+  title.textContent = filename || '첨부파일 미리보기';
+  body.innerHTML = '<iframe src="' + url + '" style="width:100%;height:350px;border:none"></iframe>';
+  wrap.style.display = '';
+}
+function closeAttPreview() {
+  var wrap = document.getElementById('spAttPreview');
+  wrap.style.display = 'none';
+  document.getElementById('spAttPreviewBody').innerHTML = '';
 }
 
 /* ── Apply Excel attachment to order form ── */
