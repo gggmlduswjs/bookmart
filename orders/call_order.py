@@ -16,23 +16,12 @@ from django.conf import settings
 logger = logging.getLogger(__name__)
 
 
-WHISPER_SUPPORTED = {'.flac', '.m4a', '.mp3', '.mp4', '.mpeg', '.mpga', '.oga', '.ogg', '.wav', '.webm'}
-
-
 def _convert_to_mp3(audio_file):
-    """Whisper 미지원 포맷을 ffmpeg로 mp3 변환. (파일객체, 파일명) 반환."""
+    """오디오 파일을 항상 ffmpeg로 mp3 변환. (파일객체, 파일명) 반환.
+    확장자가 지원 포맷이라도 실제 코덱이 다를 수 있으므로 무조건 변환."""
     filename = os.path.basename(audio_file.name)
-    ext = os.path.splitext(filename)[1].lower()
-    logger.info(f'[convert] 파일: {filename}, 확장자: "{ext}"')
-
-    if ext in WHISPER_SUPPORTED:
-        return audio_file, filename
-
-    logger.info(f'[convert] ffmpeg 변환 시작: {ext} → mp3')
-
-    # 확장자가 없는 경우 .3gp로 간주
-    if not ext:
-        ext = '.3gp'
+    ext = os.path.splitext(filename)[1].lower() or '.bin'
+    logger.info(f'[convert] 파일: {filename}, 확장자: "{ext}", ffmpeg mp3 변환 시작')
 
     # 임시 파일에 원본 저장 후 ffmpeg 변환
     with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as src:

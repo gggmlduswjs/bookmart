@@ -1,5 +1,7 @@
 import json
+import logging
 import math
+import threading
 
 from django.contrib import messages
 from django.db.models import Count
@@ -370,32 +372,50 @@ def call_recording_retry(request, pk):
     return redirect('call_recording_process', pk=rec.pk)
 
 
+logger = logging.getLogger(__name__)
+
+
+def _run_in_background(func):
+    """백그라운드 스레드에서 함수 실행 (DB 커넥션 정리 포함)"""
+    def wrapper():
+        try:
+            func()
+        except Exception:
+            logger.exception('백그라운드 작업 실패')
+        finally:
+            from django.db import connection
+            connection.close()
+    threading.Thread(target=wrapper, daemon=True).start()
+
+
 @role_required('admin')
 def call_recording_retry_all(request):
-    """실패한 녹음 전체 재시도"""
+    """실패한 녹음 전체 재시도 (백그라운드)"""
     count = CallRecording.objects.filter(status=CallRecording.Status.FAILED).update(
         status=CallRecording.Status.PENDING, error_msg=''
     )
     if count:
         from orders.management.commands.sync_call_recordings import process_pending_recordings
-        processed = process_pending_recordings()
-        messages.success(request, f'{count}건 재시도 → {processed}건 처리 완료')
+        _run_in_background(process_pending_recordings)
+        messages.success(request, f'{count}건 재시도를 백그라운드에서 처리 중입니다.')
     else:
         messages.info(request, '재시도할 실패 건이 없습니다.')
-    return redirect('call_inbox')
+    return redirect('/inbox/?tab=call')
 
 
 @role_required('admin')
 def call_sync_drive(request):
-    """Google Drive 수동 동기화 트리거"""
-    from orders.management.commands.sync_call_recordings import sync_from_drive, process_pending_recordings
-    try:
+    """Google Drive 수동 동기화 트리거 (백그라운드)"""
+    def _sync():
+        from orders.management.commands.sync_call_recordings import sync_from_drive, process_pending_recordings
         new = sync_from_drive()
+        logger.info(f'Drive 동기화: 새 녹음 {new}건')
         processed = process_pending_recordings()
-        messages.success(request, f'동기화 완료: 새 녹음 {new}건, 파싱 {processed}건')
-    except Exception as e:
-        messages.error(request, f'동기화 오류: {str(e)}')
-    return redirect('call_inbox')
+        logger.info(f'자동 파싱: {processed}건 처리')
+
+    _run_in_background(_sync)
+    messages.success(request, '동기화를 백그라운드에서 처리 중입니다. 잠시 후 새로고침 해주세요.')
+    return redirect('/inbox/?tab=call')
 
 
 @csrf_exempt
