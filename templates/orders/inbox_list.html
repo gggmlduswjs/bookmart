@@ -755,17 +755,25 @@ function _loadOrderForm() {
           container.appendChild(node);
         }
       });
-      // Execute scripts in order
+      // Execute scripts in order (synchronous)
       scripts.forEach(function(oldScript) {
         var newScript = document.createElement('script');
         if (oldScript.src) { newScript.src = oldScript.src; }
         else { newScript.textContent = oldScript.textContent; }
         document.body.appendChild(newScript);
       });
-      // Init Alpine on new content after scripts have run
+      // Init Alpine on new content after scripts have defined window.spOrderForm
       setTimeout(function() {
-        if (window.Alpine) { Alpine.initTree(container); }
-      }, 50);
+        if (window.Alpine) {
+          // Destroy any stale Alpine state first
+          container.querySelectorAll('[x-data]').forEach(function(el) {
+            if (el._x_dataStack) {
+              delete el._x_dataStack;
+            }
+          });
+          Alpine.initTree(container);
+        }
+      }, 100);
     })
     .catch(function(err) {
       container.innerHTML = '<div style="text-align:center;padding:40px;color:#dc2626">폼 로드 실패: ' + err.message + '</div>';
@@ -807,8 +815,14 @@ function openSlidePanel(pk, source) {
   document.getElementById('spSmsSection').style.display = 'none';
   document.getElementById('spCallSection').style.display = 'none';
   document.getElementById('spReplySection').style.display = 'none';
-  // Reset order form container
-  document.getElementById('spOrderFormContainer').innerHTML = '<div style="text-align:center;padding:40px;color:#94a3b8">폼 로딩 중...</div>';
+  // Reset order form container - destroy Alpine state first
+  var orderContainer = document.getElementById('spOrderFormContainer');
+  if (window.Alpine) {
+    orderContainer.querySelectorAll('[x-data]').forEach(function(el) {
+      Alpine.destroyTree(el);
+    });
+  }
+  orderContainer.innerHTML = '<div style="text-align:center;padding:40px;color:#94a3b8">폼 로딩 중...</div>';
 
   document.getElementById('slidePanelOverlay').classList.add('open');
   document.getElementById('slidePanel').classList.add('open');
