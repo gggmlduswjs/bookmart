@@ -10,6 +10,9 @@ def inbox_count(request):
 
 def active_notices(request):
     if request.user.is_authenticated:
-        from orders.models import Notice
-        return {'notices': Notice.objects.filter(is_active=True).order_by('-created_at')[:5]}
+        try:
+            from orders.models import Notice
+            return {'notices': Notice.objects.filter(is_active=True).order_by('-created_at')[:5]}
+        except Exception:
+            return {}
     return {}

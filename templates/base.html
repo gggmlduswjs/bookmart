@@ -732,7 +732,7 @@
           {% elif cur == 'order_list' or cur == 'order_detail' or cur == 'order_ship' or cur == 'order_deliver' or cur == 'order_cancel' or cur == 'order_create_admin' or cur == 'return_list' or cur == 'return_detail' or cur == 'return_confirm' or cur == 'return_reject' or cur == 'inbox_list' or cur == 'inbox_process' or cur == 'call_order_upload' or cur == 'call_order_confirm' or cur == 'call_inbox' or cur == 'call_recording_process' %}'orders'
           {% elif cur == 'delivery_manage' %}'delivery'
           {% elif cur == 'book_list' or cur == 'book_create' or cur == 'book_edit' or cur == 'book_toggle' or cur == 'book_import' or cur == 'publisher_list' or cur == 'publisher_create' or cur == 'publisher_edit' or cur == 'purchase_order' or cur == 'export_purchase' %}'books'
-          {% elif cur == 'ledger' or cur == 'sales_report' or cur == 'payment_create' or cur == 'export_ledger' or cur == 'export_sales' %}'finance'
+          {% elif cur == 'ledger' or cur == 'sales_report' or cur == 'payment_create' or cur == 'export_ledger' or cur == 'export_sales' or cur == 'import_legacy' %}'finance'
           {% elif cur == 'agency_list' or cur == 'agency_create' or cur == 'agency_toggle' or cur == 'agency_import' %}'agencies'
           {% else %}''{% endif %}
   }">
@@ -790,6 +790,7 @@
         <a href="{% url 'ledger' %}" class="{% if cur == 'ledger' or cur == 'export_ledger' %}active{% endif %}">거래내역</a>
         <a href="{% url 'sales_report' %}" class="{% if cur == 'sales_report' or cur == 'export_sales' %}active{% endif %}">판매현황</a>
         <a href="{% url 'payment_create' %}" class="{% if cur == 'payment_create' %}active{% endif %}">입금 등록</a>
+        <a href="{% url 'import_legacy' %}" class="{% if cur == 'import_legacy' %}active{% endif %}">극동 임포트</a>
       </div>
     </div>
 
@@ -1194,6 +1195,7 @@ function commandPalette() {
       { label: '거래내역', url: '/ledger/', group: '정산관리' },
       { label: '판매현황', url: '/sales/', group: '정산관리' },
       { label: '입금 등록', url: '/payments/new/', group: '정산관리' },
+      { label: '극동 임포트', url: '/import/legacy/', group: '정산관리' },
       { label: '업체 목록', url: '/accounts/agencies/', group: '업체관리' },
       { label: '업체 추가', url: '/accounts/agencies/create/', group: '업체관리' },
       { label: '업체 일괄등록', url: '/accounts/agencies/import/', group: '업체관리' }
