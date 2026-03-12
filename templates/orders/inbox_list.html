@@ -286,8 +286,8 @@
     .call-filter a.active .cnt { background:#dbeafe; color:#1e40af; }
     .call-filter a:not(.active) .cnt { background:#e2e8f0; color:#64748b; }
 
-    .call-card { background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:14px 16px; margin-bottom:8px; transition:border-color .15s; }
-    .call-card:hover { border-color:#cbd5e1; }
+    .call-card { background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:14px 16px; margin-bottom:8px; transition:border-color .15s; cursor:pointer; text-decoration:none; display:block; color:inherit; }
+    .call-card:hover { border-color:#93c5fd; box-shadow:0 2px 8px rgba(59,130,246,0.1); }
     .call-card-top { display:flex; align-items:flex-start; gap:12px; }
     .call-icon { width:40px; height:40px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:18px; flex-shrink:0; }
     .call-icon.pending { background:#fef3c7; }
@@ -347,7 +347,7 @@
 
   <!-- 녹음 목록 -->
   {% for rec in call_page %}
-  <div class="call-card">
+  <a href="{% url 'call_recording_process' pk=rec.pk %}" class="call-card" onclick="if(event.target.closest('.call-actions')){event.preventDefault();}">
     <div class="call-card-top">
       <div class="call-icon {{ rec.status }}">
         {% if rec.status == 'ordered' %}&#9989;{% elif rec.status == 'parsed' %}&#128269;{% elif rec.status == 'failed' %}&#10060;{% elif rec.status == 'processing' %}&#9203;{% elif rec.status == 'skipped' %}&#128172;{% else %}&#127908;{% endif %}
@@ -395,7 +395,7 @@
         {% endif %}
       </div>
     </div>
-  </div>
+  </a>
   {% empty %}
   <div class="call-empty">
     <div class="call-empty-icon">&#127908;</div>
