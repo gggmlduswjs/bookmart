@@ -114,18 +114,13 @@
   .slide-panel.triple { width: 1600px; right: -1600px; }
   .slide-panel.triple.open { right: 0; }
   .sp-att-col {
-    display: none; overflow: hidden; min-width: 0; border-right: 1px solid #e2e8f0;
+    display: none; overflow: hidden; min-width: 200px; width: 40%;
   }
-  .sp-att-col.visible { display: flex; flex-direction: column; flex: 1; }
-  .sp-email-col {
-    overflow-y: auto; flex: 1; min-width: 0;
-  }
+  .sp-att-col.visible { display: flex; flex-direction: column; }
   .sp-split-left {
-    overflow: hidden;
-    min-width: 200px; width: 50%;
-    display: flex;
+    overflow-y: auto;
+    min-width: 200px; flex: 1; border-right: 1px solid #e2e8f0;
   }
-  .slide-panel.triple .sp-split-left { width: 65%; }
   .sp-split-right {
     flex: 1; overflow-y: auto;
     min-width: 200px;
@@ -133,7 +128,9 @@
   .sp-resizer {
     width: 5px; cursor: col-resize; background: #e2e8f0;
     flex-shrink: 0; position: relative; transition: background 0.15s;
+    display: none;
   }
+  .sp-resizer.visible { display: block; }
   .sp-resizer:hover, .sp-resizer.dragging { background: #3b82f6; }
   .sp-resizer::after {
     content: ''; position: absolute; top: 50%; left: 50%;
@@ -197,7 +194,8 @@
   }
   @media (max-width: 768px) {
     .slide-panel-body { flex-direction: column; }
-    .sp-split-left { flex-direction: column; border-bottom: 1px solid #e2e8f0; max-height: 50vh; width: 100% !important; }
+    .sp-att-col.visible { width: 100% !important; max-height: 40vh; border-bottom: 1px solid #e2e8f0; }
+    .sp-split-left { border-bottom: 1px solid #e2e8f0; max-height: 40vh; }
     .sp-split-right { flex: 1; }
     .sp-resizer { display: none !important; }
   }
@@ -615,18 +613,18 @@
     </div>
   </div>
   <div class="slide-panel-body" id="spBody">
-    <!-- Left wrapper: attachment preview + email -->
-    <div class="sp-split-left" id="spLeftWrapper">
-      <!-- Attachment preview (hidden by default) -->
-      <div class="sp-att-col" id="spAttCol">
-        <div class="sp-split-label" style="display:flex;justify-content:space-between;align-items:center">
-          <span id="spAttPreviewTitle">첨부파일 미리보기</span>
-          <button type="button" onclick="closeAttPreview()" style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:16px;padding:0 4px">&times;</button>
-        </div>
-        <div id="spAttPreviewBody" style="flex:1;background:#f9fafb;min-height:0"></div>
+    <!-- Attachment preview column (hidden by default, leftmost) -->
+    <div class="sp-att-col" id="spAttCol">
+      <div class="sp-split-label" style="display:flex;justify-content:space-between;align-items:center">
+        <span id="spAttPreviewTitle">첨부파일 미리보기</span>
+        <button type="button" onclick="closeAttPreview()" style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:16px;padding:0 4px">&times;</button>
       </div>
-      <!-- Email preview -->
-      <div class="sp-email-col">
+      <div id="spAttPreviewBody" style="flex:1;background:#f9fafb;min-height:0"></div>
+    </div>
+    <!-- Resizer: between attachment and email -->
+    <div class="sp-resizer" id="spResizer"></div>
+    <!-- Email preview -->
+    <div class="sp-split-left">
       <div class="sp-split-label">미리보기</div>
       <div class="sp-preview-body">
         <div class="sp-meta">
@@ -661,11 +659,8 @@
           <div id="spReplyResult" style="display:none;margin-top:4px;font-size:11px;padding:4px 8px;border-radius:4px"></div>
         </div>
       </div>
-      </div><!-- /sp-email-col -->
-    </div><!-- /sp-split-left wrapper -->
-    <!-- Resizer handle -->
-    <div class="sp-resizer" id="spResizer"></div>
-    <!-- Right: Attachment Preview + Order Form -->
+    </div><!-- /sp-split-left -->
+    <!-- Right: Order Form -->
     <div class="sp-split-right" id="spOrderSide">
       <!-- Order form -->
       <div class="sp-split-label">주문 등록</div>
@@ -850,7 +845,7 @@ function _loadOrderForm() {
       document.body.style.userSelect = '';
     });
   }
-  setupResizer('spResizer', document.querySelector('.sp-split-left'));
+  setupResizer('spResizer', document.getElementById('spAttCol'));
 })();
 
 function openSlidePanel(pk, source) {
@@ -890,7 +885,7 @@ function openSlidePanel(pk, source) {
   document.getElementById('spReplySection').style.display = 'none';
   // Reset attachment preview (3-column mode)
   document.getElementById('spAttCol').classList.remove('visible');
-
+  document.getElementById('spResizer').classList.remove('visible');
   document.getElementById('spAttPreviewBody').innerHTML = '';
   panel.classList.remove('triple');
   // Reset order form container (destroy Alpine tree first)
@@ -1175,7 +1170,7 @@ function closeSlidePanel() {
   panel.classList.remove('open');
   panel.classList.remove('triple');
   document.getElementById('spAttCol').classList.remove('visible');
-
+  document.getElementById('spResizer').classList.remove('visible');
   document.getElementById('spAttPreviewBody').innerHTML = '';
   document.body.style.overflow = '';
   _currentPanelPk = null;
@@ -1388,12 +1383,14 @@ function openAttPreview(url, filename) {
   title.textContent = filename || '첨부파일 미리보기';
   body.innerHTML = '<iframe src="' + url + '" style="width:100%;height:100%;border:none"></iframe>';
   col.classList.add('visible');
+  document.getElementById('spResizer').classList.add('visible');
   panel.classList.add('triple');
 }
 function closeAttPreview() {
   var panel = document.getElementById('slidePanel');
   var col = document.getElementById('spAttCol');
   col.classList.remove('visible');
+  document.getElementById('spResizer').classList.remove('visible');
   document.getElementById('spAttPreviewBody').innerHTML = '';
   panel.classList.remove('triple');
 }
