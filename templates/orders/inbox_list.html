@@ -778,19 +778,24 @@ function _loadOrderForm() {
           container.appendChild(node);
         }
       });
-      // Execute scripts in order (synchronous)
+      // Execute inline scripts synchronously
       scripts.forEach(function(oldScript) {
-        var newScript = document.createElement('script');
-        if (oldScript.src) { newScript.src = oldScript.src; }
-        else { newScript.textContent = oldScript.textContent; }
-        document.body.appendChild(newScript);
+        if (oldScript.src) {
+          var newScript = document.createElement('script');
+          newScript.src = oldScript.src;
+          document.body.appendChild(newScript);
+        } else {
+          try { (new Function(oldScript.textContent))(); } catch(e) { console.warn('Script error:', e); }
+        }
       });
       // Init Alpine on new content after scripts have defined window.spOrderForm
-      setTimeout(function() {
-        if (window.Alpine) {
-          Alpine.initTree(container);
-        }
-      }, 100);
+      if (window.Alpine && window.spOrderForm) {
+        Alpine.initTree(container);
+      } else {
+        setTimeout(function() {
+          if (window.Alpine) Alpine.initTree(container);
+        }, 150);
+      }
     })
     .catch(function(err) {
       container.innerHTML = '<div style="text-align:center;padding:40px;color:#dc2626">폼 로드 실패: ' + err.message + '</div>';
