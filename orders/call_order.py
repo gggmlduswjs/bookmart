@@ -105,16 +105,57 @@ def transcribe_audio(audio_file):
                 os.unlink(path)
 
 
-def parse_order_from_text(transcript, book_list):
-    """텍스트에서 주문 정보 추출 (Anthropic Claude API)"""
-    api_key = settings.ANTHROPIC_API_KEY
+def _call_openai_chat(prompt):
+    """OpenAI Chat API 호출 공통 함수"""
+    api_key = settings.OPENAI_API_KEY
     if not api_key:
-        return None, 'ANTHROPIC_API_KEY가 설정되지 않았습니다.'
+        return None, 'OPENAI_API_KEY가 설정되지 않았습니다.'
 
-    # 교재 목록을 간결하게 전달
+    try:
+        resp = requests.post(
+            'https://api.openai.com/v1/chat/completions',
+            headers={
+                'Authorization': f'Bearer {api_key}',
+                'Content-Type': 'application/json',
+            },
+            json={
+                'model': 'gpt-4o',
+                'messages': [{'role': 'user', 'content': prompt}],
+                'max_tokens': 2000,
+                'temperature': 0.1,
+            },
+            timeout=60,
+        )
+
+        if resp.status_code != 200:
+            error_msg = resp.json().get('error', {}).get('message', resp.text[:200])
+            return None, f'OpenAI API 오류: {error_msg}'
+
+        content = resp.json()['choices'][0]['message']['content'].strip()
+
+        # JSON 추출 (마크다운 코드블록 제거)
+        if content.startswith('```'):
+            content = content.split('\n', 1)[1]
+            content = content.rsplit('```', 1)[0]
+        content = content.strip()
+
+        parsed = json.loads(content)
+        return parsed, None
+
+    except json.JSONDecodeError:
+        return None, '파싱 결과를 해석할 수 없습니다.'
+    except requests.Timeout:
+        return None, '파싱 시간 초과.'
+    except Exception as e:
+        logger.exception('OpenAI API error')
+        return None, f'파싱 오류: {str(e)}'
+
+
+def parse_order_from_text(transcript, book_list):
+    """텍스트에서 주문 정보 추출 (OpenAI GPT-4o)"""
     books_summary = '\n'.join(
         f'- [{b["id"]}] {b["publisher"]} / {b["series"]} / {b["name"]} (단가 {b["unit_price"]}원)'
-        for b in book_list[:500]  # 너무 많으면 자르기
+        for b in book_list[:500]
     )
 
     prompt = f"""아래는 도서 주문 전화 통화를 텍스트로 변환한 내용입니다.
@@ -145,52 +186,11 @@ def parse_order_from_text(transcript, book_list):
   "raw_mentions": ["통화에서 언급된 교재명 원문 목록"]
 }}"""
 
-    try:
-        resp = requests.post(
-            'https://api.anthropic.com/v1/messages',
-            headers={
-                'x-api-key': api_key,
-                'anthropic-version': '2023-06-01',
-                'content-type': 'application/json',
-            },
-            json={
-                'model': 'claude-sonnet-4-20250514',
-                'max_tokens': 2000,
-                'messages': [{'role': 'user', 'content': prompt}],
-            },
-            timeout=60,
-        )
-
-        if resp.status_code != 200:
-            error_msg = resp.json().get('error', {}).get('message', resp.text[:200])
-            return None, f'Claude API 오류: {error_msg}'
-
-        content = resp.json()['content'][0]['text'].strip()
-
-        # JSON 추출 (마크다운 코드블록 제거)
-        if content.startswith('```'):
-            content = content.split('\n', 1)[1]
-            content = content.rsplit('```', 1)[0]
-        content = content.strip()
-
-        parsed = json.loads(content)
-        return parsed, None
-
-    except json.JSONDecodeError:
-        return None, f'주문 파싱 결과를 해석할 수 없습니다.'
-    except requests.Timeout:
-        return None, '주문 파싱 시간 초과.'
-    except Exception as e:
-        logger.exception('Claude API error')
-        return None, f'주문 파싱 오류: {str(e)}'
+    return _call_openai_chat(prompt)
 
 
 def parse_order_from_email(sender, subject, body, book_list, agencies, teachers):
-    """이메일 내용에서 주문 정보 추출 (Anthropic Claude API)"""
-    api_key = settings.ANTHROPIC_API_KEY
-    if not api_key:
-        return None, 'ANTHROPIC_API_KEY가 설정되지 않았습니다.'
-
+    """이메일 내용에서 주문 정보 추출 (OpenAI GPT-4o)"""
     books_summary = '\n'.join(
         f'- [{b["id"]}] {b["publisher"]} / {b["series"]} / {b["name"]} (단가 {b["unit_price"]}원)'
         for b in book_list[:500]
@@ -247,40 +247,4 @@ def parse_order_from_email(sender, subject, body, book_list, agencies, teachers)
   "raw_mentions": ["이메일에서 언급된 교재명 원문 목록"]
 }}"""
 
-    try:
-        resp = requests.post(
-            'https://api.anthropic.com/v1/messages',
-            headers={
-                'x-api-key': api_key,
-                'anthropic-version': '2023-06-01',
-                'content-type': 'application/json',
-            },
-            json={
-                'model': 'claude-sonnet-4-20250514',
-                'max_tokens': 2000,
-                'messages': [{'role': 'user', 'content': prompt}],
-            },
-            timeout=60,
-        )
-
-        if resp.status_code != 200:
-            error_msg = resp.json().get('error', {}).get('message', resp.text[:200])
-            return None, f'Claude API 오류: {error_msg}'
-
-        content = resp.json()['content'][0]['text'].strip()
-
-        if content.startswith('```'):
-            content = content.split('\n', 1)[1]
-            content = content.rsplit('```', 1)[0]
-        content = content.strip()
-
-        parsed = json.loads(content)
-        return parsed, None
-
-    except json.JSONDecodeError:
-        return None, '이메일 파싱 결과를 해석할 수 없습니다.'
-    except requests.Timeout:
-        return None, '이메일 파싱 시간 초과.'
-    except Exception as e:
-        logger.exception('Claude API error (email parsing)')
-        return None, f'이메일 파싱 오류: {str(e)}'
+    return _call_openai_chat(prompt)
