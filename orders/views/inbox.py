@@ -508,6 +508,7 @@ def inbox_process(request, pk):
             q_filter = q_filter | Q(sender__contains=phone_digits)
         # sms_reply_phone으로도 매칭 (발신 문자 찾기)
         if sms_reply_phone:
+            q_filter = q_filter | Q(sender__contains=sms_reply_phone)
             reply_digits = sms_reply_phone.replace('-', '')
             q_filter = q_filter | Q(sender__contains=reply_digits)
         sms_conversation = list(
