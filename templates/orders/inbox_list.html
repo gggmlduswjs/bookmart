@@ -799,9 +799,17 @@ function _loadOrderForm() {
           try { (new Function(oldScript.textContent))(); } catch(e) { console.warn('Script error:', e); }
         }
       });
-      // 2) Now add DOM nodes - Alpine will auto-init via MutationObserver
-      container.innerHTML = '';
-      nodes.forEach(function(node) { container.appendChild(node); });
+      // 2) Destroy existing Alpine tree before replacing content
+      if (window.Alpine && Alpine.destroyTree) {
+        try { Alpine.destroyTree(container); } catch(e) {}
+      }
+      // 3) Pause Alpine's MutationObserver during DOM swap to avoid partial-state errors
+      Alpine.mutateDom(function() {
+        container.innerHTML = '';
+        nodes.forEach(function(node) { container.appendChild(node); });
+      });
+      // 4) Init Alpine on new content
+      try { Alpine.initTree(container); } catch(e) { console.warn('Alpine init:', e); }
     })
     .catch(function(err) {
       container.innerHTML = '<div style="text-align:center;padding:40px;color:#dc2626">폼 로드 실패: ' + err.message + '</div>';
@@ -879,8 +887,10 @@ function openSlidePanel(pk, source) {
   document.getElementById('spResizerAtt').style.display = 'none';
   document.getElementById('spAttPreviewBody').innerHTML = '';
   panel.classList.remove('triple');
-  // Reset order form container
-  document.getElementById('spOrderFormContainer').innerHTML = '<div style="text-align:center;padding:40px;color:#94a3b8">폼 로딩 중...</div>';
+  // Reset order form container (destroy Alpine tree first)
+  var _ofc = document.getElementById('spOrderFormContainer');
+  if (window.Alpine && Alpine.destroyTree) { try { Alpine.destroyTree(_ofc); } catch(e) {} }
+  _ofc.innerHTML = '<div style="text-align:center;padding:40px;color:#94a3b8">폼 로딩 중...</div>';
 
   document.getElementById('slidePanelOverlay').classList.add('open');
   document.getElementById('slidePanel').classList.add('open');
@@ -1151,6 +1161,9 @@ function navigatePanel(direction) {
 }
 
 function closeSlidePanel() {
+  // Destroy Alpine tree in order form before closing
+  var _ofc = document.getElementById('spOrderFormContainer');
+  if (_ofc && window.Alpine && Alpine.destroyTree) { try { Alpine.destroyTree(_ofc); } catch(e) {} }
   document.getElementById('slidePanelOverlay').classList.remove('open');
   var panel = document.getElementById('slidePanel');
   panel.classList.remove('open');
