@@ -953,7 +953,7 @@ def sms_desk(request):
 
 @role_required('admin')
 def send_sms_ajax(request):
-    """알리고를 통한 SMS 발송 (AJAX)"""
+    """알리고를 통한 SMS 발송 (AJAX) — 발송 내역도 InboxMessage에 저장"""
     if request.method != 'POST':
         return JsonResponse({'error': 'POST only'}, status=405)
     receiver = request.POST.get('receiver', '').strip()
@@ -962,6 +962,16 @@ def send_sms_ajax(request):
         return JsonResponse({'error': '수신번호와 메시지를 입력하세요.'})
     ok = send_sms(receiver, message)
     if ok:
+        from django.utils import timezone
+        InboxMessage.objects.create(
+            source=InboxMessage.Source.SMS,
+            sender=receiver,
+            subject='[발신]',
+            content=message,
+            received_at=timezone.now(),
+            is_processed=True,
+            is_read=True,
+        )
         return JsonResponse({'success': True, 'message': '발송 완료'})
     detail = getattr(send_sms, '_last_error', '알리고 설정을 확인하세요.')
     return JsonResponse({'error': f'발송 실패: {detail}'})
