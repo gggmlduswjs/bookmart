@@ -231,8 +231,8 @@
               {% endif %}
             </td>
             <td style="font-size:12px;color:#666">
-              {% if s.last_order %}
-                {{ s.last_order.ordered_at|date:"m/d" }} — {{ s.last_order.teacher.name }}
+              {% if s.last_ordered %}
+                {{ s.last_ordered|date:"m/d" }}
               {% else %}
                 <span style="color:#ccc">주문 없음</span>
               {% endif %}

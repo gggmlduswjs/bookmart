@@ -3,7 +3,7 @@ import datetime
 from django.contrib import messages
 from django.shortcuts import render, redirect
 from django.utils import timezone
-from django.db.models import Sum
+from django.db.models import Count, Max, Q, Sum
 
 from accounts.decorators import role_required
 from accounts.models import User
@@ -83,16 +83,34 @@ def agency_dashboard(request):
         'teacher', 'delivery'
     ).order_by('-ordered_at')[:10]
 
+    # 학교별 통계를 2개 쿼리로 집계 (N+1 방지)
+    school_order_agg = {}
+    for row in (
+        Order.objects.filter(agency=user, delivery__in=deliveries)
+        .values('delivery_id')
+        .annotate(
+            pending=Count('id', filter=Q(status='pending')),
+            shipping=Count('id', filter=Q(status='shipping')),
+            last_ordered=Max('ordered_at'),
+        )
+    ):
+        school_order_agg[row['delivery_id']] = row
+
+    teacher_counts = dict(
+        teachers.values('delivery_address_id')
+        .annotate(cnt=Count('id'))
+        .values_list('delivery_address_id', 'cnt')
+    )
+
     school_stats = []
     for d in deliveries:
-        last_order = my_orders.filter(delivery=d).order_by('-ordered_at').first()
-        school_teachers = teachers.filter(delivery_address=d).count()
+        agg = school_order_agg.get(d.pk, {})
         school_stats.append({
             'school': d,
-            'teacher_count': school_teachers,
-            'last_order': last_order,
-            'pending': my_orders.filter(delivery=d, status='pending').count(),
-            'shipping': my_orders.filter(delivery=d, status='shipping').count(),
+            'teacher_count': teacher_counts.get(d.pk, 0),
+            'last_ordered': agg.get('last_ordered'),
+            'pending': agg.get('pending', 0),
+            'shipping': agg.get('shipping', 0),
         })
 
     pending_returns = Return.objects.filter(
