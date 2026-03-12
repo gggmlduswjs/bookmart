@@ -163,10 +163,9 @@
               <span style="color:#e8720c;font-size:11px;font-weight:bold">미처리</span>
               {% endif %}
             </td>
-            <td class="center">
-              {% if msg.is_processed %}
+            <td class="center" style="white-space:nowrap">
               <a href="{% url 'inbox_process' msg.pk %}" class="btn btn-outline btn-sm">보기</a>
-              {% else %}
+              {% if not msg.is_processed %}
               <button type="button" class="btn btn-orange btn-sm"
                       onclick="singleSkip('{% url 'inbox_single_skip' msg.pk %}')">처리</button>
               {% endif %}
@@ -251,10 +250,9 @@
               <span style="color:#e8720c;font-size:11px;font-weight:bold">미처리</span>
               {% endif %}
             </td>
-            <td class="center">
-              {% if msg.is_processed %}
+            <td class="center" style="white-space:nowrap">
               <a href="{% url 'inbox_process' msg.pk %}" class="btn btn-outline btn-sm">보기</a>
-              {% else %}
+              {% if not msg.is_processed %}
               <button type="button" class="btn btn-orange btn-sm"
                       onclick="singleSkip('{% url 'inbox_single_skip' msg.pk %}')">처리</button>
               {% endif %}
