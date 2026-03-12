@@ -2,6 +2,7 @@ import datetime
 from datetime import timedelta
 
 from django.contrib import messages
+from django.http import JsonResponse
 from django.shortcuts import render, redirect
 from django.utils import timezone
 from django.db.models import Count, Max, Q, Sum
@@ -237,3 +238,16 @@ def notice_toggle(request, pk):
         state = '활성' if notice.is_active else '비활성'
         messages.success(request, f'공지가 {state} 처리되었습니다.')
     return redirect('notice_list')
+
+
+@role_required('admin')
+def api_counts(request):
+    """실시간 카운트 배지 (3.2) - 60초 간격 폴링용"""
+    pending = Order.objects.filter(status='pending').count()
+    unread = InboxMessage.objects.filter(is_processed=False).exclude(subject='[발신]').count()
+    shipping = Order.objects.filter(status='shipping').count()
+    return JsonResponse({
+        'pending_orders': pending,
+        'unread_inbox': unread,
+        'pending_delivery': shipping,
+    })

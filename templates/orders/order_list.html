@@ -83,6 +83,7 @@
   <button class="btn btn-dark btn-sm" onclick="bulkPrint()">거래명세서</button>
   <button class="btn btn-outline btn-sm" onclick="bulkQuote()">견적서</button>
   {% if request.user.is_admin %}
+  <button class="btn btn-orange btn-sm" onclick="bulkShipDirect()">직접배송 발송</button>
   <button class="btn btn-red btn-sm" onclick="bulkDelete()">선택 삭제</button>
   {% endif %}
 </div>
@@ -495,6 +496,35 @@ function bulkDelete() {
         form.appendChild(input);
       });
       form.submit();
+    }
+  });
+}
+
+/* ── 2.2: 일괄 직접배송 발송 ── */
+function bulkShipDirect() {
+  var ids = [];
+  document.querySelectorAll('.order-chk:checked').forEach(function(cb) { ids.push(cb.value); });
+  if (ids.length === 0) { alert('발송할 주문을 선택해주세요.'); return; }
+  showConfirm({
+    title: '일괄 발송 처리',
+    message: ids.length + '건의 주문을 직접배송으로 발송 처리하시겠습니까?\n선생님께 문자가 자동 발송됩니다.',
+    confirmText: '발송 처리',
+    confirmClass: 'btn-orange',
+    onConfirm: function() {
+      var promises = ids.map(function(id) {
+        return fetch('/orders/api/quick-ship/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+          body: JSON.stringify({ order_id: parseInt(id), carrier: '직접배송', tracking_no: '' })
+        });
+      });
+      Promise.all(promises).then(function(results) {
+        var ok = results.filter(function(r) { return r.ok; }).length;
+        showToast(ok + '건 발송 처리 완료', 'success');
+        setTimeout(function() { location.reload(); }, 1500);
+      }).catch(function() {
+        showToast('발송 처리 중 오류 발생', 'error');
+      });
     }
   });
 }

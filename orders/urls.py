@@ -15,6 +15,7 @@ urlpatterns = [
     # ── 대시보드 ──────────────────────────────────────────────────────────────
     path('dashboard/', views.dashboard, name='dashboard'),
     path('dashboard/agency/', views.agency_dashboard, name='agency_dashboard'),
+    path('api/counts/', views.api_counts, name='api_counts'),
 
     # ── 설정 ────────────────────────────────────────────────────────────────
     path('settings/', views.site_settings, name='site_settings'),

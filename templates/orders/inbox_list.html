@@ -136,10 +136,7 @@
 <!-- 메일 탭 -->
 <div class="inbox-panel {% if tab == 'email' %}active{% endif %}">
   <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
-    <form method="post" action="{% url 'fetch_emails' %}">
-      {% csrf_token %}
-      <button type="submit" class="btn btn-orange btn-sm">새 메일 가져오기</button>
-    </form>
+    <button type="button" class="btn btn-orange btn-sm" id="fetchEmailBtn" onclick="fetchEmailsAjax()">새 메일 가져오기</button>
     {% if hide_done %}
       <a href="?tab=email{% if search %}&q={{ search|urlencode }}{% endif %}" class="btn btn-outline btn-sm">전체 보기</a>
     {% else %}
@@ -147,7 +144,7 @@
     {% endif %}
   </div>
 
-  <form method="post" action="{% url 'inbox_bulk_skip' %}">
+  <form method="post" action="{% url 'inbox_bulk_skip' %}" id="bulkSkipForm">
     {% csrf_token %}
     <input type="hidden" name="tab" value="email">
 
@@ -155,9 +152,9 @@
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
       <button type="submit" name="action" value="skip_selected" class="btn btn-outline btn-sm"
               onclick="return confirmSelected('email')">선택 처리완료</button>
-      <button type="submit" name="action" value="skip_all" class="btn btn-outline btn-sm"
+      <button type="button" class="btn btn-outline btn-sm"
               style="color:#c00;border-color:#c00"
-              onclick="return confirm('미처리 메일을 모두 처리완료하시겠습니까?')">전체 처리완료</button>
+              onclick="showConfirm({title:'전체 처리완료',message:'미처리 메일을 모두 처리완료하시겠습니까?',confirmText:'처리완료',confirmClass:'btn-red',onConfirm:()=>{var f=document.getElementById('bulkSkipForm');var h=document.createElement('input');h.type='hidden';h.name='action';h.value='skip_all';f.appendChild(h);f.submit();}})">전체 처리완료</button>
       <button type="button" class="btn btn-outline btn-sm"
               style="color:#888;border-color:#ccc"
               onclick="bulkDelete('email')">선택 삭제</button>
@@ -358,7 +355,7 @@
     {% if gdrive_connected %}
     <span class="drive-status"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Drive 연동됨</span>
     <a href="{% url 'call_sync_drive' %}" class="btn btn-blue btn-sm">동기화</a>
-    <a href="{% url 'call_recording_retry_all' %}" class="btn btn-outline btn-sm" onclick="return confirm('실패한 녹음을 전체 재시도합니다.')">전체 재시도</a>
+    <a href="#" class="btn btn-outline btn-sm" onclick="event.preventDefault();showConfirm({title:'전체 재시도',message:'실패한 녹음을 전체 재시도합니다.',confirmText:'재시도',confirmClass:'btn-blue',onConfirm:()=>location.href='{% url 'call_recording_retry_all' %}'})">전체 재시도</a>
     {% else %}
     <a href="{% url 'gdrive_auth_start' %}" class="btn btn-green btn-sm">Google Drive 연동</a>
     {% endif %}
@@ -477,19 +474,25 @@ function bulkDelete(type) {
     alert('삭제할 메시지를 선택해 주세요.');
     return;
   }
-  if (!confirm(checked.length + '건을 삭제하시겠습니까? 복구할 수 없습니다.')) return;
-  var form = document.getElementById('bulkDeleteForm');
-  document.getElementById('bulkDeleteTab').value = type === 'sms' ? 'sms' : 'email';
-  // remove old msg_ids
-  form.querySelectorAll('input[name=msg_ids]').forEach(function(el) { el.remove(); });
-  checked.forEach(function(cb) {
-    var input = document.createElement('input');
-    input.type = 'hidden';
-    input.name = 'msg_ids';
-    input.value = cb.value;
-    form.appendChild(input);
+  showConfirm({
+    title: '메시지 삭제',
+    message: checked.length + '건을 삭제하시겠습니까? 복구할 수 없습니다.',
+    confirmText: '삭제',
+    confirmClass: 'btn-red',
+    onConfirm: function() {
+      var form = document.getElementById('bulkDeleteForm');
+      document.getElementById('bulkDeleteTab').value = type === 'sms' ? 'sms' : 'email';
+      form.querySelectorAll('input[name=msg_ids]').forEach(function(el) { el.remove(); });
+      checked.forEach(function(cb) {
+        var input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'msg_ids';
+        input.value = cb.value;
+        form.appendChild(input);
+      });
+      form.submit();
+    }
   });
-  form.submit();
 }
 
 function toggleAll(master, type) {
@@ -504,7 +507,21 @@ function confirmSelected(type) {
     alert('처리완료할 메시지를 선택해 주세요.');
     return false;
   }
-  return confirm(checked.length + '건을 처리완료하시겠습니까?');
+  // Prevent default form submit, use custom dialog
+  var form = document.querySelector('form[action*="bulk-skip"]');
+  showConfirm({
+    title: '선택 처리완료',
+    message: checked.length + '건을 처리완료하시겠습니까?',
+    confirmText: '처리완료',
+    confirmClass: 'btn-orange',
+    onConfirm: function() {
+      var h = document.createElement('input');
+      h.type = 'hidden'; h.name = 'action'; h.value = 'skip_selected';
+      form.appendChild(h);
+      form.submit();
+    }
+  });
+  return false;
 }
 
 /* ── Slide Panel ── */
@@ -547,20 +564,91 @@ function closeSlidePanel() {
 
 function skipFromPanel() {
   if (!_currentPanelPk) return;
-  if (!confirm('이 메시지를 처리완료로 표시하시겠습니까?')) return;
-  var form = document.createElement('form');
-  form.method = 'POST';
-  form.action = '/inbox/' + _currentPanelPk + '/skip/';
-  var csrf = document.createElement('input');
-  csrf.type = 'hidden'; csrf.name = 'csrfmiddlewaretoken';
-  csrf.value = document.querySelector('[name=csrfmiddlewaretoken]').value;
-  form.appendChild(csrf);
-  document.body.appendChild(form);
-  form.submit();
+  showConfirm({
+    title: '처리완료',
+    message: '이 메시지를 처리완료로 표시하시겠습니까?',
+    confirmText: '처리완료',
+    confirmClass: 'btn-orange',
+    onConfirm: function() {
+      var form = document.createElement('form');
+      form.method = 'POST';
+      form.action = '/inbox/' + _currentPanelPk + '/skip/';
+      var csrf = document.createElement('input');
+      csrf.type = 'hidden'; csrf.name = 'csrfmiddlewaretoken';
+      csrf.value = document.querySelector('[name=csrfmiddlewaretoken]').value;
+      form.appendChild(csrf);
+      document.body.appendChild(form);
+      form.submit();
+    }
+  });
 }
 
 document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') closeSlidePanel();
 });
+
+// 2.3: AJAX 이메일 fetch + 스켈레톤 로더
+function fetchEmailsAjax() {
+  var btn = document.getElementById('fetchEmailBtn');
+  if (!btn) return;
+  btn.disabled = true;
+  btn.textContent = '가져오는 중...';
+  btn.classList.add('loading');
+
+  // 스켈레톤 오버레이 표시
+  var tableBox = document.querySelector('.inbox-panel.active .content-box');
+  if (tableBox) {
+    tableBox.classList.add('skeleton-overlay');
+    var skelDiv = document.createElement('div');
+    skelDiv.className = 'skeleton-content';
+    skelDiv.innerHTML = '<div style="padding:12px"><div class="skeleton-row"></div><div class="skeleton-row"></div><div class="skeleton-row"></div><div class="skeleton-row"></div><div class="skeleton-row"></div></div>';
+    tableBox.appendChild(skelDiv);
+  }
+
+  var csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value ||
+                  document.cookie.split(';').map(c => c.trim()).find(c => c.startsWith('csrftoken='))?.split('=')[1] || '';
+
+  fetch('{% url "fetch_emails" %}', {
+    method: 'POST',
+    headers: {
+      'X-CSRFToken': csrfToken,
+      'X-Requested-With': 'XMLHttpRequest'
+    }
+  })
+  .then(function(res) {
+    if (res.redirected) {
+      // 서버가 리다이렉트 응답 → 페이지 새로고침
+      location.reload();
+      return;
+    }
+    return res.json();
+  })
+  .then(function(data) {
+    if (!data) return;
+    if (data.ok) {
+      showToast((data.count || 0) + '건의 새 메일을 가져왔습니다.', 'success');
+      if (data.count > 0) {
+        setTimeout(function() { location.reload(); }, 1000);
+      } else {
+        // 스켈레톤 제거
+        if (tableBox) {
+          tableBox.classList.remove('skeleton-overlay');
+          var skel = tableBox.querySelector('.skeleton-content');
+          if (skel) skel.remove();
+        }
+        btn.disabled = false;
+        btn.textContent = '새 메일 가져오기';
+        btn.classList.remove('loading');
+      }
+    } else {
+      showToast(data.error || '메일 가져오기 실패', 'error');
+      location.reload();
+    }
+  })
+  .catch(function(err) {
+    showToast('메일 가져오기 실패: ' + err.message, 'error');
+    location.reload();
+  });
+}
 </script>
 {% endblock %}

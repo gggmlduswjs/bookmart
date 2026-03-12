@@ -117,7 +117,7 @@
     <!-- 총판 상태 변경 버튼 -->
     {% if can_ship %}
     <div id="ship-section" style="padding:10px;border-top:1px solid #eee" x-data="{carrier:'hanjin'}">
-      <form method="post" action="{% url 'order_ship' order.pk %}">
+      <form method="post" action="{% url 'order_ship' order.pk %}" id="shipForm">
         {% csrf_token %}
         <div style="margin-bottom:6px;display:flex;gap:10px;font-size:12px">
           <label style="cursor:pointer" for="carrier-hanjin">
@@ -133,16 +133,16 @@
                  style="width:100%;padding:4px 6px;border:1px solid #bbb;font-size:12px;box-sizing:border-box">
         </div>
         <button type="button" class="btn btn-orange" style="width:100%"
-                onclick="showConfirm({title:'발송 처리',message:'발송 처리하시겠습니까?\n선생님께 문자가 자동 발송됩니다.',confirmText:'발송 처리',confirmClass:'btn-orange',onConfirm:()=>this.closest('form').submit()})">발송 처리</button>
+                onclick="showConfirm({title:'발송 처리',message:'발송 처리하시겠습니까?\n선생님께 문자가 자동 발송됩니다.',confirmText:'발송 처리',confirmClass:'btn-orange',onConfirm:()=>document.getElementById('shipForm').submit()})">발송 처리</button>
       </form>
     </div>
     {% endif %}
     {% if can_deliver %}
     <div id="deliver-section" style="padding:10px;border-top:1px solid #eee">
-      <form method="post" action="{% url 'order_deliver' order.pk %}">
+      <form method="post" action="{% url 'order_deliver' order.pk %}" id="deliverForm">
         {% csrf_token %}
         <button type="button" class="btn btn-green" style="width:100%"
-                onclick="showConfirm({title:'배송완료',message:'배송완료 처리하시겠습니까?',confirmText:'배송완료',confirmClass:'btn-green',onConfirm:()=>this.closest('form').submit()})">배송완료 처리</button>
+                onclick="showConfirm({title:'배송완료',message:'배송완료 처리하시겠습니까?',confirmText:'배송완료',confirmClass:'btn-green',onConfirm:()=>document.getElementById('deliverForm').submit()})">배송완료 처리</button>
       </form>
     </div>
     {% endif %}
@@ -200,4 +200,56 @@
     </div>
   </div>
 </div>
+
+<script>
+// 1.4: 필터 상태 유지 - 목록 복귀 시 필터 유지
+(function() {
+  var savedUrl = sessionStorage.getItem('orderListUrl');
+  if (savedUrl) {
+    var backBtn = document.getElementById('backToListBtn');
+    if (backBtn) backBtn.href = savedUrl;
+  }
+})();
+
+// 3.4: 이전/다음 주문 네비게이션
+(function() {
+  var currentPk = {{ order.pk }};
+  var pks = [];
+  try { pks = JSON.parse(sessionStorage.getItem('orderPkList') || '[]'); } catch(e) {}
+  if (pks.length < 2) return;
+
+  var idx = pks.indexOf(currentPk);
+  if (idx === -1) return;
+
+  var nav = document.getElementById('prevNextNav');
+  var prevBtn = document.getElementById('prevOrderBtn');
+  var nextBtn = document.getElementById('nextOrderBtn');
+  if (!nav) return;
+
+  nav.style.display = '';
+
+  if (idx > 0) {
+    prevBtn.href = '/orders/' + pks[idx - 1] + '/';
+  } else {
+    prevBtn.style.opacity = '0.3';
+    prevBtn.style.pointerEvents = 'none';
+  }
+  if (idx < pks.length - 1) {
+    nextBtn.href = '/orders/' + pks[idx + 1] + '/';
+  } else {
+    nextBtn.style.opacity = '0.3';
+    nextBtn.style.pointerEvents = 'none';
+  }
+
+  // 키보드 화살표로 이전/다음
+  document.addEventListener('keydown', function(e) {
+    if (e.target.matches('input, textarea, select')) return;
+    if (e.key === 'ArrowLeft' && idx > 0) {
+      window.location.href = prevBtn.href;
+    } else if (e.key === 'ArrowRight' && idx < pks.length - 1) {
+      window.location.href = nextBtn.href;
+    }
+  });
+})();
+</script>
 {% endblock %}

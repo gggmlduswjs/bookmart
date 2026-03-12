@@ -47,7 +47,7 @@
 
 {% if tab == 'pending' %}
 <!-- ═══ 발송 대기 (접수 → 발송) ═══ -->
-<form method="post">
+<form method="post" id="pendingShipForm">
   {% csrf_token %}
   <input type="hidden" name="action" value="ship">
 
@@ -55,9 +55,10 @@
     <label for="check-all-pending" style="font-size:13px;color:#64748b;cursor:pointer">
       <input type="checkbox" id="check-all-pending" onchange="toggleAll(this, 'pending-chk')" aria-label="발송 대기 전체 선택"> 전체 선택
     </label>
-    <button type="submit" class="btn btn-orange btn-sm" onclick="return confirm('선택한 주문을 발송 처리하시겠습니까?')">
+    <button type="button" class="btn btn-orange btn-sm" onclick="showConfirm({title:'발송 처리',message:'선택한 주문을 발송 처리하시겠습니까?',confirmText:'발송 처리',confirmClass:'btn-orange',onConfirm:()=>document.getElementById('pendingShipForm').submit()})">
       선택 발송 처리
     </button>
+    <span id="trackingProgress" style="font-size:12px;color:#2563eb;font-weight:600;display:none"></span>
     <span style="font-size:12px;color:#94a3b8">운송장번호를 입력하면 선생님에게 문자가 발송됩니다</span>
     <button type="button" class="btn btn-blue btn-sm" onclick="document.getElementById('bulk-tracking-modal').style.display='flex'">일괄 운송장 입력</button>
   </div>
@@ -125,7 +126,7 @@
 
 {% elif tab == 'shipping' %}
 <!-- ═══ 배송중 (발송 → 완료) ═══ -->
-<form method="post">
+<form method="post" id="shippingDeliverForm">
   {% csrf_token %}
   <input type="hidden" name="action" value="deliver">
 
@@ -133,7 +134,7 @@
     <label for="check-all-shipping" style="font-size:13px;color:#64748b;cursor:pointer">
       <input type="checkbox" id="check-all-shipping" onchange="toggleAll(this, 'shipping-chk')" aria-label="배송중 전체 선택"> 전체 선택
     </label>
-    <button type="submit" class="btn btn-sm" style="background:#059669;color:#fff;border:none" onclick="return confirm('선택한 주문을 배송완료 처리하시겠습니까?')">
+    <button type="button" class="btn btn-sm" style="background:#059669;color:#fff;border:none" onclick="showConfirm({title:'배송완료',message:'선택한 주문을 배송완료 처리하시겠습니까?',confirmText:'배송완료',confirmClass:'btn-green',onConfirm:()=>document.getElementById('shippingDeliverForm').submit()})">
       선택 배송완료 처리
     </button>
   </div>
@@ -357,6 +358,65 @@ function bulkTrackingModal() {
 function toggleAll(el, cls) {
   document.querySelectorAll('.' + cls).forEach(function(cb) { cb.checked = el.checked; });
 }
+
+// 3.3: 운송장 자동탭 - Enter로 다음 행 이동 + 자동 체크 + 진행 표시
+(function() {
+  function updateTrackingProgress() {
+    var inputs = document.querySelectorAll('.tracking-input');
+    if (!inputs.length) return;
+    var filled = 0;
+    inputs.forEach(function(inp) { if (inp.value.trim()) filled++; });
+    var el = document.getElementById('trackingProgress');
+    if (el) {
+      if (filled > 0) {
+        el.textContent = filled + ' / ' + inputs.length + '건 운송장 입력됨';
+        el.style.display = '';
+      } else {
+        el.style.display = 'none';
+      }
+    }
+  }
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key !== 'Enter') return;
+    var target = e.target;
+    if (!target.classList.contains('tracking-input')) return;
+    e.preventDefault();
+
+    // 운송장 입력 시 해당 행 체크박스 자동 선택
+    var row = target.closest('tr');
+    if (row) {
+      var cb = row.querySelector('.pending-chk');
+      if (cb && target.value.trim()) cb.checked = true;
+    }
+
+    // 다음 행의 운송장 input으로 포커스 이동
+    var allInputs = Array.from(document.querySelectorAll('.tracking-input'));
+    var idx = allInputs.indexOf(target);
+    if (idx >= 0 && idx < allInputs.length - 1) {
+      allInputs[idx + 1].focus();
+      allInputs[idx + 1].select();
+    }
+
+    updateTrackingProgress();
+  });
+
+  // 운송장 입력 시 진행 표시 업데이트
+  document.addEventListener('input', function(e) {
+    if (e.target.classList.contains('tracking-input')) {
+      updateTrackingProgress();
+      // 자동 체크
+      var row = e.target.closest('tr');
+      if (row) {
+        var cb = row.querySelector('.pending-chk');
+        if (cb) cb.checked = !!e.target.value.trim();
+      }
+    }
+  });
+
+  updateTrackingProgress();
+})();
+
 // 배송방법 기본값 기억
 document.addEventListener('alpine:init', () => {
   const saved = localStorage.getItem('bm_default_carrier');

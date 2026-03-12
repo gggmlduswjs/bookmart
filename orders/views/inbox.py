@@ -331,6 +331,11 @@ def fetch_emails(request):
             new_count += 1
 
     sync_msg = f' (읽음 상태 {sync_count}건 동기화)' if sync_count else ''
+
+    # AJAX 요청이면 JSON 응답
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return JsonResponse({'ok': True, 'count': new_count, 'sync': sync_count})
+
     messages.success(request, f'새 메일 {new_count}건을 가져왔습니다.{sync_msg}')
     return redirect('inbox_list')
 

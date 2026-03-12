@@ -21,19 +21,58 @@
     a { color: #2563eb; text-decoration: none; }
     a:hover { color: #1d4ed8; text-decoration: none; }
 
-    /* ── 사이드바 ── */
+    /* ── 사이드바 (2.1 접이식) ── */
     #sidebar {
       position: fixed;
       top: 0; left: 0; bottom: 0;
-      width: 200px;
+      width: 56px;
       background: #fff;
       border-right: 1px solid #e2e8f0;
       z-index: 200;
       overflow-y: auto;
+      overflow-x: hidden;
+      transition: width 0.2s ease;
     }
+    #sidebar:hover,
+    #sidebar.pinned {
+      width: 200px;
+    }
+    #sidebar .sidebar-text {
+      opacity: 0;
+      white-space: nowrap;
+      transition: opacity 0.15s ease;
+      overflow: hidden;
+    }
+    #sidebar:hover .sidebar-text,
+    #sidebar.pinned .sidebar-text {
+      opacity: 1;
+    }
+    #sidebar .sidebar-icon {
+      width: 24px;
+      text-align: center;
+      flex-shrink: 0;
+      font-size: 16px;
+    }
+    #sidebar-pin {
+      position: absolute;
+      top: 8px;
+      right: 6px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 14px;
+      color: #94a3b8;
+      padding: 2px 4px;
+      border-radius: 3px;
+      opacity: 0;
+      transition: opacity 0.15s;
+    }
+    #sidebar:hover #sidebar-pin { opacity: 1; }
+    #sidebar.pinned #sidebar-pin { opacity: 1; color: #2563eb; }
+    #sidebar-pin:hover { background: #f1f5f9; }
 
     #logo {
-      padding: 18px 16px;
+      padding: 12px 10px;
       text-align: center;
       font-size: 20px;
       font-weight: 700;
@@ -41,7 +80,15 @@
       letter-spacing: -0.5px;
       line-height: 1.2;
       border-bottom: 1px solid #e2e8f0;
+      white-space: nowrap;
+      overflow: hidden;
     }
+    #logo .logo-full { display: none; }
+    #logo .logo-icon { display: block; font-size: 18px; }
+    #sidebar:hover #logo .logo-full,
+    #sidebar.pinned #logo .logo-full { display: block; }
+    #sidebar:hover #logo .logo-icon,
+    #sidebar.pinned #logo .logo-icon { display: none; }
     #logo span { display: block; font-size: 11px; color: #94a3b8; font-weight: 400; margin-top: 3px; letter-spacing: 0; }
 
     /* ── 아코디언 사이드바 ── */
@@ -49,7 +96,7 @@
     .sidebar-group-header {
       display: flex;
       align-items: center;
-      justify-content: space-between;
+      gap: 8px;
       padding: 10px 16px;
       font-weight: 600;
       font-size: 13px;
@@ -58,6 +105,11 @@
       border-bottom: 1px solid #f1f5f9;
       transition: background 0.15s ease, color 0.15s ease;
       user-select: none;
+      white-space: nowrap;
+      overflow: hidden;
+    }
+    .sidebar-group-header .chevron {
+      margin-left: auto;
     }
     .sidebar-group-header:hover {
       background: #f8fafc;
@@ -155,14 +207,16 @@
     /* ── 상단 탭 바 ── */
     #topbar {
       position: fixed;
-      top: 0; left: 200px; right: 0;
+      top: 0; left: 56px; right: 0;
       height: 48px;
       background: #1e293b;
       display: flex;
       align-items: stretch;
       z-index: 100;
       box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+      transition: left 0.2s ease;
     }
+    body.sidebar-pinned #topbar { left: 200px; }
 
     .tab-item {
       display: flex;
@@ -301,11 +355,13 @@
 
     /* ── 본문 ── */
     #content {
-      margin-left: 200px;
+      margin-left: 56px;
       margin-top: 48px;
       min-height: calc(100vh - 48px - 36px);
       padding: 20px 24px;
+      transition: margin-left 0.2s ease;
     }
+    body.sidebar-pinned #content { margin-left: 200px; }
 
     /* ── 페이지 제목 ── */
     .page-title {
@@ -614,6 +670,10 @@
       line-height: 1.4;
       vertical-align: middle;
     }
+    @keyframes badgePulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.3); }
+    }
 
     /* ── Skeleton Shimmer (2.3) ── */
     @keyframes shimmer {
@@ -650,6 +710,10 @@
 
     /* ── 푸터 ── */
     #footer {
+      margin-left: 56px;
+      transition: margin-left 0.2s ease;
+    }
+    body.sidebar-pinned #footer {
       margin-left: 200px;
       background: #f8fafc;
       border-top: 1px solid #e2e8f0;
@@ -689,16 +753,21 @@
       #menu-toggle { display: block; }
 
       #sidebar {
+        width: 200px;
         transform: translateX(-100%);
         transition: transform 0.2s ease;
         z-index: 300;
       }
       #sidebar.open { transform: translateX(0); }
+      #sidebar .sidebar-text { opacity: 1; }
+      #sidebar .logo-full { display: block !important; }
+      #sidebar .logo-icon { display: none !important; }
+      #sidebar-pin { display: none; }
 
       #sidebar-overlay.open { display: block; }
 
       #topbar {
-        left: 0;
+        left: 0 !important;
         padding-left: 48px;
         overflow-x: auto;
       }
@@ -710,11 +779,11 @@
       }
 
       #content {
-        margin-left: 0;
+        margin-left: 0 !important;
         padding: 12px 10px;
       }
 
-      #footer { margin-left: 0; }
+      #footer { margin-left: 0 !important; }
 
       /* 테이블 가로 스크롤 + 힌트 */
       .content-box { overflow-x: auto; -webkit-overflow-scrolling: touch; position: relative; }
@@ -746,6 +815,7 @@
   {% block extra_css %}{% endblock %}
 </head>
 <body>
+<script>if(localStorage.getItem('sidebarPinned')==='true')document.body.classList.add('sidebar-pinned');</script>
 
 {% if user.is_authenticated %}
 {% with cur=request.resolver_match.url_name %}
@@ -755,8 +825,13 @@
 <div id="sidebar-overlay" onclick="document.getElementById('sidebar').classList.remove('open');this.classList.remove('open');"></div>
 
 <!-- 사이드바 (아코디언) -->
-<div id="sidebar">
-  <div id="logo">북마트<span>주문관리시스템</span></div>
+<div id="sidebar" :class="{'pinned': sidebarPinned}" x-data="{sidebarPinned: localStorage.getItem('sidebarPinned')==='true'}" x-init="if(sidebarPinned) document.body.classList.add('sidebar-pinned')">
+  <button id="sidebar-pin" type="button" @click="sidebarPinned=!sidebarPinned;localStorage.setItem('sidebarPinned',sidebarPinned);document.body.classList.toggle('sidebar-pinned')"
+          :title="sidebarPinned ? '사이드바 접기' : '사이드바 고정'" x-text="sidebarPinned ? '◀' : '▶'"></button>
+  <div id="logo">
+    <div class="logo-full">북마트<span>주문관리시스템</span></div>
+    <div class="logo-icon">B</div>
+  </div>
 
   {% if user.is_admin %}
   {# ── 관리자 아코디언 사이드바 ── #}
@@ -773,15 +848,17 @@
     {# 대시보드 - 직접 링크 #}
     <a href="{% url 'dashboard' %}"
        class="sidebar-group-header {% if cur == 'dashboard' %}group-active{% endif %}">
-      대시보드
+      <span class="sidebar-icon">&#9673;</span>
+      <span class="sidebar-text">대시보드</span>
     </a>
 
     {# 주문관리 #}
     <div class="sidebar-group">
       <div class="sidebar-group-header" :class="{'group-active': open === 'orders'}"
            @click="open = open === 'orders' ? '' : 'orders'">
-        <span>주문관리</span>
-        <span class="chevron" x-text="open === 'orders' ? '&#9662;' : '&#9656;'"></span>
+        <span class="sidebar-icon">&#9997;</span>
+        <span class="sidebar-text">주문관리</span>
+        <span class="chevron sidebar-text" x-text="open === 'orders' ? '&#9662;' : '&#9656;'"></span>
       </div>
       <div class="accordion-items" x-show="open === 'orders'" x-collapse x-cloak>
         <a href="{% url 'inbox_list' %}" class="{% if cur == 'inbox_list' or cur == 'inbox_process' or cur == 'call_inbox' or cur == 'call_recording_process' %}active{% endif %}">수신함</a>
@@ -794,15 +871,17 @@
     {# 배송관리 - 직접 링크 #}
     <a href="{% url 'delivery_manage' %}"
        class="sidebar-group-header {% if cur == 'delivery_manage' %}group-active{% endif %}">
-      배송관리
+      <span class="sidebar-icon">&#128666;</span>
+      <span class="sidebar-text">배송관리</span>
     </a>
 
     {# 교재관리 #}
     <div class="sidebar-group">
       <div class="sidebar-group-header" :class="{'group-active': open === 'books'}"
            @click="open = open === 'books' ? '' : 'books'">
-        <span>교재관리</span>
-        <span class="chevron" x-text="open === 'books' ? '&#9662;' : '&#9656;'"></span>
+        <span class="sidebar-icon">&#128214;</span>
+        <span class="sidebar-text">교재관리</span>
+        <span class="chevron sidebar-text" x-text="open === 'books' ? '&#9662;' : '&#9656;'"></span>
       </div>
       <div class="accordion-items" x-show="open === 'books'" x-collapse x-cloak>
         <a href="{% url 'book_list' %}" class="{% if cur == 'book_list' or cur == 'book_create' or cur == 'book_edit' or cur == 'book_toggle' %}active{% endif %}">교재 목록</a>
@@ -816,8 +895,9 @@
     <div class="sidebar-group">
       <div class="sidebar-group-header" :class="{'group-active': open === 'finance'}"
            @click="open = open === 'finance' ? '' : 'finance'">
-        <span>정산관리</span>
-        <span class="chevron" x-text="open === 'finance' ? '&#9662;' : '&#9656;'"></span>
+        <span class="sidebar-icon">&#128176;</span>
+        <span class="sidebar-text">정산관리</span>
+        <span class="chevron sidebar-text" x-text="open === 'finance' ? '&#9662;' : '&#9656;'"></span>
       </div>
       <div class="accordion-items" x-show="open === 'finance'" x-collapse x-cloak>
         <a href="{% url 'ledger' %}" class="{% if cur == 'ledger' or cur == 'export_ledger' %}active{% endif %}">거래내역</a>
@@ -831,8 +911,9 @@
     <div class="sidebar-group">
       <div class="sidebar-group-header" :class="{'group-active': open === 'agencies'}"
            @click="open = open === 'agencies' ? '' : 'agencies'">
-        <span>업체관리</span>
-        <span class="chevron" x-text="open === 'agencies' ? '&#9662;' : '&#9656;'"></span>
+        <span class="sidebar-icon">&#127970;</span>
+        <span class="sidebar-text">업체관리</span>
+        <span class="chevron sidebar-text" x-text="open === 'agencies' ? '&#9662;' : '&#9656;'"></span>
       </div>
       <div class="accordion-items" x-show="open === 'agencies'" x-collapse x-cloak>
         <a href="{% url 'agency_list' %}" class="{% if cur == 'agency_list' %}active{% endif %}">업체 목록</a>
@@ -845,14 +926,16 @@
     <a href="{% url 'notice_list' %}"
        class="sidebar-group-header {% if cur == 'notice_list' %}group-active{% endif %}"
        style="margin-top:8px">
-      📢 공지관리
+      <span class="sidebar-icon">&#128227;</span>
+      <span class="sidebar-text">공지관리</span>
     </a>
 
     {# 설정 #}
     <a href="{% url 'site_settings' %}"
        class="sidebar-group-header {% if cur == 'site_settings' %}group-active{% endif %}"
        style="margin-top:8px">
-      ⚙ 설정
+      <span class="sidebar-icon">&#9881;</span>
+      <span class="sidebar-text">설정</span>
     </a>
 
   </div>
@@ -997,10 +1080,10 @@
   {% if user.is_admin %}
     <a href="{% url 'dashboard' %}"
        class="tab-item {% if cur == 'dashboard' %}active{% endif %}">대시보드</a>
-    <a href="{% url 'order_list' %}"
-       class="tab-item {% if cur == 'order_list' or cur == 'order_detail' or cur == 'order_ship' or cur == 'order_deliver' or cur == 'order_cancel' or cur == 'order_create_admin' or cur == 'return_list' or cur == 'return_detail' or cur == 'return_confirm' or cur == 'return_reject' or cur == 'inbox_list' or cur == 'inbox_process' or cur == 'call_order_upload' or cur == 'call_order_confirm' or cur == 'call_inbox' or cur == 'call_recording_process' %}active{% endif %}">주문관리{% if pending_order_count %} <span class="tab-badge">{{ pending_order_count }}</span>{% endif %}</a>
-    <a href="{% url 'delivery_manage' %}"
-       class="tab-item {% if cur == 'delivery_manage' %}active{% endif %}">배송관리</a>
+    <a href="{% url 'order_list' %}" id="topbar-orders"
+       class="tab-item {% if cur == 'order_list' or cur == 'order_detail' or cur == 'order_ship' or cur == 'order_deliver' or cur == 'order_cancel' or cur == 'order_create_admin' or cur == 'return_list' or cur == 'return_detail' or cur == 'return_confirm' or cur == 'return_reject' or cur == 'inbox_list' or cur == 'inbox_process' or cur == 'call_order_upload' or cur == 'call_order_confirm' or cur == 'call_inbox' or cur == 'call_recording_process' %}active{% endif %}">주문관리<span id="badge-pending" class="tab-badge" style="{% if not pending_order_count %}display:none{% endif %}">{{ pending_order_count|default:"" }}</span></a>
+    <a href="{% url 'delivery_manage' %}" id="topbar-delivery"
+       class="tab-item {% if cur == 'delivery_manage' %}active{% endif %}">배송관리<span id="badge-delivery" class="tab-badge" style="display:none"></span></a>
     <a href="{% url 'book_list' %}"
        class="tab-item {% if cur == 'book_list' or cur == 'book_create' or cur == 'book_edit' or cur == 'book_import' or cur == 'publisher_list' or cur == 'publisher_create' or cur == 'publisher_edit' or cur == 'purchase_order' %}active{% endif %}">교재관리</a>
     <a href="{% url 'ledger' %}"
@@ -1242,6 +1325,46 @@ function copyToClipboard(text, btn) {
     }, 1500);
   });
 }
+
+// ── 실시간 카운트 배지 폴링 (3.2) ──
+{% if user.is_authenticated and user.is_admin %}
+(function() {
+  var _prevCounts = {};
+  function updateBadge(id, count) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    if (count > 0) {
+      var prev = _prevCounts[id] || 0;
+      el.textContent = count;
+      el.style.display = '';
+      // 카운트 증가 시 깜빡임
+      if (count > prev && prev > 0) {
+        el.style.animation = 'none';
+        el.offsetHeight; // reflow
+        el.style.animation = 'badgePulse 0.6s ease 2';
+      }
+      _prevCounts[id] = count;
+    } else {
+      el.style.display = 'none';
+      _prevCounts[id] = 0;
+    }
+  }
+
+  function pollCounts() {
+    fetch('/api/counts/')
+      .then(function(r) { return r.ok ? r.json() : null; })
+      .then(function(data) {
+        if (!data) return;
+        updateBadge('badge-pending', data.pending_orders);
+        updateBadge('badge-delivery', data.pending_delivery);
+      })
+      .catch(function() {});
+  }
+
+  // 60초 간격 폴링
+  setInterval(pollCounts, 60000);
+})();
+{% endif %}
 
 // ── Global Confirm Dialog (1.2) ──
 function confirmDialog() {

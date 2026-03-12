@@ -80,6 +80,52 @@
   .sticky-summary .summary-total {
     font-size: 18px; font-weight: 800; color: #fbbf24;
   }
+  /* 위저드 스텝 (3.1) */
+  .wizard-step {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 10px;
+    background: #f8fafc;
+    border: none;
+    border-right: 1px solid #e2e8f0;
+    cursor: pointer;
+    font-size: 13px;
+    color: #94a3b8;
+    font-family: inherit;
+    transition: all 0.15s;
+  }
+  .wizard-step:last-child { border-right: none; }
+  .wizard-step:hover { background: #f1f5f9; }
+  .wizard-step.active {
+    background: #eff6ff;
+    color: #1e40af;
+    font-weight: 600;
+  }
+  .wizard-step.done {
+    background: #ecfdf5;
+    color: #059669;
+  }
+  .wizard-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    font-size: 11px;
+    font-weight: 700;
+    background: #e2e8f0;
+    color: #64748b;
+  }
+  .wizard-step.active .wizard-num { background: #2563eb; color: #fff; }
+  .wizard-step.done .wizard-num { background: #059669; color: #fff; }
+  .wizard-label { white-space: nowrap; }
+  @media (max-width: 480px) {
+    .wizard-label { display: none; }
+  }
 </style>
 {% endblock %}
 
@@ -104,7 +150,24 @@
   <input type="hidden" name="delivery_address" :value="deliveryAddr">
   <input type="hidden" name="delivery_phone" :value="deliveryPhone">
 
-  <!-- 업체/선생님/배송지 -->
+  <!-- 위저드 진행 표시 (3.1) -->
+  <div class="wizard-steps" style="display:flex;gap:0;margin-bottom:16px;background:#fff;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden">
+    <button type="button" class="wizard-step" :class="step===1 ? 'active' : (step>1 ? 'done' : '')" @click="goToStep(1)">
+      <span class="wizard-num">1</span>
+      <span class="wizard-label">업체/배송지</span>
+    </button>
+    <button type="button" class="wizard-step" :class="step===2 ? 'active' : (step>2 ? 'done' : '')" @click="goToStep(2)">
+      <span class="wizard-num">2</span>
+      <span class="wizard-label">교재 선택</span>
+    </button>
+    <button type="button" class="wizard-step" :class="step===3 ? 'active' : ''" @click="goToStep(3)">
+      <span class="wizard-num">3</span>
+      <span class="wizard-label">확인/제출</span>
+    </button>
+  </div>
+
+  <!-- Step 1: 업체/선생님/배송지 -->
+  <div x-show="step===1" x-transition>
   <div class="content-box" style="padding:0;margin-bottom:10px">
     <div class="collapsible-header" @click="section1Open = !section1Open">
       <div style="display:flex;align-items:center">
@@ -212,6 +275,13 @@
     </div>
   </div>
 
+  <div style="text-align:right;margin-top:12px">
+    <button type="button" class="btn btn-orange" @click="validateStep1() && (step=2)" style="padding:8px 32px">다음 &rarr;</button>
+  </div>
+  </div>
+
+  <!-- Step 2: 교재 선택 -->
+  <div x-show="step===2" x-transition>
   <!-- 엑셀 업로드 -->
   <div class="content-box" style="padding:12px 14px;margin-bottom:10px">
     <div style="display:flex;align-items:center;gap:10px">
@@ -324,14 +394,36 @@
     합계: <span x-text="total().toLocaleString()" style="font-size:15px;color:#e8720c"></span>원
   </div>
 
+  <div style="display:flex;gap:8px;margin-top:12px">
+    <button type="button" class="btn btn-outline" @click="step=1" style="padding:8px 24px">&larr; 이전</button>
+    <button type="button" class="btn btn-orange" @click="validateStep2() && (step=3)" style="padding:8px 32px">다음 &rarr;</button>
+  </div>
+  </div>
+
+  <!-- Step 3: 확인/제출 -->
+  <div x-show="step===3" x-transition>
+  <div class="content-box" style="padding:16px;margin-bottom:10px">
+    <h3 style="font-size:14px;font-weight:700;color:#334155;margin-bottom:12px">주문 확인</h3>
+    <table class="form-table" style="width:100%;margin-bottom:12px">
+      <tr><th>업체</th><td x-text="ALL_AGENCIES.find(a=>a.id==agencyId)?.name||'-'"></td></tr>
+      <tr><th>선생님</th><td x-text="teacherQuery||newTeacherName||'-'"></td></tr>
+      <tr><th>학교</th><td x-text="deliverySchool||'-'"></td></tr>
+      <tr><th>주소</th><td x-text="deliveryAddr||'-'"></td></tr>
+      <tr><th>교재</th><td><span x-text="rows.filter(r=>r.book_id||(r.is_custom&&r.custom_name)).length"></span>건</td></tr>
+      <tr><th>합계금액</th><td style="font-weight:bold;color:#e8720c"><span x-text="total().toLocaleString()"></span>원</td></tr>
+    </table>
+  </div>
+
   <div style="margin-top:10px;display:flex;align-items:center;gap:8px">
     <label style="white-space:nowrap;background:#777;color:#fff;padding:3px 8px;font-size:12px">메모</label>
     <input type="text" name="memo" style="flex:1;padding:4px 8px;border:1px solid #bbb;font-size:12px" placeholder="전화 주문 접수 등 특이사항">
   </div>
 
-  <div style="margin-top:12px">
+  <div style="margin-top:12px;display:flex;gap:8px">
+    <button type="button" class="btn btn-outline" @click="step=2" style="padding:8px 24px">&larr; 이전</button>
     <button type="button" class="btn btn-orange" @click="submitOrder" style="padding:6px 30px">주문 완료</button>
     <a href="{% url 'order_list' %}" class="btn btn-outline" style="margin-left:8px">취소</a>
+  </div>
   </div>
 
   <!-- 하단 고정 요약바 -->
@@ -358,6 +450,8 @@ const ALL_AGENCIES = {{ agencies_json|safe }};
 
 function adminOrderForm() {
   return {
+    // 위저드 스텝 (3.1)
+    step: 1,
     // 업체
     agencyId: '',
     ALL_AGENCIES: ALL_AGENCIES,
@@ -377,6 +471,32 @@ function adminOrderForm() {
     // 교재
     rows: [{ book_id: '', qty: 1, unit_price: 0, bookQuery: '', showBookList: false, filteredBooks: [], bookAcIdx: -1 }],
 
+    validateStep1() {
+      this.errors = {};
+      if (!this.agencyId) this.errors.agency = '업체를 선택하세요.';
+      if (!this.teacherId && !this.newTeacherName) this.errors.teacher = '선생님을 선택하거나 신규 등록하세요.';
+      if (!this.deliverySchool) this.errors.delivery = '학교명을 입력하세요.';
+      if (Object.keys(this.errors).length) {
+        this.section1Open = true;
+        this.$nextTick(() => { var el = document.querySelector('.field-error[style*=""]'); if (el) el.scrollIntoView({behavior:'smooth',block:'center'}); });
+        return false;
+      }
+      return true;
+    },
+    validateStep2() {
+      this.errors = {};
+      if (!this.rows.some(r => (r.book_id || (r.is_custom && r.custom_name)) && r.qty > 0)) {
+        this.errors.items = '주문할 교재를 선택하세요.';
+        return false;
+      }
+      return true;
+    },
+    goToStep(n) {
+      if (n === 2 && !this.validateStep1()) return;
+      if (n === 3 && (!this.validateStep1() || !this.validateStep2())) return;
+      this.step = n;
+      window.scrollTo({top:0, behavior:'smooth'});
+    },
     openPostcode() {
       const self = this;
       new daum.Postcode({
