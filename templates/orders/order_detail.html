@@ -8,6 +8,7 @@
   {% if request.user.is_admin or request.user.is_agency %}
   <a href="{% url 'order_invoice' order.pk %}" target="_blank" class="btn btn-dark btn-sm">거래명세서</a>
   <a href="{% url 'order_quote' order.pk %}" target="_blank" class="btn btn-outline btn-sm">견적서</a>
+  <a href="{% url 'quote_email' order.pk %}" class="btn btn-outline btn-sm" style="color:#e8720c;border-color:#e8720c">견적서 메일</a>
   {% endif %}
   {% if request.user.is_admin %}
   <a href="{% url 'order_copy' order.pk %}" class="btn btn-outline btn-sm">복사 주문</a>

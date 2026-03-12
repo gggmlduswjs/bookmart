@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+{% block title %}견적서 이메일 발송 — {{ order.order_no }}{% endblock %}
+
+{% block content %}
+<div style="max-width:1100px;margin:0 auto" x-data="{
+  showPreview: false,
+  toEmail: '{{ default_subject|escapejs }}' ? '' : '',
+}">
+
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
+    <h2 style="font-size:18px;font-weight:700;margin:0">견적서 이메일 발송</h2>
+    <span style="font-size:13px;color:#64748b">주문번호 {{ order.order_no }}</span>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+
+    <!-- 왼쪽: 이메일 작성 -->
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:20px">
+      <h3 style="font-size:15px;font-weight:700;margin-bottom:16px;padding-bottom:8px;border-bottom:2px solid #e8720c;color:#e8720c">이메일 작성</h3>
+
+      <form method="post" id="emailForm">
+        {% csrf_token %}
+
+        <div style="margin-bottom:12px">
+          <label style="display:block;font-size:12px;font-weight:600;color:#475569;margin-bottom:4px">수신 이메일 *</label>
+          <input type="email" name="to_email" required
+                 placeholder="school@example.com"
+                 style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px">
+        </div>
+
+        <div style="margin-bottom:12px">
+          <label style="display:block;font-size:12px;font-weight:600;color:#475569;margin-bottom:4px">제목</label>
+          <input type="text" name="subject" value="{{ default_subject }}"
+                 style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px">
+        </div>
+
+        <div style="margin-bottom:16px">
+          <label style="display:block;font-size:12px;font-weight:600;color:#475569;margin-bottom:4px">본문</label>
+          <textarea name="body" rows="14"
+                    style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;font-family:inherit;line-height:1.6;resize:vertical">{{ default_body }}</textarea>
+        </div>
+
+        <!-- 첨부 서류 -->
+        <div style="margin-bottom:16px">
+          <label style="display:block;font-size:12px;font-weight:600;color:#475569;margin-bottom:8px">
+            첨부 서류
+            {% if not docs %}
+            <a href="{% url 'business_doc_list' %}" style="font-weight:400;font-size:11px;color:#2563eb;margin-left:6px">서류 등록하기</a>
+            {% endif %}
+          </label>
+
+          {% for doc in docs %}
+          <label style="display:flex;align-items:center;gap:8px;padding:6px 10px;margin-bottom:4px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer;font-size:13px"
+                 onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='#f8fafc'">
+            <input type="checkbox" name="doc_ids" value="{{ doc.pk }}"
+                   {% if doc.auto_attach %}checked{% endif %}
+                   style="accent-color:#e8720c">
+            <span style="flex:1">{{ doc.name }}</span>
+            <span style="font-size:11px;color:#94a3b8;text-transform:uppercase">{{ doc.extension }}</span>
+            <span style="font-size:11px;color:#94a3b8">{{ doc.size_display }}</span>
+          </label>
+          {% empty %}
+          <div style="padding:12px;background:#fef3c7;border-radius:6px;font-size:12px;color:#92400e">
+            등록된 사업자 서류가 없습니다. <a href="{% url 'business_doc_list' %}" style="color:#d97706;font-weight:600">설정 &gt; 사업자 서류</a>에서 등록하세요.
+          </div>
+          {% endfor %}
+        </div>
+
+        <div style="display:flex;gap:8px">
+          <button type="submit"
+                  style="flex:1;padding:10px;background:#e8720c;color:#fff;border:none;border-radius:6px;font-size:14px;font-weight:700;cursor:pointer"
+                  onmouseover="this.style.background='#d16009'" onmouseout="this.style.background='#e8720c'"
+                  onclick="return confirm('이메일을 발송하시겠습니까?')">
+            발송하기
+          </button>
+          <a href="{% url 'order_quote' order.pk %}"
+             style="padding:10px 20px;background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;font-weight:600;text-align:center;text-decoration:none">
+            견적서 인쇄
+          </a>
+          <a href="{% url 'order_detail' order.pk %}"
+             style="padding:10px 20px;background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;text-align:center;text-decoration:none">
+            취소
+          </a>
+        </div>
+      </form>
+    </div>
+
+    <!-- 오른쪽: 견적서 미리보기 -->
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:20px;overflow:auto">
+      <h3 style="font-size:15px;font-weight:700;margin-bottom:16px;padding-bottom:8px;border-bottom:2px solid #1e40af;color:#1e40af">견적서 미리보기</h3>
+
+      <div style="border:1px solid #ccc;padding:20px;font-size:11px;background:#fff">
+        <!-- 제목 -->
+        <div style="text-align:center;font-size:22px;font-weight:bold;letter-spacing:14px;padding:6px 0;border-bottom:2px solid #000;margin-bottom:8px">견 적 서</div>
+
+        <!-- 헤더 -->
+        <div style="display:flex;gap:12px;margin-bottom:8px">
+          <div style="flex:1;line-height:2.0;font-size:11px">
+            <div>{{ order.ordered_at|date:"Y" }}년 {{ order.ordered_at|date:"n" }}월 {{ order.ordered_at|date:"j" }}일</div>
+            <div style="font-size:13px;font-weight:bold">{{ order.delivery.name }} 귀중</div>
+            <div style="margin-top:8px">아래와 같이 견적합니다.</div>
+          </div>
+          <div style="flex:0 0 240px">
+            <table style="width:100%;border-collapse:collapse;font-size:10px">
+              <tr><td style="border:1px solid #000;background:#f5f5f0;text-align:center;font-weight:bold;width:50px">등록번호</td><td style="border:1px solid #000;padding:2px 4px" colspan="3">108-91-20797</td></tr>
+              <tr><td style="border:1px solid #000;background:#f5f5f0;text-align:center;font-weight:bold">상 호</td><td style="border:1px solid #000;padding:2px 4px">북마트E&C</td><td style="border:1px solid #000;background:#f5f5f0;text-align:center;font-weight:bold;width:36px">성 명</td><td style="border:1px solid #000;padding:2px 4px">전우득</td></tr>
+              <tr><td style="border:1px solid #000;background:#f5f5f0;text-align:center;font-weight:bold">전 화</td><td style="border:1px solid #000;padding:2px 4px;font-size:9px" colspan="3">02-833-0864 / 031-917-0864</td></tr>
+            </table>
+          </div>
+        </div>
+
+        <!-- 금액 -->
+        <div style="display:flex;border:2px solid #000;font-size:12px;font-weight:bold;margin-bottom:0">
+          <div style="padding:5px 10px;background:#f5f5f0;border-right:2px solid #000;white-space:nowrap;letter-spacing:3px">金 額</div>
+          <div style="flex:1;padding:5px 10px;text-align:center">일금 {{ amount_korean }}원정 ({{ total_amount|floatformat:0 }}원)</div>
+        </div>
+
+        <!-- 품목 -->
+        <table style="width:100%;border-collapse:collapse;margin-top:-1px;font-size:10px">
+          <thead>
+            <tr style="background:#f5f5f0">
+              <th style="border:1px solid #000;padding:3px;font-weight:bold">품 명</th>
+              <th style="border:1px solid #000;padding:3px;width:50px;font-weight:bold">정가</th>
+              <th style="border:1px solid #000;padding:3px;width:35px;font-weight:bold">수량</th>
+              <th style="border:1px solid #000;padding:3px;width:60px;font-weight:bold">금액</th>
+              <th style="border:1px solid #000;padding:3px;width:50px;font-weight:bold">출판사</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in items %}
+            <tr>
+              <td style="border:1px solid #000;padding:3px">{{ item.display_name }}</td>
+              <td style="border:1px solid #000;padding:3px;text-align:right;font-family:monospace">{{ item.list_price|floatformat:0 }}</td>
+              <td style="border:1px solid #000;padding:3px;text-align:center">{{ item.quantity }}</td>
+              <td style="border:1px solid #000;padding:3px;text-align:right;font-family:monospace">{{ item.list_price_total|floatformat:0 }}</td>
+              <td style="border:1px solid #000;padding:3px;text-align:center;font-size:9px">{{ item.display_publisher }}</td>
+            </tr>
+            {% endfor %}
+            <tr style="font-weight:bold;border-top:2px solid #000">
+              <td style="border:1px solid #000;padding:3px;text-align:center">합계</td>
+              <td style="border:1px solid #000"></td>
+              <td style="border:1px solid #000;padding:3px;text-align:center">{{ total_qty }}</td>
+              <td style="border:1px solid #000;padding:3px;text-align:right;font-family:monospace">{{ total_amount|floatformat:0 }}</td>
+              <td style="border:1px solid #000"></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div style="text-align:center;font-size:11px;font-weight:bold;padding:6px;margin-top:4px;border:1px solid #000">
+          국민은행 493601-01-149387 전우득(북마트E앤C)
+        </div>
+      </div>
+
+      <!-- 첨부 서류 안내 -->
+      {% if docs %}
+      <div style="margin-top:12px;padding:10px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:6px">
+        <div style="font-size:12px;font-weight:600;color:#0369a1;margin-bottom:6px">자동 첨부 서류</div>
+        {% for doc in docs %}
+        {% if doc.auto_attach %}
+        <div style="font-size:12px;color:#475569;padding:2px 0">
+          <span style="color:#059669">&#10003;</span> {{ doc.name }} <span style="color:#94a3b8">({{ doc.size_display }})</span>
+        </div>
+        {% endif %}
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+
+  </div>
+</div>
+{% endblock %}

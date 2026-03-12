@@ -274,6 +274,7 @@
   <!-- 버튼 -->
   <div class="btn-bar">
     <button class="btn-primary" onclick="window.print()">인 쇄</button>
+    <a href="{% url 'quote_email' order.pk %}" style="background:#e8720c;color:#fff;border-color:#e8720c">이메일 발송</a>
     <a href="{% url 'order_detail' order.pk %}">주문 상세</a>
     <button onclick="window.close()">닫 기</button>
   </div>

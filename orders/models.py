@@ -621,3 +621,37 @@ class SiteConfig(models.Model):
     def get(cls):
         obj, _ = cls.objects.get_or_create(pk=1)
         return obj
+
+
+class BusinessDocument(models.Model):
+    """사업자 서류 (사업자등록증, 통장사본 등) — 이메일 자동첨부용"""
+    name = models.CharField(max_length=100, verbose_name='서류명')
+    file = models.FileField(upload_to='business_docs/', verbose_name='파일')
+    auto_attach = models.BooleanField(default=True, verbose_name='자동 첨부')
+    order_no = models.IntegerField(default=0, verbose_name='정렬순서')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'business_documents'
+        verbose_name = '사업자 서류'
+        verbose_name_plural = '사업자 서류 목록'
+        ordering = ['order_no', 'name']
+
+    def __str__(self):
+        return self.name
+
+    @property
+    def extension(self):
+        return self.file.name.rsplit('.', 1)[-1].lower() if '.' in self.file.name else ''
+
+    @property
+    def size_display(self):
+        try:
+            size = self.file.size
+            if size < 1024:
+                return f'{size}B'
+            elif size < 1024 * 1024:
+                return f'{size / 1024:.0f}KB'
+            return f'{size / 1024 / 1024:.1f}MB'
+        except Exception:
+            return ''

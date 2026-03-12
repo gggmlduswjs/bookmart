@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}사업자 서류 관리{% endblock %}
+
+{% block content %}
+<div style="max-width:700px;margin:0 auto">
+
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
+    <h2 style="font-size:18px;font-weight:700;margin:0">사업자 서류 관리</h2>
+    <span style="font-size:12px;color:#64748b">견적서 이메일 발송 시 자동 첨부됩니다</span>
+  </div>
+
+  <!-- 등록된 서류 목록 -->
+  <div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:20px;margin-bottom:20px">
+    <h3 style="font-size:14px;font-weight:700;margin-bottom:12px;color:#334155">등록된 서류</h3>
+
+    {% for doc in docs %}
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;margin-bottom:6px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px">
+      <!-- 파일 아이콘 -->
+      <div style="width:36px;height:36px;background:{% if doc.extension == 'pdf' %}#dc2626{% elif doc.extension == 'hwp' %}#2563eb{% else %}#6b7280{% endif %};color:#fff;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;text-transform:uppercase;flex-shrink:0">
+        {{ doc.extension }}
+      </div>
+
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:600;color:#1e293b">{{ doc.name }}</div>
+        <div style="font-size:11px;color:#94a3b8">{{ doc.size_display }}</div>
+      </div>
+
+      <!-- 자동첨부 토글 -->
+      <form method="post" action="{% url 'business_doc_toggle' doc.pk %}" style="margin:0">
+        {% csrf_token %}
+        <button type="submit"
+                style="padding:4px 10px;border:1px solid {% if doc.auto_attach %}#059669{% else %}#cbd5e1{% endif %};border-radius:12px;font-size:11px;cursor:pointer;background:{% if doc.auto_attach %}#ecfdf5{% else %}#f8fafc{% endif %};color:{% if doc.auto_attach %}#059669{% else %}#94a3b8{% endif %}"
+                title="클릭하면 자동첨부 {% if doc.auto_attach %}해제{% else %}설정{% endif %}">
+          {% if doc.auto_attach %}자동첨부{% else %}미첨부{% endif %}
+        </button>
+      </form>
+
+      <!-- 삭제 -->
+      <form method="post" action="{% url 'business_doc_delete' doc.pk %}" style="margin:0"
+            onsubmit="return confirm('정말 삭제하시겠습니까?')">
+        {% csrf_token %}
+        <button type="submit"
+                style="padding:4px 8px;border:1px solid #fecaca;border-radius:4px;font-size:11px;cursor:pointer;background:#fef2f2;color:#dc2626">
+          삭제
+        </button>
+      </form>
+    </div>
+    {% empty %}
+    <div style="padding:24px;text-align:center;color:#94a3b8;font-size:13px">
+      등록된 서류가 없습니다. 아래에서 서류를 업로드하세요.
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- 서류 업로드 -->
+  <div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:20px">
+    <h3 style="font-size:14px;font-weight:700;margin-bottom:12px;color:#334155">서류 업로드</h3>
+
+    <form method="post" enctype="multipart/form-data">
+      {% csrf_token %}
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+        <div>
+          <label style="display:block;font-size:12px;font-weight:600;color:#475569;margin-bottom:4px">서류명 *</label>
+          <input type="text" name="name" required placeholder="예: 사업자등록증"
+                 style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px">
+        </div>
+        <div>
+          <label style="display:block;font-size:12px;font-weight:600;color:#475569;margin-bottom:4px">파일 *</label>
+          <input type="file" name="file" required accept=".pdf,.hwp,.jpg,.jpeg,.png,.xlsx,.xls,.doc,.docx"
+                 style="width:100%;padding:6px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px">
+        </div>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:12px">
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
+          <input type="checkbox" name="auto_attach" checked style="accent-color:#e8720c">
+          견적서 이메일 발송 시 자동 첨부
+        </label>
+        <div style="flex:1"></div>
+        <button type="submit"
+                style="padding:8px 24px;background:#e8720c;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer"
+                onmouseover="this.style.background='#d16009'" onmouseout="this.style.background='#e8720c'">
+          등록
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <div style="margin-top:16px;text-align:center">
+    <a href="{% url 'site_settings' %}" style="font-size:13px;color:#64748b">&larr; 설정으로 돌아가기</a>
+  </div>
+</div>
+{% endblock %}

@@ -11,7 +11,10 @@ import re
 import smtplib
 import email as email_lib
 from email.header import decode_header
+from email.mime.base import MIMEBase
+from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from email import encoders
 from email.utils import formataddr, formatdate, parsedate_to_datetime
 
 logger = logging.getLogger(__name__)
@@ -359,6 +362,46 @@ def send_reply_email(account_id, account_pw, to_email, subject, body,
         return True
     except Exception as e:
         logger.error('답장 메일 발송 실패 (%s → %s): %s', from_email, to_email, e)
+        return False
+
+
+def send_email_with_attachments(account_id, account_pw, to_email, subject, body,
+                                attachments=None):
+    """
+    네이버 SMTP로 첨부파일 포함 이메일 발송.
+    attachments: [{'filename': str, 'data': bytes, 'content_type': str}, ...]
+    """
+    from_email = f'{account_id}@naver.com'
+
+    msg = MIMEMultipart()
+    msg['From'] = formataddr(('북마트', from_email))
+    msg['To'] = to_email
+    msg['Subject'] = subject
+    msg['Date'] = formatdate(localtime=True)
+
+    msg.attach(MIMEText(body, 'plain', 'utf-8'))
+
+    for att in (attachments or []):
+        part = MIMEBase('application', 'octet-stream')
+        part.set_payload(att['data'])
+        encoders.encode_base64(part)
+        # RFC2231 한글 파일명 지원
+        part.add_header(
+            'Content-Disposition', 'attachment',
+            filename=('utf-8', '', att['filename']),
+        )
+        msg.attach(part)
+
+    try:
+        server = smtplib.SMTP(NAVER_SMTP_HOST, NAVER_SMTP_PORT)
+        server.starttls()
+        server.login(account_id, account_pw)
+        server.sendmail(from_email, [to_email], msg.as_string())
+        server.quit()
+        logger.info('첨부 메일 발송 완료: %s → %s (첨부 %d건)', from_email, to_email, len(attachments or []))
+        return True
+    except Exception as e:
+        logger.error('첨부 메일 발송 실패 (%s → %s): %s', from_email, to_email, e)
         return False
 
 

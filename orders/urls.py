@@ -17,6 +17,9 @@ urlpatterns = [
 
     # ── 설정 ────────────────────────────────────────────────────────────────
     path('settings/', views.site_settings, name='site_settings'),
+    path('settings/docs/', views.business_doc_list, name='business_doc_list'),
+    path('settings/docs/<int:pk>/delete/', views.business_doc_delete, name='business_doc_delete'),
+    path('settings/docs/<int:pk>/toggle/', views.business_doc_toggle, name='business_doc_toggle'),
 
     # ── 공지사항 ──────────────────────────────────────────────────────────────
     path('notices/', views.notice_list, name='notice_list'),
@@ -47,6 +50,7 @@ urlpatterns = [
     path('orders/<int:pk>/invoice/', views.order_invoice, name='order_invoice'),
     path('orders/invoice/bulk/', views.order_invoice_bulk, name='order_invoice_bulk'),
     path('orders/<int:pk>/quote/', views.order_quote, name='order_quote'),
+    path('orders/<int:pk>/quote/email/', views.quote_email, name='quote_email'),
     path('orders/quote/bulk/', views.order_quote_bulk, name='order_quote_bulk'),
 
     # ── 반품 ──────────────────────────────────────────────────────────────────

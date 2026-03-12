@@ -8,7 +8,10 @@ from .order import (
     order_delete, order_bulk_delete, order_restore,
 )
 from .shipping import order_ship, order_deliver, delivery_manage, order_quick_ship, order_quick_deliver
-from .document import order_quote, order_quote_bulk, order_invoice, order_invoice_bulk
+from .document import (
+    order_quote, order_quote_bulk, order_invoice, order_invoice_bulk,
+    quote_email, business_doc_list, business_doc_delete, business_doc_toggle,
+)
 from .return_ import (
     return_list, return_create, return_create_from_order,
     return_detail, return_confirm, return_reject,
