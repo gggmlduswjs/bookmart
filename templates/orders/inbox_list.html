@@ -387,6 +387,8 @@
         <a href="{% url 'call_recording_process' pk=rec.pk %}" class="btn btn-blue btn-sm">파싱</a>
         {% elif rec.status == 'failed' %}
         <a href="{% url 'call_recording_retry' pk=rec.pk %}" class="btn btn-blue btn-sm">재시도</a>
+        {% elif rec.status == 'skipped' or rec.status == 'ordered' %}
+        <a href="{% url 'call_recording_process' pk=rec.pk %}" class="btn btn-outline btn-sm">상세보기</a>
         {% endif %}
         {% if rec.status != 'ordered' and rec.status != 'skipped' %}
         <a href="{% url 'call_recording_skip' pk=rec.pk %}" class="btn btn-outline btn-sm" style="font-size:11px">건너뛰기</a>
