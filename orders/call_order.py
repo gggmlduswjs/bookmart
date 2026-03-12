@@ -5,6 +5,8 @@
 """
 import json
 import logging
+import mimetypes
+import os
 
 import requests
 from django.conf import settings
@@ -22,7 +24,11 @@ def transcribe_audio(audio_file):
         resp = requests.post(
             'https://api.openai.com/v1/audio/transcriptions',
             headers={'Authorization': f'Bearer {api_key}'},
-            files={'file': (audio_file.name, audio_file, getattr(audio_file, 'content_type', None) or 'audio/mpeg')},
+            files={'file': (
+                os.path.basename(audio_file.name),
+                audio_file,
+                mimetypes.guess_type(audio_file.name)[0] or 'audio/mpeg',
+            )},
             data={
                 'model': 'whisper-1',
                 'language': 'ko',
