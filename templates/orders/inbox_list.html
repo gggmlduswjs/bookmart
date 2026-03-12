@@ -363,7 +363,7 @@
 
   <!-- 녹음 목록 -->
   {% for rec in call_page %}
-  <a href="{% url 'call_recording_process' pk=rec.pk %}" class="call-card" onclick="if(event.target.closest('.call-actions')){event.preventDefault();}">
+  <div class="call-card" onclick="if(!event.target.closest('.call-actions'))location.href='{% url 'call_recording_process' pk=rec.pk %}'">
     <div class="call-sbar {{ rec.status }}"></div>
     <div class="call-info">
       <div class="call-top">
@@ -396,7 +396,7 @@
       <a href="{% url 'call_recording_skip' pk=rec.pk %}" class="btn btn-outline btn-sm" style="font-size:11px">건너뛰기</a>
       {% endif %}
     </div>
-  </a>
+  </div>
   {% empty %}
   <div class="call-empty">
     <div style="font-size:32px;opacity:.4;margin-bottom:6px">&#128222;</div>
