@@ -497,6 +497,26 @@ def inbox_process(request, pk):
         elif len(sms_reply_phone) == 10:
             sms_reply_phone = f'{sms_reply_phone[:3]}-{sms_reply_phone[3:6]}-{sms_reply_phone[6:]}'
 
+    # SMS 대화 내역 (같은 발신번호의 메시지들)
+    sms_conversation = []
+    if inbox_msg.source == 'sms':
+        # sender에서 전화번호 추출
+        phone_in_sender = _re.search(r'(\d[\d\-]{8,})', inbox_msg.sender or '')
+        if phone_in_sender:
+            phone_digits = phone_in_sender.group(1).replace('-', '')
+            # 같은 번호가 포함된 모든 SMS (수신+발신)
+            sms_conversation = list(
+                InboxMessage.objects.filter(source='sms')
+                .filter(Q(sender__contains=phone_digits) | Q(sender__contains=inbox_msg.sender))
+                .order_by('received_at')[:100]
+            )
+        else:
+            # 번호 없으면 sender 이름으로 매칭
+            sms_conversation = list(
+                InboxMessage.objects.filter(source='sms', sender=inbox_msg.sender)
+                .order_by('received_at')[:100]
+            )
+
     return render(request, 'orders/inbox_process.html', {
         'inbox_msg': inbox_msg,
         'agencies': agencies,
@@ -508,6 +528,7 @@ def inbox_process(request, pk):
         'next_unprocessed': next_unprocessed,
         'parsed_json': parsed_json,
         'sms_reply_phone': sms_reply_phone,
+        'sms_conversation': sms_conversation,
     })
 
 

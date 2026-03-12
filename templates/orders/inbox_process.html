@@ -25,6 +25,59 @@
     padding: 10px 12px; font-size: 12px; line-height: 1.7;
     overflow-y: auto; flex: 1; white-space: pre-wrap; word-break: break-all;
   }
+  /* SMS 대화형 UI */
+  .chat-thread {
+    padding: 10px 12px;
+    overflow-y: auto;
+    flex: 1;
+    background: #e5e0d8;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .chat-bubble {
+    max-width: 85%;
+    padding: 7px 11px;
+    border-radius: 12px;
+    font-size: 12px;
+    line-height: 1.55;
+    word-break: break-all;
+    white-space: pre-wrap;
+    position: relative;
+  }
+  .chat-bubble.recv {
+    align-self: flex-start;
+    background: #fff;
+    border-top-left-radius: 4px;
+  }
+  .chat-bubble.sent {
+    align-self: flex-end;
+    background: #fee500;
+    border-top-right-radius: 4px;
+  }
+  .chat-bubble.current {
+    box-shadow: 0 0 0 2px #3b82f6;
+  }
+  .chat-time {
+    font-size: 9px;
+    color: #8b8680;
+    margin-top: 2px;
+  }
+  .chat-bubble.recv .chat-time { text-align: left; }
+  .chat-bubble.sent .chat-time { text-align: right; }
+  .chat-date-sep {
+    text-align: center;
+    font-size: 10px;
+    color: #8b8680;
+    padding: 4px 0;
+  }
+  .chat-date-sep span {
+    background: rgba(0,0,0,.15);
+    color: #fff;
+    padding: 2px 10px;
+    border-radius: 10px;
+    font-size: 10px;
+  }
   .order-row-wrap select, .order-row-wrap input[type=number] {
     padding: 3px 5px; border: 1px solid #bbb;
     font-size: 12px; font-family: inherit; height: 26px;
@@ -68,13 +121,36 @@
       {% else %}
       <span class="badge badge-orange">문자</span>
       {% endif %}
+      {% if inbox_msg.source == 'sms' %}
+      {{ inbox_msg.sender }}
+      {% else %}
       {{ inbox_msg.received_at|date:"m/d H:i" }}
+      {% endif %}
     </div>
+
+    {% if inbox_msg.source == 'sms' and sms_conversation %}
+    <!-- SMS 대화형 -->
+    <div class="chat-thread" id="chatThread">
+      {% load tz %}
+      {% for msg in sms_conversation %}
+        {% ifchanged msg.received_at|date:"Y-m-d" %}
+        <div class="chat-date-sep"><span>{{ msg.received_at|date:"Y년 n월 j일" }}</span></div>
+        {% endifchanged %}
+        <div class="chat-bubble {% if msg.subject == '[발신]' %}sent{% else %}recv{% endif %} {% if msg.pk == inbox_msg.pk %}current{% endif %}"
+             {% if msg.pk == inbox_msg.pk %}id="currentMsg"{% endif %}>
+          {{ msg.content }}
+          <div class="chat-time">{{ msg.received_at|date:"H:i" }}</div>
+        </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <!-- 이메일 기본 뷰 -->
     <div class="inbox-msg-meta">
       <div><strong>발신:</strong> {{ inbox_msg.sender }}</div>
       {% if inbox_msg.subject %}<div><strong>제목:</strong> {{ inbox_msg.subject }}</div>{% endif %}
     </div>
     <div class="inbox-msg-body">{{ inbox_msg.content }}</div>
+    {% endif %}
 
     {% if attachments %}
     <div style="padding:8px 12px;border-top:1px solid #eee;background:#f9f9f9">
@@ -360,6 +436,12 @@
 {% block extra_js %}
 <script src="//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
 <script>
+// SMS 대화 스크롤 → 현재 메시지 위치
+const currentMsg = document.getElementById('currentMsg');
+if (currentMsg) {
+  currentMsg.scrollIntoView({ block: 'center' });
+}
+
 const BOOKS = {{ books_json|safe }};
 const ALL_TEACHERS = {{ teachers_json|safe }};
 const ALL_AGENCIES = {{ agencies_json|safe }};
