@@ -9,6 +9,7 @@ from django.core.files.base import ContentFile
 from django.db.models import Count, Q, Max, Subquery, OuterRef
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.views.decorators.csrf import csrf_exempt
 
 from accounts.decorators import role_required
@@ -775,8 +776,6 @@ def attachment_download(request, pk):
     resp['Content-Disposition'] = f"attachment; filename*=UTF-8''{encoded_filename}"
     return resp
 
-
-from django.views.decorators.clickjacking import xframe_options_sameorigin
 
 @role_required('admin')
 @xframe_options_sameorigin
