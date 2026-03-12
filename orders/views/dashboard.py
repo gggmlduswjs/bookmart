@@ -17,68 +17,85 @@ from ._helpers import get_deadlines
 @role_required('admin')
 def dashboard(request):
     today = timezone.localtime().date()
+    yesterday = today - timedelta(days=1)
     now = timezone.localtime()
 
-    unprocessed_inbox = InboxMessage.objects.filter(is_processed=False).exclude(subject='[발신]').count()
-    today_orders = Order.objects.filter(ordered_at__date=today).count()
-    pending_orders = Order.objects.filter(status='pending').count()
-    shipping_orders = Order.objects.filter(status='shipping').count()
-
-    recent_inbox = InboxMessage.objects.filter(is_processed=False).exclude(subject='[발신]')[:5]
-    pending_order_list = Order.objects.filter(status='pending').order_by('-ordered_at')[:5]
-    pending_returns = Return.objects.filter(status='requested').order_by('-requested_at')[:3]
-
-    deadline_city, deadline_region, _, _ = get_deadlines(now)
-
-    recent_delivered = Order.objects.filter(status='delivered').order_by('-ordered_at')[:5]
-
-    # 통화 녹음 대기 건수
+    # KPI 1: 미처리 수신함
+    unread_qs = InboxMessage.objects.filter(is_processed=False).exclude(subject='[발신]')
+    unprocessed_inbox = unread_qs.count()
+    inbox_email = unread_qs.filter(source='email').count()
+    inbox_sms = unread_qs.filter(source='sms').count()
     call_pending = CallRecording.objects.filter(
         status__in=[CallRecording.Status.PENDING, CallRecording.Status.PARSED]
     ).count()
 
+    # KPI 2: 발송 대기
+    pending_orders = Order.objects.filter(status='pending').count()
+    pending_overdue = Order.objects.filter(
+        status='pending',
+        requested_delivery_date__isnull=False,
+        requested_delivery_date__lt=today,
+    ).count()
+    pending_imminent = Order.objects.filter(
+        status='pending',
+        requested_delivery_date__isnull=False,
+        requested_delivery_date__gte=today,
+        requested_delivery_date__lte=today + timedelta(days=1),
+    ).count()
+
+    # KPI 3: 발송중
+    shipping_orders = Order.objects.filter(status='shipping').count()
+    shipping_hanjin = Order.objects.filter(status='shipping', carrier='hanjin').count()
+    shipping_direct = Order.objects.filter(status='shipping', carrier='direct').count()
+
+    # KPI 4: 오늘 접수
+    today_orders = Order.objects.filter(ordered_at__date=today).count()
+    yesterday_orders = Order.objects.filter(ordered_at__date=yesterday).count()
+    diff = today_orders - yesterday_orders
+    today_vs_yesterday = f'+{diff}' if diff >= 0 else str(diff)
+
+    # 마감시간
+    deadline_city, deadline_region, _, _ = get_deadlines(now)
+
+    # 오늘 요약
+    delivered_today = Order.objects.filter(status='delivered', ordered_at__date=today).count()
+    pending_returns_count = Return.objects.filter(status='requested').count()
+    today_revenue = OrderItem.objects.filter(
+        order__ordered_at__date=today,
+        order__status__in=['pending', 'shipping', 'delivered'],
+    ).aggregate(total=Sum('amount'))['total'] or 0
+
+    # 배송일 초과 건수 (alert)
+    overdue_delivery_count = Order.objects.filter(
+        status__in=['pending', 'shipping'],
+        requested_delivery_date__isnull=False,
+        requested_delivery_date__lt=today,
+    ).count()
+
     # 최근 활동 로그
-    recent_activity = AuditLog.objects.select_related('user').order_by('-created_at')[:8]
-
-    # 요청 배송일 임박 주문
-    upcoming_delivery = (
-        Order.objects.filter(
-            status__in=['pending', 'shipping'],
-            requested_delivery_date__isnull=False,
-            requested_delivery_date__lte=today + timedelta(days=3),
-        )
-        .select_related('teacher', 'delivery', 'agency')
-        .order_by('requested_delivery_date')[:10]
-    )
-    overdue_delivery = [o for o in upcoming_delivery if o.requested_delivery_date < today]
-
-    # 업체 분류별 통계
-    category_stats = (
-        Order.objects.filter(ordered_at__date=today)
-        .values('agency__agency_category')
-        .annotate(cnt=Count('id'))
-        .order_by('-cnt')
-    )
+    recent_activity = AuditLog.objects.select_related('user').order_by('-created_at')[:5]
 
     return render(request, 'orders/dashboard.html', {
         'unprocessed_inbox': unprocessed_inbox,
-        'today_orders': today_orders,
+        'inbox_email': inbox_email,
+        'inbox_sms': inbox_sms,
+        'call_pending': call_pending,
         'pending_orders': pending_orders,
+        'pending_overdue': pending_overdue,
+        'pending_imminent': pending_imminent,
         'shipping_orders': shipping_orders,
-        'recent_inbox': recent_inbox,
-        'pending_order_list': pending_order_list,
-        'pending_returns': pending_returns,
+        'shipping_hanjin': shipping_hanjin,
+        'shipping_direct': shipping_direct,
+        'today_orders': today_orders,
+        'today_vs_yesterday': today_vs_yesterday,
         'deadline_city': deadline_city,
         'deadline_region': deadline_region,
         'now': now,
-        'recent_delivered': recent_delivered,
-        'today_str': today.strftime('%Y-%m-%d'),
-        'call_pending': call_pending,
+        'delivered_today': delivered_today,
+        'pending_returns_count': pending_returns_count,
+        'today_revenue': today_revenue,
+        'overdue_delivery_count': overdue_delivery_count,
         'recent_activity': recent_activity,
-        'upcoming_delivery': upcoming_delivery,
-        'overdue_delivery_count': len(overdue_delivery),
-        'category_stats': category_stats,
-        'today': today,
     })
 
 

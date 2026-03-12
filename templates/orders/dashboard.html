@@ -1,384 +1,236 @@
 {% extends "base.html" %}
+{% load humanize %}
 {% block title %}대시보드 - 북마트{% endblock %}
 
 {% block extra_css %}
 <style>
-  /* Urgent alerts */
-  .urgent-alert {
-    background: #fef2f2; border: 1px solid #fca5a5; border-radius: 10px;
-    padding: 14px 20px; margin-bottom: 16px;
+  .section-label {
+    font-size: 11px; font-weight: 700; color: #9ca3af;
+    text-transform: uppercase; letter-spacing: 0.5px;
+    margin-bottom: 12px;
+  }
+
+  /* Alert */
+  .dash-alert {
+    background: #fef2f2; border-left: 3px solid #ef4444;
+    border-radius: 8px; padding: 12px 18px; margin-bottom: 28px;
     display: flex; align-items: center; gap: 12px;
   }
-  .urgent-alert .alert-icon { font-size: 24px; flex-shrink: 0; }
-  .urgent-alert .alert-body { flex: 1; }
-  .urgent-alert .alert-title { font-weight: 700; color: #dc2626; font-size: 14px; }
-  .urgent-alert .alert-desc { font-size: 12px; color: #991b1b; margin-top: 2px; }
-  .urgent-alert .alert-action { flex-shrink: 0; }
+  .dash-alert-text { flex: 1; }
+  .dash-alert-title { font-weight: 700; color: #dc2626; font-size: 13px; }
+  .dash-alert-desc { font-size: 11px; color: #991b1b; margin-top: 1px; }
+  .dash-alert-btn {
+    background: #dc2626; color: #fff; border: none; padding: 6px 16px;
+    border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;
+    text-decoration: none;
+  }
+  .dash-alert-btn:hover { background: #b91c1c; }
 
-  /* Core metrics */
-  .metrics-row {
-    display: grid; grid-template-columns: repeat(3, 1fr);
-    gap: 14px; margin-bottom: 20px;
+  /* KPI Cards */
+  .kpi-grid {
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    gap: 16px; margin-bottom: 32px;
   }
-  .metric-card {
-    background: #fff; border: 1px solid #e2e8f0; border-radius: 10px;
-    padding: 18px 20px; text-decoration: none; color: inherit;
-    display: flex; align-items: center; gap: 14px;
-    transition: box-shadow 0.2s, transform 0.15s; cursor: pointer;
+  .kpi {
+    background: #fff; border: 1px solid #e5e7eb; border-radius: 12px;
+    padding: 22px 20px; text-decoration: none; color: inherit;
+    transition: all 0.2s; cursor: pointer;
   }
-  .metric-card:hover {
-    box-shadow: 0 6px 20px rgba(0,0,0,0.08); transform: translateY(-2px);
+  .kpi:hover { border-color: #d1d5db; box-shadow: 0 2px 12px rgba(0,0,0,0.04); }
+  .kpi-label { font-size: 12px; color: #9ca3af; font-weight: 500; margin-bottom: 8px; }
+  .kpi-num {
+    font-size: 40px; font-weight: 800; line-height: 1;
+    letter-spacing: -1.5px;
   }
-  .metric-card .card-icon {
-    font-size: 28px; width: 48px; height: 48px; border-radius: 12px;
-    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
-  }
-  .metric-card .card-icon.inbox { background: #fef3c7; }
-  .metric-card .card-icon.pending { background: #dbeafe; }
-  .metric-card .card-icon.shipping { background: #d1fae5; }
-  .metric-card .card-count { font-size: 28px; font-weight: 800; color: #1e293b; line-height: 1; }
-  .metric-card .card-label { font-size: 13px; color: #64748b; margin-top: 2px; }
+  .kpi-sub { font-size: 11px; color: #d1d5db; margin-top: 8px; }
 
-  /* Compact deadline */
-  .deadline-compact {
-    background: #fff; border: 1px solid #e2e8f0; border-radius: 10px;
-    padding: 14px 20px; margin-bottom: 20px;
-    display: flex; align-items: center; gap: 16px; font-size: 13px;
+  /* Deadline */
+  .dl-row {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 16px; margin-bottom: 32px;
   }
-  .deadline-compact .dl-icon { font-size: 18px; flex-shrink: 0; }
-  .deadline-compact .dl-item { display: flex; align-items: center; gap: 6px; }
-  .deadline-compact .dl-label { font-weight: 600; color: #334155; }
-  .deadline-compact .dl-time { color: #64748b; }
-  .deadline-compact .dl-remain { font-weight: 600; }
-  .deadline-compact .dl-remain.ok { color: #059669; }
-  .deadline-compact .dl-remain.warn { color: #f59e0b; }
-  .deadline-compact .dl-remain.past { color: #dc2626; }
-  .deadline-compact .dl-sep { color: #cbd5e1; margin: 0 4px; }
+  .dl-card {
+    background: #fff; border: 1px solid #e5e7eb; border-radius: 12px;
+    padding: 18px 22px;
+    display: flex; align-items: baseline; justify-content: space-between;
+  }
+  .dl-card.urgent { border-color: #fde68a; background: #fffdf5; }
+  .dl-name { font-size: 13px; font-weight: 600; color: #6b7280; }
+  .dl-cutoff { font-size: 12px; color: #d1d5db; margin-top: 2px; }
+  .dl-remain { font-size: 28px; font-weight: 800; letter-spacing: -1px; }
+  .dl-remain.warn { color: #d97706; }
+  .dl-remain.ok { color: #059669; }
+  .dl-remain.past { color: #dc2626; }
+  .dl-unit { font-size: 13px; font-weight: 600; color: #9ca3af; margin-left: 2px; }
 
-  /* Todo section */
-  .todo-section {
-    background: #fff; border: 1px solid #e2e8f0; border-radius: 10px;
-    overflow: hidden; margin-bottom: 20px;
+  /* Bottom Row */
+  .bottom-row {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 16px;
   }
-  .todo-section-title {
-    background: #334155; color: #f1f5f9; padding: 12px 20px;
-    font-size: 14px; font-weight: 600;
-    display: flex; justify-content: space-between; align-items: center;
+  .card {
+    background: #fff; border: 1px solid #e5e7eb; border-radius: 12px;
+    padding: 20px 22px;
   }
-  .todo-section-title .todo-count {
-    background: rgba(255,255,255,0.2); padding: 2px 10px;
-    border-radius: 10px; font-size: 12px;
+  .card-title {
+    font-size: 12px; font-weight: 700; color: #9ca3af;
+    text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 16px;
   }
-  .todo-list { padding: 0; margin: 0; list-style: none; }
-  .todo-item {
-    display: flex; align-items: center; gap: 12px;
-    padding: 10px 20px; border-bottom: 1px solid #f1f5f9;
-    font-size: 13px; transition: background 0.1s;
-  }
-  .todo-item:last-child { border-bottom: none; }
-  .todo-item:hover { background: #f8fafc; }
-  .todo-item .todo-icon { font-size: 16px; flex-shrink: 0; width: 24px; text-align: center; }
-  .todo-item .todo-body { flex: 1; min-width: 0; }
-  .todo-item .todo-title { font-weight: 600; color: #1e293b; }
-  .todo-item .todo-desc {
-    color: #64748b; font-size: 12px; margin-top: 1px;
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  }
-  .todo-item .todo-time { color: #94a3b8; font-size: 11px; flex-shrink: 0; }
-  .todo-item .todo-action { flex-shrink: 0; }
 
-  /* More section */
-  .more-section {
-    background: #fff; border: 1px solid #e2e8f0; border-radius: 10px;
-    overflow: hidden; margin-bottom: 20px;
-  }
-  .more-header {
-    padding: 12px 20px; cursor: pointer; user-select: none;
-    display: flex; justify-content: space-between; align-items: center;
-    font-size: 14px; font-weight: 600; color: #64748b;
-  }
-  .more-header:hover { background: #f8fafc; }
-  .more-body { padding: 0 20px 16px; }
-  .more-body .sub-title {
-    font-size: 12px; font-weight: 700; color: #64748b;
-    text-transform: uppercase; letter-spacing: 0.3px;
-    margin: 14px 0 6px; padding-bottom: 4px; border-bottom: 1px solid #f1f5f9;
-  }
-  .more-body .sub-title:first-child { margin-top: 0; }
-  .more-body ul { list-style: none; padding: 0; margin: 0; }
-  .more-body li {
-    padding: 6px 0; font-size: 13px; border-bottom: 1px solid #f8fafc;
-    display: flex; justify-content: space-between; align-items: center;
-  }
-  .more-body li:last-child { border-bottom: none; }
-  .more-body li a { color: #1e40af; text-decoration: none; }
-  .more-body li a:hover { text-decoration: underline; }
-  .more-body .empty { color: #94a3b8; font-size: 13px; padding: 10px 0; text-align: center; }
-  .activity-item {
-    display: flex; gap: 10px; padding: 6px 0; font-size: 13px;
-    border-bottom: 1px solid #f8fafc; align-items: flex-start;
-  }
-  .activity-item:last-child { border-bottom: none; }
-  .activity-time { color: #94a3b8; font-size: 11px; white-space: nowrap; min-width: 38px; }
-  .activity-action { font-weight: 600; color: #334155; }
-  .activity-detail { color: #64748b; font-size: 12px; margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* Summary table */
+  .s-table { width: 100%; border-collapse: collapse; }
+  .s-table td { padding: 8px 0; font-size: 13px; border-bottom: 1px solid #f3f4f6; }
+  .s-table tr:last-child td { border-bottom: none; }
+  .s-table .lbl { color: #6b7280; }
+  .s-table .val { text-align: right; font-weight: 700; color: #111827; font-variant-numeric: tabular-nums; }
 
-  /* Quick buttons */
-  .dash-buttons {
-    display: flex; gap: 12px; margin-bottom: 20px;
+  /* Activity */
+  .a-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 0; border-bottom: 1px solid #f3f4f6; font-size: 12px;
   }
-  .dash-buttons .btn {
-    padding: 12px 28px; font-size: 14px; font-weight: 600;
-    border-radius: 8px; text-decoration: none; text-align: center;
-    transition: opacity 0.15s; border: none;
-  }
-  .dash-buttons .btn:hover { opacity: 0.9; }
-  .dash-buttons .btn-orange { background: #f59e0b; color: #fff; }
-  .dash-buttons .btn-dark { background: #1e293b; color: #fff; }
-  .dash-buttons .btn-blue { background: #2563eb; color: #fff; }
-  .dash-buttons .btn-outline { background: #fff; color: #334155; border: 1px solid #cbd5e1; }
-  .dash-buttons .btn-outline:hover { background: #f8fafc; }
+  .a-item:last-child { border-bottom: none; }
+  .a-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; background: #d1d5db; }
+  .a-dot.c-blue { background: #3b82f6; }
+  .a-dot.c-amber { background: #f59e0b; }
+  .a-dot.c-green { background: #10b981; }
+  .a-dot.c-red { background: #ef4444; }
+  .a-text { flex: 1; color: #6b7280; }
+  .a-text b { color: #374151; font-weight: 600; }
+  .a-time { color: #d1d5db; font-size: 10px; flex-shrink: 0; font-variant-numeric: tabular-nums; }
 
-  @media (max-width: 768px) {
-    .metrics-row { grid-template-columns: 1fr; }
-    .deadline-compact { flex-wrap: wrap; }
-    .dash-buttons { flex-wrap: wrap; }
-    .dash-buttons .btn { flex: 1; min-width: 120px; }
+  @media (max-width: 1000px) {
+    .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+    .dl-row, .bottom-row { grid-template-columns: 1fr; }
   }
 </style>
 {% endblock %}
 
 {% block content %}
-<!-- 1. Urgent Alerts (conditional) -->
 {% if overdue_delivery_count > 0 %}
-<div class="urgent-alert">
-  <span class="alert-icon">&#x26A0;</span>
-  <div class="alert-body">
-    <div class="alert-title">요청 배송일 초과 {{ overdue_delivery_count }}건</div>
-    <div class="alert-desc">배송일이 지난 주문이 있습니다. 즉시 확인해주세요.</div>
+<div class="dash-alert">
+  <div class="dash-alert-text">
+    <div class="dash-alert-title">배송일 초과 {{ overdue_delivery_count }}건</div>
+    <div class="dash-alert-desc">즉시 확인이 필요합니다</div>
   </div>
-  <a href="{% url 'order_list' %}?status=pending" class="btn btn-sm" style="background:#dc2626;color:#fff;border:none;padding:6px 16px;border-radius:6px;text-decoration:none;font-size:12px;font-weight:600">확인하기</a>
+  <a href="{% url 'order_list' %}?status=pending" class="dash-alert-btn">확인</a>
 </div>
 {% endif %}
 
-<!-- 2. Core Metrics (3 cards) -->
-<div class="metrics-row">
-  <a href="{% url 'inbox_list' %}?tab=email&hide_done=1" class="metric-card">
-    <div class="card-icon inbox">&#x1F4EC;</div>
-    <div>
-      <div class="card-count">{{ unprocessed_inbox|add:call_pending }}</div>
-      <div class="card-label">미처리 (수신함 + 통화)</div>
-    </div>
+<div class="section-label">처리 현황</div>
+<div class="kpi-grid">
+  <a class="kpi" href="{% url 'inbox_list' %}?tab=email&hide_done=1">
+    <div class="kpi-label">미처리 수신함</div>
+    <div class="kpi-num" style="color:#f59e0b">{{ unprocessed_inbox|add:call_pending }}</div>
+    <div class="kpi-sub">이메일 {{ inbox_email }} / SMS {{ inbox_sms }}{% if call_pending %} / 통화 {{ call_pending }}{% endif %}</div>
   </a>
-  <a href="{% url 'delivery_manage' %}?tab=pending" class="metric-card">
-    <div class="card-icon pending">&#x1F4E6;</div>
-    <div>
-      <div class="card-count">{{ pending_orders }}</div>
-      <div class="card-label">발송 대기</div>
-    </div>
+  <a class="kpi" href="{% url 'delivery_manage' %}?tab=pending">
+    <div class="kpi-label">발송 대기</div>
+    <div class="kpi-num" style="color:#3b82f6">{{ pending_orders }}</div>
+    <div class="kpi-sub">{% if pending_overdue %}초과 {{ pending_overdue }}{% endif %}{% if pending_overdue and pending_imminent %} / {% endif %}{% if pending_imminent %}임박 {{ pending_imminent }}{% endif %}{% if not pending_overdue and not pending_imminent %}-{% endif %}</div>
   </a>
-  <a href="{% url 'delivery_manage' %}?tab=shipping" class="metric-card">
-    <div class="card-icon shipping">&#x1F69B;</div>
-    <div>
-      <div class="card-count">{{ shipping_orders }}</div>
-      <div class="card-label">발송중</div>
-    </div>
+  <a class="kpi" href="{% url 'delivery_manage' %}?tab=shipping">
+    <div class="kpi-label">발송중</div>
+    <div class="kpi-num" style="color:#10b981">{{ shipping_orders }}</div>
+    <div class="kpi-sub">{% if shipping_hanjin %}한진 {{ shipping_hanjin }}{% endif %}{% if shipping_hanjin and shipping_direct %} / {% endif %}{% if shipping_direct %}직배 {{ shipping_direct }}{% endif %}{% if not shipping_hanjin and not shipping_direct %}-{% endif %}</div>
+  </a>
+  <a class="kpi" href="{% url 'order_list' %}">
+    <div class="kpi-label">오늘 접수</div>
+    <div class="kpi-num" style="color:#1e293b">{{ today_orders }}</div>
+    <div class="kpi-sub">어제 대비 {{ today_vs_yesterday }}</div>
   </a>
 </div>
 
-<!-- 3. Compact Deadline Timer -->
-<div class="deadline-compact">
-  <span class="dl-icon">&#x23F0;</span>
-  <div class="dl-item">
-    <span class="dl-label">시내</span>
-    <span class="dl-time">11:20</span>
-    <span class="dl-remain ok" id="dl-city-text">계산중...</span>
+<div class="section-label">마감</div>
+<div class="dl-row">
+  <div class="dl-card" id="dl-city-card">
+    <div>
+      <div class="dl-name">시내 마감</div>
+      <div class="dl-cutoff">{{ deadline_city|date:"H:i" }}</div>
+    </div>
+    <div><span class="dl-remain ok" id="dl-city-remain">-</span><span class="dl-unit" id="dl-city-unit"></span></div>
   </div>
-  <span class="dl-sep">|</span>
-  <div class="dl-item">
-    <span class="dl-label">지방</span>
-    <span class="dl-time">13:50</span>
-    <span class="dl-remain ok" id="dl-region-text">계산중...</span>
+  <div class="dl-card" id="dl-region-card">
+    <div>
+      <div class="dl-name">지방 마감</div>
+      <div class="dl-cutoff">{{ deadline_region|date:"H:i" }}</div>
+    </div>
+    <div><span class="dl-remain ok" id="dl-region-remain">-</span><span class="dl-unit" id="dl-region-unit"></span></div>
   </div>
 </div>
 
-<!-- 4. Upcoming Delivery Dates -->
-{% if upcoming_delivery %}
-<div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:14px 20px;margin-bottom:20px">
-  <div style="font-size:13px;font-weight:600;color:#334155;margin-bottom:8px">&#x1F4C5; 요청 배송일 임박 주문</div>
-  <div style="display:flex;flex-direction:column;gap:4px">
-    {% for order in upcoming_delivery %}
-    <a href="{% url 'order_detail' order.pk %}" style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;font-size:12px;text-decoration:none;color:#334155;border-radius:4px;{% if order.requested_delivery_date < today %}background:#fef2f2;{% else %}background:#f8fafc;{% endif %}"
-       onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='{% if order.requested_delivery_date < today %}#fef2f2{% else %}#f8fafc{% endif %}'">
-      <span>
-        <span style="font-weight:600">{{ order.order_no }}</span>
-        <span style="color:#64748b;margin-left:6px">{{ order.delivery.name }}</span>
-        {% if order.agency %}<span style="color:#94a3b8;margin-left:4px">{{ order.agency.name }}</span>{% endif %}
-      </span>
-      <span style="{% if order.requested_delivery_date < today %}color:#dc2626;font-weight:700{% else %}color:#2563eb{% endif %}">
-        {{ order.requested_delivery_date|date:"m/d" }}{% if order.requested_delivery_date < today %} (초과){% endif %}
-      </span>
-    </a>
-    {% endfor %}
+<div class="bottom-row">
+  <div class="card">
+    <div class="card-title">오늘 요약</div>
+    <table class="s-table">
+      <tr><td class="lbl">접수 주문</td><td class="val">{{ today_orders }}건</td></tr>
+      <tr><td class="lbl">발송 완료</td><td class="val">{{ delivered_today }}건</td></tr>
+      <tr><td class="lbl">반품 대기</td><td class="val">{{ pending_returns_count }}건</td></tr>
+      <tr><td class="lbl">오늘 매출</td><td class="val">&#8361;{{ today_revenue|intcomma }}</td></tr>
+    </table>
   </div>
-</div>
-{% endif %}
-
-<!-- 5. Todo List (single column, full width) -->
-<div class="todo-section" x-data="{showAll: false}">
-  <div class="todo-section-title">
-    <span>&#x1F4CB; 오늘 할 일</span>
-    <span class="todo-count" x-text="'{{ recent_inbox|length }}건 수신함 + {{ pending_order_list|length }}건 발송대기 + {{ pending_returns|length }}건 반품'"></span>
-  </div>
-  <ul class="todo-list">
-    {% for msg in recent_inbox %}
-    <li class="todo-item" {% if forloop.counter > 5 %}x-show="showAll" x-cloak{% endif %}>
-      <span class="todo-icon">{% if msg.source == 'email' %}&#x1F4E7;{% else %}&#x1F4AC;{% endif %}</span>
-      <div class="todo-body">
-        <div class="todo-title">{{ msg.sender|truncatechars:25 }}</div>
-        <div class="todo-desc">{% if msg.subject %}{{ msg.subject|truncatechars:40 }}{% else %}수신함 미처리{% endif %}</div>
-      </div>
-      <span class="todo-time">{{ msg.received_at|date:"m/d H:i" }}</span>
-      <a href="{% url 'inbox_process' msg.pk %}" class="btn btn-orange btn-sm todo-action" style="padding:3px 10px;font-size:11px">주문처리</a>
-    </li>
-    {% endfor %}
-    {% for order in pending_order_list %}
-    <li class="todo-item" {% if forloop.counter0|add:recent_inbox|length > 4 %}x-show="showAll" x-cloak{% endif %}>
-      <span class="todo-icon">&#x1F4E6;</span>
-      <div class="todo-body">
-        <div class="todo-title">{{ order.order_no }} — {{ order.delivery.name|truncatechars:15 }}</div>
-        <div class="todo-desc">발송 대기</div>
-      </div>
-      <span class="todo-time">{{ order.ordered_at|date:"m/d H:i" }}</span>
-      <a href="{% url 'order_detail' order.pk %}" class="btn btn-outline btn-sm todo-action" style="padding:3px 10px;font-size:11px">상세</a>
-    </li>
-    {% endfor %}
-    {% for ret in pending_returns %}
-    <li class="todo-item" x-show="showAll" x-cloak>
-      <span class="todo-icon">&#x1F504;</span>
-      <div class="todo-body">
-        <div class="todo-title">{{ ret.return_no }} — {{ ret.delivery.name|truncatechars:15 }}</div>
-        <div class="todo-desc">반품 대기</div>
-      </div>
-      <span class="todo-time">{{ ret.requested_at|date:"m/d H:i" }}</span>
-      <a href="{% url 'return_detail' ret.pk %}" class="btn btn-outline btn-sm todo-action" style="padding:3px 10px;font-size:11px">상세</a>
-    </li>
-    {% endfor %}
-    {% if not recent_inbox and not pending_order_list and not pending_returns %}
-    <li class="todo-item" style="justify-content:center;color:#94a3b8;padding:20px">할 일이 없습니다 🎉</li>
-    {% endif %}
-  </ul>
-  {% with total_todos=recent_inbox|length|add:pending_order_list|length|add:pending_returns|length %}
-  {% if total_todos > 5 %}
-  <div style="padding:10px 20px;text-align:center;border-top:1px solid #f1f5f9">
-    <button @click="showAll = !showAll" style="background:none;border:none;color:#2563eb;font-size:12px;font-weight:600;cursor:pointer">
-      <span x-show="!showAll">전체 보기 ({{ total_todos }}건) ▼</span>
-      <span x-show="showAll">접기 ▲</span>
-    </button>
-  </div>
-  {% endif %}
-  {% endwith %}
-</div>
-
-<!-- 6. More (collapsed) -->
-<div class="more-section" x-data="{open: false}">
-  <div class="more-header" @click="open = !open">
-    <span>&#x1F4CA; 최근 활동 / 통계</span>
-    <span :style="open ? 'transform:rotate(180deg)' : ''" style="transition:transform 0.2s;font-size:12px">▼</span>
-  </div>
-  <div class="more-body" x-show="open" x-collapse x-cloak>
-    <div class="sub-title">활동 기록</div>
+  <div class="card">
+    <div class="card-title">최근 활동</div>
     {% for log in recent_activity %}
-    <div class="activity-item">
-      <span class="activity-time">{{ log.created_at|date:"H:i" }}</span>
-      <div style="flex:1;min-width:0">
-        <div class="activity-action">{{ log.get_action_display }}</div>
-        {% if log.detail %}<div class="activity-detail">{{ log.detail|truncatechars:50 }}</div>{% endif %}
-      </div>
+    <div class="a-item">
+      <span class="a-dot {% if log.action == 'order_create' or log.action == 'order_edit' %}c-blue{% elif log.action == 'order_deliver' %}c-green{% elif log.action == 'order_cancel' or log.action == 'return_create' or log.action == 'return_confirm' or log.action == 'return_reject' %}c-red{% else %}c-amber{% endif %}"></span>
+      <span class="a-text"><b>{{ log.get_action_display }}</b> {% if log.detail %}{{ log.detail|truncatechars:30 }}{% endif %}</span>
+      <span class="a-time">{{ log.created_at|date:"H:i" }}</span>
     </div>
     {% empty %}
-    <div class="empty">아직 활동 기록이 없습니다</div>
+    <div style="color:#9ca3af;font-size:13px;padding:10px 0;text-align:center">활동 기록이 없습니다</div>
     {% endfor %}
-
-    <div class="sub-title" style="margin-top:18px">최근 발송 완료</div>
-    <ul>
-      {% for order in recent_delivered %}
-      <li>
-        <a href="{% url 'order_detail' order.pk %}">{{ order.order_no }} <span style="color:#64748b;margin-left:4px">{{ order.delivery.name|truncatechars:12 }}</span></a>
-        <span style="color:#94a3b8;font-size:11px">{{ order.ordered_at|date:"m/d H:i" }}</span>
-      </li>
-      {% empty %}
-      <li class="empty">최근 발송 완료 내역이 없습니다</li>
-      {% endfor %}
-    </ul>
-
-    {% if category_stats %}
-    <div class="sub-title" style="margin-top:18px">오늘 업체분류별 주문</div>
-    <ul>
-      {% for stat in category_stats %}
-      <li>
-        <span>{{ stat.agency__agency_category|default:"미분류" }}</span>
-        <span style="font-weight:600;color:#334155;font-size:13px">{{ stat.cnt }}건</span>
-      </li>
-      {% endfor %}
-    </ul>
-    {% endif %}
   </div>
-</div>
-
-<!-- Quick action buttons — context-aware -->
-<div class="dash-buttons">
-  {% if unprocessed_inbox > 0 %}
-  <a href="{% url 'inbox_list' %}?tab=email&hide_done=1" class="btn btn-orange">수신함 {{ unprocessed_inbox }}건 처리</a>
-  {% else %}
-  <a href="{% url 'inbox_list' %}" class="btn btn-outline">수신함</a>
-  {% endif %}
-  {% if pending_orders > 0 %}
-  <a href="{% url 'delivery_manage' %}?tab=pending" class="btn btn-dark">발송 {{ pending_orders }}건 처리</a>
-  {% else %}
-  <a href="{% url 'order_create_admin' %}" class="btn btn-dark">주문 입력</a>
-  {% endif %}
-  {% if call_pending > 0 %}
-  <a href="{% url 'call_inbox' %}" class="btn btn-blue">통화 {{ call_pending }}건</a>
-  {% else %}
-  <a href="{% url 'call_inbox' %}" class="btn btn-outline">통화주문</a>
-  {% endif %}
-  <a href="{% url 'purchase_order' %}" class="btn btn-outline">발주 집계</a>
 </div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
 (function(){
-  var CITY_DEADLINE = {h: 11, m: 20};
-  var REGION_DEADLINE = {h: 13, m: 50};
+  var CITY = {h: {{ deadline_city|date:"G" }}, m: {{ deadline_city|date:"i" }}};
+  var REGION = {h: {{ deadline_region|date:"G" }}, m: {{ deadline_region|date:"i" }}};
 
-  function updateDeadlines(){
-    var now = new Date();
-    updateText(now, CITY_DEADLINE, 'dl-city-text');
-    updateText(now, REGION_DEADLINE, 'dl-region-text');
+  function update(){
+    calc(CITY, 'dl-city-remain', 'dl-city-unit', 'dl-city-card');
+    calc(REGION, 'dl-region-remain', 'dl-region-unit', 'dl-region-card');
   }
 
-  function updateText(now, deadline, textId){
+  function calc(dl, remainId, unitId, cardId){
+    var now = new Date();
     var target = new Date(now);
-    target.setHours(deadline.h, deadline.m, 0, 0);
-    var el = document.getElementById(textId);
+    target.setHours(dl.h, dl.m, 0, 0);
+    var el = document.getElementById(remainId);
+    var unitEl = document.getElementById(unitId);
+    var card = document.getElementById(cardId);
     if(!el) return;
-
     var diff = target - now;
     if(diff <= 0){
       el.textContent = '마감';
       el.className = 'dl-remain past';
+      unitEl.textContent = '';
+      card.classList.remove('urgent');
     } else {
       var h = Math.floor(diff / 3600000);
       var m = Math.floor((diff % 3600000) / 60000);
-      el.textContent = '(' + (h > 0 ? h + '시간 ' : '') + m + '분 남음)';
-      el.className = diff < 1800000 ? 'dl-remain warn' : 'dl-remain ok';
+      if(h > 0){
+        el.textContent = h + ':' + (m < 10 ? '0' : '') + m;
+        unitEl.textContent = '';
+      } else {
+        el.textContent = m;
+        unitEl.textContent = '분';
+      }
+      if(diff < 3600000){
+        el.className = 'dl-remain warn';
+        card.classList.add('urgent');
+      } else {
+        el.className = 'dl-remain ok';
+        card.classList.remove('urgent');
+      }
     }
   }
 
-  updateDeadlines();
-  setInterval(updateDeadlines, 30000);
+  update();
+  setInterval(update, 30000);
 })();
 </script>
 {% endblock %}
