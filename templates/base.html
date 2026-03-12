@@ -21,55 +21,17 @@
     a { color: #2563eb; text-decoration: none; }
     a:hover { color: #1d4ed8; text-decoration: none; }
 
-    /* ── 사이드바 (2.1 접이식) ── */
+    /* ── 사이드바 ── */
     #sidebar {
       position: fixed;
       top: 0; left: 0; bottom: 0;
-      width: 56px;
+      width: 200px;
       background: #fff;
       border-right: 1px solid #e2e8f0;
       z-index: 200;
       overflow-y: auto;
       overflow-x: hidden;
-      transition: width 0.2s ease;
     }
-    #sidebar:hover,
-    #sidebar.pinned {
-      width: 200px;
-    }
-    #sidebar .sidebar-text {
-      opacity: 0;
-      white-space: nowrap;
-      transition: opacity 0.15s ease;
-      overflow: hidden;
-    }
-    #sidebar:hover .sidebar-text,
-    #sidebar.pinned .sidebar-text {
-      opacity: 1;
-    }
-    #sidebar .sidebar-icon {
-      width: 24px;
-      text-align: center;
-      flex-shrink: 0;
-      font-size: 16px;
-    }
-    #sidebar-pin {
-      position: absolute;
-      top: 8px;
-      right: 6px;
-      background: none;
-      border: none;
-      cursor: pointer;
-      font-size: 14px;
-      color: #94a3b8;
-      padding: 2px 4px;
-      border-radius: 3px;
-      opacity: 0;
-      transition: opacity 0.15s;
-    }
-    #sidebar:hover #sidebar-pin { opacity: 1; }
-    #sidebar.pinned #sidebar-pin { opacity: 1; color: #2563eb; }
-    #sidebar-pin:hover { background: #f1f5f9; }
 
     #logo {
       padding: 12px 10px;
@@ -83,12 +45,7 @@
       white-space: nowrap;
       overflow: hidden;
     }
-    #logo .logo-full { display: none; }
-    #logo .logo-icon { display: block; font-size: 18px; }
-    #sidebar:hover #logo .logo-full,
-    #sidebar.pinned #logo .logo-full { display: block; }
-    #sidebar:hover #logo .logo-icon,
-    #sidebar.pinned #logo .logo-icon { display: none; }
+    #logo .logo-icon { display: none; }
     #logo span { display: block; font-size: 11px; color: #94a3b8; font-weight: 400; margin-top: 3px; letter-spacing: 0; }
 
     /* ── 아코디언 사이드바 ── */
@@ -207,16 +164,14 @@
     /* ── 상단 탭 바 ── */
     #topbar {
       position: fixed;
-      top: 0; left: 56px; right: 0;
+      top: 0; left: 200px; right: 0;
       height: 48px;
       background: #1e293b;
       display: flex;
       align-items: stretch;
       z-index: 100;
       box-shadow: 0 1px 3px rgba(0,0,0,0.2);
-      transition: left 0.2s ease;
     }
-    body.sidebar-pinned #topbar { left: 200px; }
 
     .tab-item {
       display: flex;
@@ -355,13 +310,11 @@
 
     /* ── 본문 ── */
     #content {
-      margin-left: 56px;
+      margin-left: 200px;
       margin-top: 48px;
       min-height: calc(100vh - 48px - 36px);
       padding: 20px 24px;
-      transition: margin-left 0.2s ease;
     }
-    body.sidebar-pinned #content { margin-left: 200px; }
 
     /* ── 페이지 제목 ── */
     .page-title {
@@ -710,11 +663,9 @@
 
     /* ── 푸터 ── */
     #footer {
-      margin-left: 56px;
-      transition: margin-left 0.2s ease;
-    }
-    body.sidebar-pinned #footer {
       margin-left: 200px;
+    }
+    #footer {
       background: #f8fafc;
       border-top: 1px solid #e2e8f0;
       text-align: center;
@@ -760,9 +711,6 @@
       }
       #sidebar.open { transform: translateX(0); }
       #sidebar .sidebar-text { opacity: 1; }
-      #sidebar .logo-full { display: block !important; }
-      #sidebar .logo-icon { display: none !important; }
-      #sidebar-pin { display: none; }
 
       #sidebar-overlay.open { display: block; }
 
@@ -815,7 +763,7 @@
   {% block extra_css %}{% endblock %}
 </head>
 <body>
-<script>if(localStorage.getItem('sidebarPinned')==='true')document.body.classList.add('sidebar-pinned');</script>
+
 
 {% if user.is_authenticated %}
 {% with cur=request.resolver_match.url_name %}
@@ -825,12 +773,9 @@
 <div id="sidebar-overlay" onclick="document.getElementById('sidebar').classList.remove('open');this.classList.remove('open');"></div>
 
 <!-- 사이드바 (아코디언) -->
-<div id="sidebar" :class="{'pinned': sidebarPinned}" x-data="{sidebarPinned: localStorage.getItem('sidebarPinned')==='true'}" x-init="if(sidebarPinned) document.body.classList.add('sidebar-pinned')">
-  <button id="sidebar-pin" type="button" @click="sidebarPinned=!sidebarPinned;localStorage.setItem('sidebarPinned',sidebarPinned);document.body.classList.toggle('sidebar-pinned')"
-          :title="sidebarPinned ? '사이드바 접기' : '사이드바 고정'" x-text="sidebarPinned ? '◀' : '▶'"></button>
+<div id="sidebar">
   <div id="logo">
-    <div class="logo-full">북마트<span>주문관리시스템</span></div>
-    <div class="logo-icon">B</div>
+    북마트<span>주문관리시스템</span>
   </div>
 
   {% if user.is_admin %}
