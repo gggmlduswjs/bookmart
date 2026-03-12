@@ -96,7 +96,11 @@
       <div style="display:flex;gap:6px;margin-bottom:4px">
         <div style="flex:1">
           <label style="font-size:10px;color:#666">학교명</label>
-          <input type="text" x-model="deliverySchool" style="width:100%;padding:3px 6px;border:1px solid #bbb;font-size:11px" placeholder="OO초등학교">
+          <div style="display:flex;gap:3px">
+            <input type="text" x-model="deliverySchool" style="flex:1;padding:3px 6px;border:1px solid #bbb;font-size:11px" placeholder="OO초등학교"
+                   @keydown.enter.prevent="searchSchool()">
+            <button type="button" class="btn btn-outline btn-sm" @click="searchSchool()" style="font-size:10px;padding:2px 6px;white-space:nowrap">검색</button>
+          </div>
         </div>
         <div style="flex:1">
           <label style="font-size:10px;color:#666">전화</label>
@@ -250,6 +254,28 @@
           const mi = document.querySelector('#spOrderFormEl input[name="memo"]');
           if (mi && !mi.value) mi.value = p.memo;
         }
+      },
+      searchSchool() {
+        var q = (this.deliverySchool || '').trim();
+        if (!q) { alert('학교명을 입력해주세요.'); return; }
+        var self = this;
+        if (!window.daum || !window.daum.Postcode) {
+          var s = document.createElement('script');
+          s.src = '//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js';
+          s.onload = function() { self._openPostcode(q); };
+          document.head.appendChild(s);
+        } else {
+          this._openPostcode(q);
+        }
+      },
+      _openPostcode(q) {
+        var self = this;
+        new daum.Postcode({
+          oncomplete: function(data) {
+            if (data.buildingName) self.deliverySchool = data.buildingName;
+            self.deliveryAddr = data.address;
+          }
+        }).open({ q: q });
       },
       onAgencyChange() { this.isNewTeacher = false; },
       filterTeachers() {
