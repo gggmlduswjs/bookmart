@@ -51,6 +51,20 @@
   {% csrf_token %}
   <input type="hidden" name="action" value="ship">
 
+  <!-- 일괄 운송장 드래그앤드롭 영역 -->
+  <div id="bulkDropZone" style="border:2px dashed #93c5fd;border-radius:10px;padding:16px 24px;margin-bottom:12px;background:#eff6ff;display:flex;align-items:center;gap:16px;cursor:pointer;transition:all .15s"
+       onclick="document.getElementById('bulk-tracking-modal').style.display='flex'"
+       ondragover="event.preventDefault();this.style.borderColor='#2563eb';this.style.background='#dbeafe'"
+       ondragleave="this.style.borderColor='#93c5fd';this.style.background='#eff6ff'"
+       ondrop="event.preventDefault();this.style.borderColor='#93c5fd';this.style.background='#eff6ff';handleExcelDrop(event)">
+    <div style="font-size:32px;opacity:0.7">📋</div>
+    <div>
+      <div style="font-size:14px;font-weight:700;color:#1e40af">운송장 일괄 입력</div>
+      <div style="font-size:12px;color:#64748b;margin-top:2px">한진택배 엑셀을 드래그하거나 클릭하여 주문번호+운송장번호를 붙여넣으세요</div>
+    </div>
+    <span id="trackingProgress" style="font-size:13px;color:#2563eb;font-weight:700;margin-left:auto;display:none"></span>
+  </div>
+
   <div class="action-bar">
     <label for="check-all-pending" style="font-size:13px;color:#64748b;cursor:pointer">
       <input type="checkbox" id="check-all-pending" onchange="toggleAll(this, 'pending-chk')" aria-label="발송 대기 전체 선택"> 전체 선택
@@ -58,9 +72,7 @@
     <button type="button" class="btn btn-orange btn-sm" onclick="showConfirm({title:'발송 처리',message:'선택한 주문을 발송 처리하시겠습니까?',confirmText:'발송 처리',confirmClass:'btn-orange',onConfirm:()=>document.getElementById('pendingShipForm').submit()})">
       선택 발송 처리
     </button>
-    <span id="trackingProgress" style="font-size:12px;color:#2563eb;font-weight:600;display:none"></span>
-    <span style="font-size:12px;color:#94a3b8">운송장번호를 입력하면 선생님에게 문자가 발송됩니다</span>
-    <button type="button" class="btn btn-blue btn-sm" onclick="document.getElementById('bulk-tracking-modal').style.display='flex'">일괄 운송장 입력</button>
+    <span style="font-size:12px;color:#94a3b8">운송장번호 입력 시 선생님에게 문자 자동 발송</span>
   </div>
 
   <div class="content-box scroll-hint">
@@ -416,6 +428,36 @@ function toggleAll(el, cls) {
 
   updateTrackingProgress();
 })();
+
+// 엑셀 드래그앤드롭 → 운송장 일괄 파싱
+function handleExcelDrop(event) {
+  var files = event.dataTransfer.files;
+  if (!files || !files.length) return;
+  var file = files[0];
+  if (!file.name.match(/\.(xlsx|xls|csv|txt)$/i)) {
+    showToast('엑셀, CSV, TXT 파일만 지원합니다.', 'error');
+    return;
+  }
+  // FileReader로 텍스트 읽기 시도 (CSV/TXT)
+  if (file.name.match(/\.(csv|txt)$/i)) {
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      document.getElementById('bulk-tracking-modal').style.display = 'flex';
+      setTimeout(function() {
+        var ta = document.querySelector('#bulk-tracking-modal textarea');
+        if (ta) {
+          ta.value = e.target.result;
+          ta.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+      }, 100);
+    };
+    reader.readAsText(file);
+  } else {
+    // xlsx → 모달 열기 + 안내
+    document.getElementById('bulk-tracking-modal').style.display = 'flex';
+    showToast('엑셀 파일은 내용을 복사해서 붙여넣기 해주세요.', 'info');
+  }
+}
 
 // 배송방법 기본값 기억
 document.addEventListener('alpine:init', () => {

@@ -236,10 +236,10 @@
       <span class="todo-icon">{% if msg.source == 'email' %}&#x1F4E7;{% else %}&#x1F4AC;{% endif %}</span>
       <div class="todo-body">
         <div class="todo-title">{{ msg.sender|truncatechars:25 }}</div>
-        <div class="todo-desc">수신함 미처리</div>
+        <div class="todo-desc">{% if msg.subject %}{{ msg.subject|truncatechars:40 }}{% else %}수신함 미처리{% endif %}</div>
       </div>
       <span class="todo-time">{{ msg.received_at|date:"m/d H:i" }}</span>
-      <a href="{% url 'inbox_process' msg.pk %}" class="btn btn-outline btn-sm todo-action" style="padding:3px 10px;font-size:11px">처리</a>
+      <a href="{% url 'inbox_process' msg.pk %}" class="btn btn-orange btn-sm todo-action" style="padding:3px 10px;font-size:11px">주문처리</a>
     </li>
     {% endfor %}
     {% for order in pending_order_list %}
@@ -326,11 +326,23 @@
   </div>
 </div>
 
-<!-- Quick action buttons -->
+<!-- Quick action buttons — context-aware -->
 <div class="dash-buttons">
-  <a href="{% url 'inbox_list' %}" class="btn btn-orange">수신함 확인</a>
+  {% if unprocessed_inbox > 0 %}
+  <a href="{% url 'inbox_list' %}?tab=email&hide_done=1" class="btn btn-orange">수신함 {{ unprocessed_inbox }}건 처리</a>
+  {% else %}
+  <a href="{% url 'inbox_list' %}" class="btn btn-outline">수신함</a>
+  {% endif %}
+  {% if pending_orders > 0 %}
+  <a href="{% url 'delivery_manage' %}?tab=pending" class="btn btn-dark">발송 {{ pending_orders }}건 처리</a>
+  {% else %}
   <a href="{% url 'order_create_admin' %}" class="btn btn-dark">주문 입력</a>
-  <a href="{% url 'call_inbox' %}" class="btn btn-blue">통화주문</a>
+  {% endif %}
+  {% if call_pending > 0 %}
+  <a href="{% url 'call_inbox' %}" class="btn btn-blue">통화 {{ call_pending }}건</a>
+  {% else %}
+  <a href="{% url 'call_inbox' %}" class="btn btn-outline">통화주문</a>
+  {% endif %}
   <a href="{% url 'purchase_order' %}" class="btn btn-outline">발주 집계</a>
 </div>
 {% endblock %}

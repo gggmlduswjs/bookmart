@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load tz %}
 {% block title %}수신함{% endblock %}
 
 {% block extra_css %}
@@ -35,6 +36,16 @@
     border-radius:10px;
     margin-left:4px;
   }
+  .inbox-tab .search-count {
+    display:inline-block;
+    background:#dbeafe;
+    color:#1e40af;
+    font-size:10px;
+    font-weight:600;
+    padding:1px 5px;
+    border-radius:8px;
+    margin-left:3px;
+  }
   .inbox-panel { display:none; }
   .inbox-panel.active { display:block; }
   tr.unread { background:#eff6ff !important; }
@@ -49,6 +60,22 @@
   }
   .data-table td a[href*="inbox"]:hover { background:#f0f4ff; }
 
+  /* Status pill badges */
+  .status-pill {
+    display:inline-block;
+    padding:2px 8px;
+    font-size:10px;
+    font-weight:600;
+    border-radius:10px;
+    white-space:nowrap;
+  }
+  .status-pill.unprocessed { background:#fff7ed; color:#ea580c; border:1px solid #fed7aa; }
+  .status-pill.processed { background:#f1f5f9; color:#94a3b8; }
+  .status-pill.has-order { background:#eff6ff; color:#2563eb; border:1px solid #bfdbfe; }
+
+  /* 24h+ overdue indicator */
+  tr.overdue { border-left:4px solid #ef4444 !important; }
+
   /* Slide panel */
   .slide-panel-overlay {
     display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
@@ -56,8 +83,8 @@
   }
   .slide-panel-overlay.open { display: block; }
   .slide-panel {
-    position: fixed; top: 0; right: -480px; bottom: 0;
-    width: 480px; max-width: 100vw;
+    position: fixed; top: 0; right: -640px; bottom: 0;
+    width: 640px; max-width: 100vw;
     background: #fff; z-index: 501;
     box-shadow: -4px 0 20px rgba(0,0,0,0.15);
     transition: right 0.25s ease;
@@ -75,9 +102,22 @@
     background: none; border: none; color: rgba(255,255,255,0.7);
     font-size: 22px; cursor: pointer; padding: 0 4px;
   }
-  .slide-panel-body {
-    flex: 1; overflow-y: auto; padding: 16px 20px;
+  .slide-panel-close:hover { color:#fff; }
+  /* Panel tabs */
+  .sp-tabs { display:flex; border-bottom:1px solid #e2e8f0; flex-shrink:0; }
+  .sp-tab {
+    padding:8px 20px; font-size:13px; font-weight:600; cursor:pointer;
+    color:#64748b; border-bottom:2px solid transparent; transition:all .15s;
   }
+  .sp-tab:hover { color:#334155; }
+  .sp-tab.active { color:#1e40af; border-bottom-color:#1e40af; }
+  .sp-tab-content { display:none; }
+  .sp-tab-content.active { display:block; }
+  .slide-panel-body {
+    flex: 1; overflow-y: auto; padding: 0;
+  }
+  .sp-preview-body { padding: 16px 20px; }
+  .sp-order-body { padding: 0; }
   .slide-panel-footer {
     padding: 12px 20px; border-top: 1px solid #e2e8f0;
     display: flex; gap: 8px; flex-shrink: 0;
@@ -95,7 +135,30 @@
     display: flex; align-items: center; gap: 6px;
     padding: 4px 0; font-size: 12px;
   }
-  @media (max-width: 640px) {
+  /* SMS chat in panel */
+  .sp-chat-thread {
+    background:#b2c7d9; padding:10px 12px; max-height:300px; overflow-y:auto;
+    display:flex; flex-direction:column; gap:3px; border-radius:6px;
+  }
+  .sp-chat-row { display:flex; align-items:flex-end; gap:4px; }
+  .sp-chat-row.recv { justify-content:flex-start; }
+  .sp-chat-row.sent { justify-content:flex-end; }
+  .sp-chat-msg {
+    max-width:70%; padding:6px 10px; border-radius:14px;
+    font-size:12px; line-height:1.45; word-break:break-all; white-space:pre-wrap;
+  }
+  .sp-chat-row.recv .sp-chat-msg { background:#fff; border-top-left-radius:3px; }
+  .sp-chat-row.sent .sp-chat-msg { background:#fee500; border-top-right-radius:3px; }
+  .sp-chat-row.current .sp-chat-msg { outline:2px solid #3b82f6; outline-offset:1px; }
+  .sp-chat-time { font-size:9px; color:#6b8299; flex-shrink:0; padding-bottom:1px; }
+  .sp-chat-date { text-align:center; padding:6px 0 3px; }
+  .sp-chat-date span { background:rgba(0,0,0,.18); color:#fff; padding:2px 10px; border-radius:10px; font-size:10px; }
+  /* Call detail in panel */
+  .sp-call-info { padding:16px 20px; }
+  .sp-call-info .field { margin-bottom:8px; }
+  .sp-call-info .field-label { font-size:10px; color:#94a3b8; text-transform:uppercase; font-weight:600; margin-bottom:2px; }
+  .sp-call-info .field-value { font-size:13px; color:#0f172a; }
+  @media (max-width: 768px) {
     .slide-panel { width: 100vw; right: -100vw; }
   }
 </style>
@@ -107,7 +170,7 @@
 </div>
 
 <!-- 검색 -->
-<form method="get" style="margin-bottom:10px;display:flex;gap:6px;align-items:center">
+<form method="get" style="margin-bottom:10px;display:flex;gap:6px;align-items:center;flex-wrap:wrap">
   <input type="hidden" name="tab" value="{{ tab }}">
   {% if hide_done %}<input type="hidden" name="hide_done" value="1">{% endif %}
   <input type="text" name="q" value="{{ search }}" placeholder="발신자, 제목, 내용 검색"
@@ -117,23 +180,32 @@
   {% if search %}<a href="?tab={{ tab }}{% if hide_done %}&hide_done=1{% endif %}" class="btn btn-outline btn-sm" style="color:#888">초기화</a>{% endif %}
 </form>
 
+{% if search and search_counts %}
+<div style="margin-bottom:10px;padding:6px 12px;background:#f0f4ff;border:1px solid #bfdbfe;border-radius:6px;font-size:12px;color:#1e40af">
+  검색 결과: 메일 <strong>{{ search_counts.email }}</strong>건 | 문자 <strong>{{ search_counts.sms }}</strong>건 | 통화 <strong>{{ search_counts.call }}</strong>건
+</div>
+{% endif %}
+
 <!-- 탭 -->
 <div class="inbox-tabs">
   <a class="inbox-tab {% if tab == 'email' %}active{% endif %}"
      href="?tab=email{% if hide_done %}&hide_done=1{% endif %}{% if search %}&q={{ search|urlencode }}{% endif %}">
     메일{% if unread_email %} <span class="tab-count">{{ unread_email }}</span>{% endif %}
+    {% if search and search_counts %}<span class="search-count">{{ search_counts.email }}</span>{% endif %}
   </a>
   <a class="inbox-tab {% if tab == 'sms' %}active{% endif %}"
      href="?tab=sms{% if hide_done %}&hide_done=1{% endif %}{% if search %}&q={{ search|urlencode }}{% endif %}">
     문자{% if unread_sms %} <span class="tab-count">{{ unread_sms }}</span>{% endif %}
+    {% if search and search_counts %}<span class="search-count">{{ search_counts.sms }}</span>{% endif %}
   </a>
   <a class="inbox-tab {% if tab == 'call' %}active{% endif %}"
-     href="?tab=call">
+     href="?tab=call{% if search %}&q={{ search|urlencode }}{% endif %}">
     통화{% if pending_calls %} <span class="tab-count">{{ pending_calls }}</span>{% endif %}
+    {% if search and search_counts %}<span class="search-count">{{ search_counts.call }}</span>{% endif %}
   </a>
 </div>
 
-<!-- 메일 탭 -->
+<!-- ═══════════════ 메일 탭 ═══════════════ -->
 <div class="inbox-panel {% if tab == 'email' %}active{% endif %}">
   <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
     <button type="button" class="btn btn-orange btn-sm" id="fetchEmailBtn" onclick="fetchEmailsAjax()">새 메일 가져오기</button>
@@ -171,13 +243,17 @@
             <th>발신자</th>
             <th>제목 / 내용 미리보기</th>
             <th style="width:130px">수신 시각</th>
-            <th style="width:70px">상태</th>
+            <th style="width:80px">상태</th>
             <th style="width:70px"></th>
           </tr>
         </thead>
         <tbody>
+          {% now "U" as now_ts %}
           {% for msg in email_messages %}
-          <tr class="{% if not msg.is_read %}unread{% elif msg.is_read and not msg.is_processed %}read{% endif %}" style="{% if msg.is_processed %}opacity:0.5;{% endif %}cursor:pointer" onclick="if(!event.target.closest('input,button,.call-actions,a.btn')){openSlidePanel({{ msg.pk }}, '{{ msg.sender|escapejs }}', '{{ msg.subject|escapejs|truncatechars:50 }}', '{{ msg.received_at|date:'m/d H:i' }}', '{{ msg.content|escapejs|truncatechars:500 }}', '{% url 'inbox_process' msg.pk %}', [{% for att in msg.attachments.all %}'{{ att.filename|escapejs }}'{% if not forloop.last %},{% endif %}{% endfor %}]);}">
+          <tr class="{% if not msg.is_read %}unread{% elif msg.is_read and not msg.is_processed %}read{% endif %}{% if not msg.is_processed %} {% widthratio msg.received_at|date:'U' 1 1 as msg_ts %}{% endif %}"
+              style="{% if msg.is_processed %}opacity:0.5;{% endif %}cursor:pointer;{% if not msg.is_processed %}{% widthratio msg.received_at|date:'U' 1 1 as msg_ts %}{% endif %}"
+              data-pk="{{ msg.pk }}" data-source="email"
+              onclick="if(!event.target.closest('input,button,.call-actions,a.btn')){openSlidePanel({{ msg.pk }}, 'email');}">
             <td class="center">
               <input type="checkbox" name="msg_ids" value="{{ msg.pk }}" class="msg-check-email" aria-label="{{ msg.sender }} 메일 선택">
             </td>
@@ -202,19 +278,20 @@
             <td class="center" style="font-size:11px">{{ msg.received_at|date:"m/d H:i" }}</td>
             <td class="center">
               {% if msg.is_processed %}
-              <span style="color:#888;font-size:11px">처리</span>
-              {% if msg.order %}
-              <div style="font-size:10px"><a href="{% url 'order_detail' msg.order.pk %}">주문보기</a></div>
-              {% endif %}
+                {% if msg.order %}
+                <span class="status-pill has-order">주문</span>
+                <div style="font-size:10px;margin-top:2px"><a href="{% url 'order_detail' msg.order.pk %}" onclick="event.stopPropagation()">{{ msg.order.order_no }}</a></div>
+                {% else %}
+                <span class="status-pill processed">처리완료</span>
+                {% endif %}
               {% else %}
-              <span style="color:#e8720c;font-size:11px;font-weight:bold">미처리</span>
+              <span class="status-pill unprocessed">미처리</span>
               {% endif %}
             </td>
             <td class="center" style="white-space:nowrap">
-              <a href="{% url 'inbox_process' msg.pk %}" class="btn btn-outline btn-sm">전체 처리</a>
               {% if not msg.is_processed %}
-              <button type="button" class="btn btn-orange btn-sm"
-                      onclick="event.stopPropagation();singleSkip('{% url 'inbox_single_skip' msg.pk %}')">처리</button>
+              <button type="button" class="btn btn-outline btn-sm" style="font-size:10px;padding:2px 6px"
+                      onclick="event.stopPropagation();singleSkipAjax({{ msg.pk }})">처리완료</button>
               {% endif %}
             </td>
           </tr>
@@ -244,60 +321,95 @@
   </form>
 </div>
 
-<!-- 문자 탭 -->
+<!-- ═══════════════ 문자 탭 ═══════════════ -->
 <div class="inbox-panel {% if tab == 'sms' %}active{% endif %}">
   <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
     <a href="{% url 'sms_desk' %}" class="btn btn-orange btn-sm">문자 주문 데스크</a>
     <a href="{% url 'sms_import_xml' %}" class="btn btn-outline btn-sm">문자 백업 가져오기</a>
+    {% if hide_done %}
+      <a href="?tab=sms{% if search %}&q={{ search|urlencode }}{% endif %}" class="btn btn-outline btn-sm">전체 보기</a>
+    {% else %}
+      <a href="?tab=sms&hide_done=1{% if search %}&q={{ search|urlencode }}{% endif %}" class="btn btn-outline btn-sm">미처리만 보기</a>
+    {% endif %}
   </div>
 
-  <div class="content-box scroll-hint">
-    <table class="data-table">
-      <thead>
-        <tr>
-          <th style="width:28px"></th>
-          <th style="width:130px">발신번호</th>
-          <th>최근 내용</th>
-          <th style="width:60px">문자수</th>
-          <th style="width:130px">최근 시각</th>
-          <th style="width:60px">주문</th>
-          <th style="width:60px"></th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for conv in sms_conversations %}
-        <tr>
-          <td class="center">{% if conv.unread_count %}<span class="read-dot"></span>{% endif %}</td>
-          <td style="font-size:12px;font-weight:bold">{{ conv.sender_name|default:conv.phone }}</td>
-          <td>
-            <a href="{% url 'inbox_process' conv.latest_pk %}" style="color:inherit;text-decoration:none;display:block">
+  <form method="post" action="{% url 'inbox_bulk_skip' %}" id="bulkSkipFormSms">
+    {% csrf_token %}
+    <input type="hidden" name="tab" value="sms">
+
+    {% if sms_conversations %}
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
+      <button type="submit" name="action" value="skip_selected" class="btn btn-outline btn-sm"
+              onclick="return confirmSelected('sms')">선택 처리완료</button>
+      <button type="button" class="btn btn-outline btn-sm"
+              style="color:#888;border-color:#ccc"
+              onclick="bulkDelete('sms')">선택 삭제</button>
+    </div>
+    {% endif %}
+
+    <div class="content-box scroll-hint">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th style="width:36px"><input type="checkbox" onchange="toggleAll(this,'sms')" aria-label="문자 전체 선택"></th>
+            <th style="width:28px"></th>
+            <th style="width:130px">발신번호</th>
+            <th>최근 내용</th>
+            <th style="width:60px">문자수</th>
+            <th style="width:130px">최근 시각</th>
+            <th style="width:70px">상태</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for conv in sms_conversations %}
+          <tr style="cursor:pointer" data-pk="{{ conv.latest_pk }}" data-source="sms"
+              onclick="if(!event.target.closest('input,button')){openSlidePanel({{ conv.latest_pk }}, 'sms');}">
+            <td class="center">
+              <input type="checkbox" name="msg_ids" value="{{ conv.latest_pk }}" class="msg-check-sms" aria-label="{{ conv.phone }} 문자 선택">
+            </td>
+            <td class="center">{% if conv.unread_count %}<span class="read-dot"></span>{% endif %}</td>
+            <td style="font-size:12px;font-weight:bold">{{ conv.sender_name|default:conv.phone }}</td>
+            <td>
               <div style="font-size:12px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;max-width:400px">{{ conv.preview }}</div>
-            </a>
-          </td>
-          <td class="center" style="font-size:11px">{{ conv.total_count }}건</td>
-          <td class="center" style="font-size:11px">{{ conv.latest_time|date:"m/d H:i" }}</td>
-          <td class="center">
-            {% if conv.has_order %}
-            <span style="color:#1e40af;font-size:11px;font-weight:bold">주문</span>
-            {% endif %}
-          </td>
-          <td class="center">
-            <a href="{% url 'inbox_process' conv.latest_pk %}" class="btn btn-outline btn-sm">보기</a>
-          </td>
-        </tr>
-        {% empty %}
-        <tr>
-          <td colspan="7" class="center" style="padding:30px;color:#888">
-            {% if hide_done %}미처리 문자가 없습니다.{% else %}문자가 없습니다.{% endif %}
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
+            </td>
+            <td class="center" style="font-size:11px">{{ conv.total_count }}건</td>
+            <td class="center" style="font-size:11px">{{ conv.latest_time|date:"m/d H:i" }}</td>
+            <td class="center">
+              {% if conv.has_order %}
+              <span class="status-pill has-order">주문</span>
+              {% elif conv.unread_count %}
+              <span class="status-pill unprocessed">미처리</span>
+              {% else %}
+              <span class="status-pill processed">읽음</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="7" class="center" style="padding:30px;color:#888">
+              {% if hide_done %}미처리 문자가 없습니다.{% else %}문자가 없습니다.{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% if sms_page and sms_page.paginator.num_pages > 1 %}
+    <div style="display:flex;justify-content:center;gap:6px;margin-top:12px;align-items:center;font-size:13px">
+      {% if sms_page.has_previous %}
+      <a href="?tab=sms&sms_page={{ sms_page.previous_page_number }}{% if hide_done %}&hide_done=1{% endif %}{% if search %}&q={{ search|urlencode }}{% endif %}" class="btn btn-outline btn-sm">&laquo; 이전</a>
+      {% endif %}
+      <span style="color:#64748b">{{ sms_page.number }} / {{ sms_page.paginator.num_pages }}</span>
+      {% if sms_page.has_next %}
+      <a href="?tab=sms&sms_page={{ sms_page.next_page_number }}{% if hide_done %}&hide_done=1{% endif %}{% if search %}&q={{ search|urlencode }}{% endif %}" class="btn btn-outline btn-sm">다음 &raquo;</a>
+      {% endif %}
+    </div>
+    {% endif %}
+  </form>
 </div>
 
-<!-- 통화 탭 -->
+<!-- ═══════════════ 통화 탭 ═══════════════ -->
 <div class="inbox-panel {% if tab == 'call' %}active{% endif %}">
   <style>
     .call-toolbar { display:flex; gap:8px; align-items:center; margin-bottom:14px; flex-wrap:wrap; }
@@ -311,17 +423,10 @@
     .call-filter a:not(.active) .cnt { background:#e2e8f0; color:#64748b; }
 
     .call-card {
-      display:flex;
-      align-items:center;
-      gap:12px;
-      background:#fff;
-      border:1px solid #e5e7eb;
-      border-radius:8px;
-      padding:10px 14px 10px 0;
-      margin-bottom:6px;
-      cursor:pointer;
-      text-decoration:none;
-      color:inherit;
+      display:flex; align-items:flex-start; gap:12px;
+      background:#fff; border:1px solid #e5e7eb; border-radius:8px;
+      padding:10px 14px 10px 0; margin-bottom:6px;
+      cursor:pointer; text-decoration:none; color:inherit;
       transition:border-color .12s, box-shadow .12s;
     }
     .call-card:hover { border-color:#93c5fd; box-shadow:0 1px 4px rgba(59,130,246,.1); }
@@ -347,15 +452,19 @@
     .call-badge-type { padding:1px 5px; font-size:9px; border-radius:3px; font-weight:700; }
     .call-badge-type.yes { background:#eff6ff; color:#1d4ed8; }
     .call-badge-type.no { background:#f1f5f9; color:#64748b; }
+    .call-badge-items { display:inline-block; padding:1px 6px; font-size:9px; border-radius:3px; font-weight:600; background:#dbeafe; color:#1e40af; }
+    /* Phase 1.3: Teacher/School row */
+    .call-teacher-row { font-size:14px; font-weight:700; color:#0f172a; margin-top:3px; }
+    .call-teacher-row .school { font-weight:400; color:#64748b; font-size:12px; margin-left:4px; }
     .call-meta { font-size:11px; color:#94a3b8; margin-top:2px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
-    .call-summary-text { font-size:12px; color:#475569; margin-top:3px; line-height:1.4; display:-webkit-box; -webkit-line-clamp:1; -webkit-box-orient:vertical; overflow:hidden; }
+    .call-summary-text { font-size:13px; color:#475569; margin-top:3px; line-height:1.5; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
     .call-summary-text.is-order { color:#1e40af; font-weight:500; }
     .call-error-text { font-size:11px; color:#dc2626; margin-top:2px; }
     .call-order-link { font-size:11px; color:#059669; font-weight:600; margin-top:2px; }
     .call-order-link a { color:#059669; text-decoration:none; }
     .call-order-link a:hover { text-decoration:underline; }
 
-    .call-actions { display:flex; gap:5px; align-items:center; flex-shrink:0; }
+    .call-actions { display:flex; gap:5px; align-items:center; flex-shrink:0; padding-top:4px; }
 
     .call-empty { text-align:center; padding:50px 20px; color:#94a3b8; background:#fff; border:1px solid #e5e7eb; border-radius:8px; }
     .call-pager { text-align:center; margin-top:14px; font-size:13px; }
@@ -385,9 +494,10 @@
     <a href="?tab=call&call_status=skipped" class="{% if call_status == 'skipped' %}active{% endif %}">건너뜀 <span class="cnt">{{ call_counts.skipped|default:"0" }}</span></a>
   </div>
 
-  <!-- 녹음 목록 -->
+  <!-- 녹음 목록 (Phase 1.3 redesign) -->
   {% for rec in call_page %}
-  <div class="call-card" onclick="if(!event.target.closest('.call-actions'))location.href='{% url 'call_recording_process' pk=rec.pk %}'">
+  <div class="call-card" data-pk="{{ rec.pk }}" data-source="call"
+       onclick="if(!event.target.closest('.call-actions'))openSlidePanel({{ rec.pk }}, 'call')">
     <div class="call-sbar {{ rec.status }}"></div>
     <div class="call-info">
       <div class="call-top">
@@ -396,28 +506,37 @@
         {% if rec.is_order is not None %}
         <span class="call-badge-type {% if rec.is_order %}yes{% else %}no{% endif %}">{% if rec.is_order %}주문{% else %}일반{% endif %}</span>
         {% endif %}
+        {% if rec.parsed_data.items %}
+        <span class="call-badge-items">교재 {{ rec.parsed_data.items|length }}건</span>
+        {% endif %}
       </div>
-      <div class="call-meta">
-        {% if rec.caller_phone and rec.file_name %}{{ rec.file_name }} &middot; {% endif %}{% if rec.recorded_at %}{{ rec.recorded_at|date:"Y-m-d H:i" }} &middot; {% endif %}{{ rec.created_at|date:"m/d H:i" }} 수신{% if rec.parsed_data %}{% if rec.parsed_data.teacher_name %} &middot; {{ rec.parsed_data.teacher_name }}{% endif %}{% if rec.parsed_data.school_name %} &middot; {{ rec.parsed_data.school_name }}{% endif %}{% if rec.parsed_data.items %} &middot; 교재 {{ rec.parsed_data.items|length }}건{% endif %}{% endif %}
+      {% if rec.parsed_data.teacher_name or rec.parsed_data.school_name %}
+      <div class="call-teacher-row">
+        {% if rec.parsed_data.teacher_name %}{{ rec.parsed_data.teacher_name }}{% endif %}
+        {% if rec.parsed_data.school_name %}<span class="school">{{ rec.parsed_data.school_name }}</span>{% endif %}
       </div>
-      {% if rec.summary %}
-      <div class="call-summary-text {% if rec.is_order %}is-order{% endif %}">{{ rec.summary|truncatechars:100 }}</div>
-      {% elif rec.transcript %}
-      <div class="call-summary-text" style="color:#94a3b8">{{ rec.transcript|truncatechars:100 }}</div>
       {% endif %}
+      {% if rec.summary %}
+      <div class="call-summary-text {% if rec.is_order %}is-order{% endif %}">{{ rec.summary|truncatechars:150 }}</div>
+      {% elif rec.transcript %}
+      <div class="call-summary-text" style="color:#94a3b8">{{ rec.transcript|truncatechars:150 }}</div>
+      {% endif %}
+      <div class="call-meta">
+        {% if rec.caller_phone and rec.file_name %}{{ rec.file_name }} &middot; {% endif %}{% if rec.recorded_at %}{{ rec.recorded_at|date:"Y-m-d H:i" }} &middot; {% endif %}{{ rec.created_at|date:"m/d H:i" }} 수신
+      </div>
       {% if rec.error_msg %}<div class="call-error-text">{{ rec.error_msg|truncatechars:60 }}</div>{% endif %}
-      {% if rec.order %}<div class="call-order-link"><a href="{% url 'order_detail' pk=rec.order.pk %}">{{ rec.order.order_no }}</a></div>{% endif %}
+      {% if rec.order %}<div class="call-order-link"><a href="{% url 'order_detail' pk=rec.order.pk %}" onclick="event.stopPropagation()">{{ rec.order.order_no }}</a></div>{% endif %}
     </div>
     <div class="call-actions">
       {% if rec.status == 'parsed' %}
-      <a href="{% url 'call_recording_process' pk=rec.pk %}" class="btn btn-orange btn-sm">주문 생성</a>
-      <a href="{% url 'call_recording_skip' pk=rec.pk %}" class="btn btn-outline btn-sm" style="font-size:11px">건너뛰기</a>
+      <a href="{% url 'call_recording_process' pk=rec.pk %}" class="btn btn-orange btn-sm" onclick="event.stopPropagation()">주문 생성</a>
+      <a href="{% url 'call_recording_skip' pk=rec.pk %}" class="btn btn-outline btn-sm" style="font-size:11px" onclick="event.stopPropagation()">건너뛰기</a>
       {% elif rec.status == 'pending' %}
-      <a href="{% url 'call_recording_process' pk=rec.pk %}" class="btn btn-blue btn-sm">파싱</a>
-      <a href="{% url 'call_recording_skip' pk=rec.pk %}" class="btn btn-outline btn-sm" style="font-size:11px">건너뛰기</a>
+      <a href="{% url 'call_recording_process' pk=rec.pk %}" class="btn btn-blue btn-sm" onclick="event.stopPropagation()">파싱</a>
+      <a href="{% url 'call_recording_skip' pk=rec.pk %}" class="btn btn-outline btn-sm" style="font-size:11px" onclick="event.stopPropagation()">건너뛰기</a>
       {% elif rec.status == 'failed' %}
-      <a href="{% url 'call_recording_retry' pk=rec.pk %}" class="btn btn-blue btn-sm">재시도</a>
-      <a href="{% url 'call_recording_skip' pk=rec.pk %}" class="btn btn-outline btn-sm" style="font-size:11px">건너뛰기</a>
+      <a href="{% url 'call_recording_retry' pk=rec.pk %}" class="btn btn-blue btn-sm" onclick="event.stopPropagation()">재시도</a>
+      <a href="{% url 'call_recording_skip' pk=rec.pk %}" class="btn btn-outline btn-sm" style="font-size:11px" onclick="event.stopPropagation()">건너뛰기</a>
       {% endif %}
     </div>
   </div>
@@ -441,28 +560,58 @@
   {% endif %}
 </div>
 
-<!-- Slide Panel -->
+<!-- ═══════════════ Slide Panel (통합) ═══════════════ -->
 <div class="slide-panel-overlay" id="slidePanelOverlay" onclick="closeSlidePanel()"></div>
 <div class="slide-panel" id="slidePanel">
   <div class="slide-panel-header">
-    <h3 id="spTitle">메시지 미리보기</h3>
-    <button class="slide-panel-close" onclick="closeSlidePanel()">&times;</button>
-  </div>
-  <div class="slide-panel-body">
-    <div class="sp-meta">
-      <div><strong>발신:</strong> <span id="spSender"></span></div>
-      <div><strong>제목:</strong> <span id="spSubject"></span></div>
-      <div><strong>수신:</strong> <span id="spTime"></span></div>
+    <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0">
+      <h3 id="spTitle" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">메시지</h3>
+      <span id="spCounter" style="font-size:11px;color:rgba(255,255,255,0.6);flex-shrink:0"></span>
     </div>
-    <div class="sp-content" id="spContent">로딩 중...</div>
-    <div class="sp-attachments" id="spAttachments" style="display:none">
-      <div style="font-size:11px;font-weight:600;color:#64748b;margin-bottom:4px">첨부파일</div>
-      <div id="spAttList"></div>
+    <div style="display:flex;align-items:center;gap:4px;flex-shrink:0">
+      <button class="slide-panel-close" onclick="navigatePanel(-1)" title="이전 (←)" style="font-size:16px">&#9664;</button>
+      <button class="slide-panel-close" onclick="navigatePanel(1)" title="다음 (→)" style="font-size:16px">&#9654;</button>
+      <button class="slide-panel-close" onclick="closeSlidePanel()" title="닫기 (Esc)" style="margin-left:8px">&times;</button>
     </div>
   </div>
-  <div class="slide-panel-footer">
-    <a id="spProcessLink" href="#" class="btn btn-orange btn-sm" style="flex:1;text-align:center;text-decoration:none">주문 처리 →</a>
+  <!-- Panel tabs -->
+  <div class="sp-tabs" id="spTabs">
+    <div class="sp-tab active" data-tab="preview" onclick="switchSpTab('preview')">미리보기</div>
+    <div class="sp-tab" data-tab="order" onclick="switchSpTab('order')">주문 등록</div>
+  </div>
+  <div class="slide-panel-body" id="spBody">
+    <!-- Preview tab -->
+    <div class="sp-tab-content active" id="spPreviewTab">
+      <div class="sp-preview-body">
+        <div class="sp-meta">
+          <div><strong>발신:</strong> <span id="spSender"></span></div>
+          <div><strong>제목:</strong> <span id="spSubject"></span></div>
+          <div><strong>수신:</strong> <span id="spTime"></span></div>
+        </div>
+        <div class="sp-content" id="spContent">로딩 중...</div>
+        <div class="sp-attachments" id="spAttachments" style="display:none">
+          <div style="font-size:11px;font-weight:600;color:#64748b;margin-bottom:4px">첨부파일</div>
+          <div id="spAttList"></div>
+        </div>
+        <!-- SMS chat thread (shown for SMS) -->
+        <div id="spSmsSection" style="display:none">
+          <div class="sp-chat-thread" id="spSmsThread"></div>
+        </div>
+        <!-- Call detail (shown for calls) -->
+        <div id="spCallSection" style="display:none"></div>
+      </div>
+    </div>
+    <!-- Order form tab -->
+    <div class="sp-tab-content" id="spOrderTab">
+      <div class="sp-order-body" id="spOrderFormContainer" style="padding:16px 20px">
+        <div style="text-align:center;padding:40px;color:#94a3b8">주문 등록 탭을 클릭하면 폼을 로드합니다.</div>
+      </div>
+    </div>
+  </div>
+  <div class="slide-panel-footer" id="spFooter">
+    <a id="spProcessLink" href="#" class="btn btn-orange btn-sm" style="flex:1;text-align:center;text-decoration:none">주문 처리 &rarr;</a>
     <button id="spSkipBtn" class="btn btn-outline btn-sm" style="flex:0 0 auto" onclick="skipFromPanel()">처리완료</button>
+    <button id="spDeleteBtn" class="btn btn-sm" style="flex:0 0 auto;background:none;border:1px solid #fca5a5;color:#dc2626;font-size:11px" onclick="deleteFromPanel()">삭제</button>
   </div>
 </div>
 
@@ -475,32 +624,45 @@
 </form>
 
 <script>
+/* ── Utility ── */
 function singleSkip(url) {
   var form = document.getElementById('singleSkipForm');
   form.action = url;
   form.submit();
 }
 
+function singleSkipAjax(pk) {
+  var csrf = document.querySelector('[name=csrfmiddlewaretoken]').value;
+  fetch('/inbox/' + pk + '/skip/', {
+    method: 'POST',
+    headers: { 'X-CSRFToken': csrf, 'X-Requested-With': 'XMLHttpRequest' }
+  }).then(function(r) {
+    if (r.ok || r.redirected) {
+      var row = document.querySelector('[data-pk="' + pk + '"][data-source]');
+      if (row) {
+        row.style.opacity = '0.5';
+        var statusCell = row.querySelector('.status-pill');
+        if (statusCell) { statusCell.className = 'status-pill processed'; statusCell.textContent = '처리완료'; }
+      }
+      showToast('처리완료', 'success');
+    }
+  });
+}
+
 function bulkDelete(type) {
   var checked = document.querySelectorAll('.msg-check-' + type + ':checked');
-  if (checked.length === 0) {
-    alert('삭제할 메시지를 선택해 주세요.');
-    return;
-  }
+  if (checked.length === 0) { alert('삭제할 메시지를 선택해 주세요.'); return; }
   showConfirm({
     title: '메시지 삭제',
     message: checked.length + '건을 삭제하시겠습니까? 복구할 수 없습니다.',
-    confirmText: '삭제',
-    confirmClass: 'btn-red',
+    confirmText: '삭제', confirmClass: 'btn-red',
     onConfirm: function() {
       var form = document.getElementById('bulkDeleteForm');
-      document.getElementById('bulkDeleteTab').value = type === 'sms' ? 'sms' : 'email';
+      document.getElementById('bulkDeleteTab').value = type;
       form.querySelectorAll('input[name=msg_ids]').forEach(function(el) { el.remove(); });
       checked.forEach(function(cb) {
         var input = document.createElement('input');
-        input.type = 'hidden';
-        input.name = 'msg_ids';
-        input.value = cb.value;
+        input.type = 'hidden'; input.name = 'msg_ids'; input.value = cb.value;
         form.appendChild(input);
       });
       form.submit();
@@ -509,24 +671,18 @@ function bulkDelete(type) {
 }
 
 function toggleAll(master, type) {
-  document.querySelectorAll('.msg-check-' + type).forEach(function(cb) {
-    cb.checked = master.checked;
-  });
+  document.querySelectorAll('.msg-check-' + type).forEach(function(cb) { cb.checked = master.checked; });
 }
 
 function confirmSelected(type) {
   var checked = document.querySelectorAll('.msg-check-' + type + ':checked');
-  if (checked.length === 0) {
-    alert('처리완료할 메시지를 선택해 주세요.');
-    return false;
-  }
-  // Prevent default form submit, use custom dialog
-  var form = document.querySelector('form[action*="bulk-skip"]');
+  if (checked.length === 0) { alert('처리완료할 메시지를 선택해 주세요.'); return false; }
+  var formId = type === 'sms' ? 'bulkSkipFormSms' : 'bulkSkipForm';
+  var form = document.getElementById(formId);
   showConfirm({
     title: '선택 처리완료',
     message: checked.length + '건을 처리완료하시겠습니까?',
-    confirmText: '처리완료',
-    confirmClass: 'btn-orange',
+    confirmText: '처리완료', confirmClass: 'btn-orange',
     onConfirm: function() {
       var h = document.createElement('input');
       h.type = 'hidden'; h.name = 'action'; h.value = 'skip_selected';
@@ -539,33 +695,303 @@ function confirmSelected(type) {
 
 /* ── Slide Panel ── */
 var _currentPanelPk = null;
+var _currentPanelSource = null;
+var _panelPks = [];  // Current tab's PK list for navigation
+var _currentPanelIdx = -1;
+var _orderFormLoaded = false;  // Track if order form has been loaded
 
-function openSlidePanel(pk, sender, subject, time, content, processUrl, attachments) {
-  _currentPanelPk = pk;
-  document.getElementById('spSender').textContent = sender || '';
-  document.getElementById('spSubject').textContent = subject || '(제목 없음)';
-  document.getElementById('spTime').textContent = time || '';
-  document.getElementById('spContent').textContent = content || '(내용 없음)';
-  document.getElementById('spProcessLink').href = processUrl;
+function _collectPks(source) {
+  var pks = [];
+  document.querySelectorAll('[data-pk][data-source="' + source + '"]').forEach(function(el) {
+    pks.push(parseInt(el.dataset.pk));
+  });
+  return pks;
+}
 
-  var attDiv = document.getElementById('spAttachments');
-  var attList = document.getElementById('spAttList');
-  attList.innerHTML = '';
-  if (attachments && attachments.length > 0) {
-    attDiv.style.display = '';
-    for (var i = 0; i < attachments.length; i++) {
-      var d = document.createElement('div');
-      d.className = 'att-item';
-      d.textContent = '\ud83d\udcce ' + attachments[i];
-      attList.appendChild(d);
-    }
-  } else {
-    attDiv.style.display = 'none';
+function switchSpTab(tab) {
+  document.querySelectorAll('.sp-tab').forEach(function(t) { t.classList.toggle('active', t.dataset.tab === tab); });
+  document.querySelectorAll('.sp-tab-content').forEach(function(c) { c.classList.toggle('active', c.id === 'sp' + tab.charAt(0).toUpperCase() + tab.slice(1) + 'Tab'); });
+  // Footer visibility
+  document.getElementById('spFooter').style.display = tab === 'order' ? 'none' : '';
+  // Load order form on first switch
+  if (tab === 'order' && !_orderFormLoaded && _currentPanelPk) {
+    _orderFormLoaded = true;
+    var container = document.getElementById('spOrderFormContainer');
+    container.innerHTML = '<div style="text-align:center;padding:40px;color:#94a3b8">폼 로딩 중...</div>';
+    fetch('/inbox/' + _currentPanelPk + '/form/')
+      .then(function(r) { return r.text(); })
+      .then(function(html) {
+        container.innerHTML = html;
+        // Re-init Alpine.js for the new content
+        if (window.Alpine) {
+          Alpine.initTree(container);
+        }
+      })
+      .catch(function(err) {
+        container.innerHTML = '<div style="text-align:center;padding:40px;color:#dc2626">폼 로드 실패: ' + err.message + '</div>';
+      });
   }
+}
+
+function openSlidePanel(pk, source) {
+  _currentPanelPk = pk;
+  _currentPanelSource = source || 'email';
+  _panelPks = _collectPks(_currentPanelSource);
+  _currentPanelIdx = _panelPks.indexOf(pk);
+  _orderFormLoaded = false;
+
+  // Reset tab to preview
+  switchSpTab('preview');
+
+  // Show/hide order tab based on source
+  var orderTab = document.querySelector('.sp-tab[data-tab="order"]');
+  if (source === 'call') {
+    orderTab.style.display = 'none';
+  } else {
+    orderTab.style.display = '';
+  }
+
+  // Counter
+  var counter = document.getElementById('spCounter');
+  if (_currentPanelIdx >= 0) {
+    counter.textContent = (_currentPanelIdx + 1) + ' / ' + _panelPks.length;
+  } else {
+    counter.textContent = '';
+  }
+
+  // Loading state
+  document.getElementById('spSender').textContent = '';
+  document.getElementById('spSubject').textContent = '';
+  document.getElementById('spTime').textContent = '';
+  document.getElementById('spContent').innerHTML = '<div style="text-align:center;padding:40px;color:#94a3b8">로딩 중...</div>';
+  document.getElementById('spAttachments').style.display = 'none';
+  document.getElementById('spSmsSection').style.display = 'none';
+  document.getElementById('spCallSection').style.display = 'none';
 
   document.getElementById('slidePanelOverlay').classList.add('open');
   document.getElementById('slidePanel').classList.add('open');
   document.body.style.overflow = 'hidden';
+
+  if (source === 'call') {
+    _loadCallDetail(pk);
+  } else {
+    _loadMessageDetail(pk, source);
+  }
+}
+
+function _loadMessageDetail(pk, source) {
+  fetch('/inbox/' + pk + '/detail/')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      document.getElementById('spTitle').textContent = data.subject || data.sender || '메시지';
+      document.getElementById('spProcessLink').href = '/inbox/' + pk + '/';
+
+      if (data.source === 'sms' && data.sms_thread && data.sms_thread.length) {
+        // SMS: show chat thread
+        document.getElementById('spSender').textContent = data.sender || '';
+        document.getElementById('spSubject').textContent = '문자 대화';
+        document.getElementById('spTime').textContent = data.received_at || '';
+        document.getElementById('spContent').style.display = 'none';
+        document.getElementById('spSmsSection').style.display = '';
+        _renderSmsThread(data.sms_thread);
+      } else {
+        // Email: show content
+        document.getElementById('spSender').textContent = data.sender || '';
+        document.getElementById('spSubject').textContent = data.subject || '(제목 없음)';
+        document.getElementById('spTime').textContent = data.received_at || '';
+        var contentEl = document.getElementById('spContent');
+        contentEl.style.display = '';
+        contentEl.textContent = data.content || '(내용 없음)';
+      }
+
+      // Status handling
+      var processLink = document.getElementById('spProcessLink');
+      var skipBtn = document.getElementById('spSkipBtn');
+      if (data.is_processed) {
+        skipBtn.style.display = 'none';
+        if (data.order_pk) {
+          processLink.textContent = '주문 보기 \u2192 ' + data.order_no;
+          processLink.href = '/orders/' + data.order_pk + '/';
+        } else {
+          processLink.textContent = '전체 처리 \u2192';
+          processLink.href = '/inbox/' + pk + '/';
+        }
+      } else {
+        skipBtn.style.display = '';
+        processLink.textContent = '주문 처리 \u2192';
+        processLink.href = '/inbox/' + pk + '/';
+      }
+
+      // Attachments
+      var attDiv = document.getElementById('spAttachments');
+      var attList = document.getElementById('spAttList');
+      attList.innerHTML = '';
+      if (data.attachments && data.attachments.length > 0) {
+        attDiv.style.display = '';
+        data.attachments.forEach(function(att) {
+          var d = document.createElement('div');
+          d.className = 'att-item';
+          var html = '<a href="' + att.download_url + '" style="color:#2563eb;text-decoration:none;font-size:11px">\ud83d\udcce ' + att.filename + '</a>';
+          if (att.preview_url) {
+            html += ' <a href="' + att.preview_url + '" target="_blank" style="color:#e8720c;font-size:10px;margin-left:4px">미리보기</a>';
+          }
+          d.innerHTML = html;
+          attList.appendChild(d);
+        });
+      } else {
+        attDiv.style.display = 'none';
+      }
+
+      // Mark row as read
+      var row = document.querySelector('[data-pk="' + pk + '"][data-source]');
+      if (row) {
+        row.classList.remove('unread');
+        var dot = row.querySelector('.read-dot');
+        if (dot) dot.remove();
+      }
+    })
+    .catch(function(err) {
+      document.getElementById('spContent').textContent = '로딩 실패: ' + err.message;
+    });
+}
+
+function _renderSmsThread(thread) {
+  var container = document.getElementById('spSmsThread');
+  container.innerHTML = '';
+  var lastDate = '';
+  thread.forEach(function(m) {
+    if (m.date !== lastDate) {
+      lastDate = m.date;
+      var sep = document.createElement('div');
+      sep.className = 'sp-chat-date';
+      sep.innerHTML = '<span>' + m.date + '</span>';
+      container.appendChild(sep);
+    }
+    var row = document.createElement('div');
+    row.className = 'sp-chat-row ' + (m.is_sent ? 'sent' : 'recv') + (m.is_current ? ' current' : '');
+    var timeSpan = '<span class="sp-chat-time">' + m.time + '</span>';
+    var msgDiv = '<div class="sp-chat-msg">' + _escapeHtml(m.content) + '</div>';
+    row.innerHTML = m.is_sent ? (timeSpan + msgDiv) : (msgDiv + timeSpan);
+    container.appendChild(row);
+  });
+  // Scroll to current message
+  var current = container.querySelector('.current');
+  if (current) {
+    setTimeout(function() { current.scrollIntoView({ block: 'center' }); }, 100);
+  } else {
+    container.scrollTop = container.scrollHeight;
+  }
+}
+
+function _loadCallDetail(pk) {
+  fetch('/inbox/call/' + pk + '/detail/')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      document.getElementById('spTitle').textContent = (data.caller_phone || data.file_name || '통화') + ' - ' + data.status_display;
+
+      // Hide email-specific parts
+      document.getElementById('spContent').style.display = 'none';
+      document.getElementById('spSmsSection').style.display = 'none';
+      document.getElementById('spCallSection').style.display = '';
+
+      // Meta info
+      document.getElementById('spSender').textContent = data.caller_phone || data.file_name || '';
+      document.getElementById('spSubject').textContent = data.is_order ? '주문 통화' : '일반 통화';
+      document.getElementById('spTime').textContent = data.recorded_at || data.created_at || '';
+
+      // Build call detail section
+      var section = document.getElementById('spCallSection');
+      var html = '<div class="sp-call-info">';
+
+      // Audio player
+      if (data.audio_url) {
+        html += '<div class="field"><div class="field-label">녹음 재생</div>';
+        html += '<audio controls src="' + data.audio_url + '" style="width:100%;height:36px" preload="none"></audio></div>';
+      }
+
+      // Parsed data
+      if (data.parsed_data) {
+        var pd = data.parsed_data;
+        if (pd.teacher_name || pd.school_name) {
+          html += '<div class="field"><div class="field-label">선생님 / 학교</div>';
+          html += '<div class="field-value">' + _escapeHtml(pd.teacher_name || '') + (pd.school_name ? ' <span style="color:#64748b;font-size:12px">' + _escapeHtml(pd.school_name) + '</span>' : '') + '</div></div>';
+        }
+        if (pd.items && pd.items.length) {
+          html += '<div class="field"><div class="field-label">교재 (' + pd.items.length + '건)</div>';
+          html += '<div style="font-size:12px">';
+          pd.items.forEach(function(item) {
+            html += '<div style="padding:2px 0">' + _escapeHtml(item.name || item.book_name || '?') + ' x ' + (item.qty || 1) + '</div>';
+          });
+          html += '</div></div>';
+        }
+      }
+
+      // Summary
+      if (data.summary) {
+        html += '<div class="field"><div class="field-label">요약</div>';
+        html += '<div class="field-value" style="font-size:12px;line-height:1.6">' + _escapeHtml(data.summary) + '</div></div>';
+      }
+
+      // Transcript
+      if (data.transcript) {
+        html += '<div class="field"><div class="field-label">녹취록</div>';
+        html += '<div class="sp-content" style="max-height:200px">' + _escapeHtml(data.transcript) + '</div></div>';
+      }
+
+      // Error
+      if (data.error_msg) {
+        html += '<div class="field"><div style="color:#dc2626;font-size:11px">' + _escapeHtml(data.error_msg) + '</div></div>';
+      }
+
+      // Order link
+      if (data.order_pk) {
+        html += '<div class="field"><a href="/orders/' + data.order_pk + '/" class="btn btn-outline btn-sm" style="color:#059669;border-color:#059669">주문 보기: ' + _escapeHtml(data.order_no || '') + '</a></div>';
+      }
+
+      html += '</div>';
+      section.innerHTML = html;
+
+      // Footer for calls
+      var processLink = document.getElementById('spProcessLink');
+      var skipBtn = document.getElementById('spSkipBtn');
+      var deleteBtn = document.getElementById('spDeleteBtn');
+      deleteBtn.style.display = 'none';
+      if (data.status === 'parsed') {
+        processLink.textContent = '주문 생성 \u2192';
+        processLink.href = '/orders/call/inbox/' + pk + '/';
+        skipBtn.style.display = '';
+      } else if (data.status === 'pending') {
+        processLink.textContent = '파싱 시작 \u2192';
+        processLink.href = '/orders/call/inbox/' + pk + '/';
+        skipBtn.style.display = '';
+      } else if (data.order_pk) {
+        processLink.textContent = '주문 보기 \u2192';
+        processLink.href = '/orders/' + data.order_pk + '/';
+        skipBtn.style.display = 'none';
+      } else {
+        processLink.textContent = '상세 보기 \u2192';
+        processLink.href = '/orders/call/inbox/' + pk + '/';
+        skipBtn.style.display = 'none';
+      }
+    })
+    .catch(function(err) {
+      document.getElementById('spCallSection').innerHTML = '<div style="padding:40px;text-align:center;color:#dc2626">로딩 실패: ' + err.message + '</div>';
+      document.getElementById('spCallSection').style.display = '';
+    });
+}
+
+function _escapeHtml(str) {
+  var div = document.createElement('div');
+  div.appendChild(document.createTextNode(str || ''));
+  return div.innerHTML;
+}
+
+function navigatePanel(direction) {
+  if (_currentPanelIdx < 0 || !_panelPks.length) return;
+  var newIdx = _currentPanelIdx + direction;
+  if (newIdx >= 0 && newIdx < _panelPks.length) {
+    openSlidePanel(_panelPks[newIdx], _currentPanelSource);
+  }
 }
 
 function closeSlidePanel() {
@@ -575,32 +1001,141 @@ function closeSlidePanel() {
   _currentPanelPk = null;
 }
 
+function _panelSkipAction() {
+  var pk = _currentPanelPk;
+  var source = _currentPanelSource;
+  if (!pk) return;
+
+  var csrf = document.querySelector('[name=csrfmiddlewaretoken]').value;
+  fetch('/inbox/' + pk + '/skip/', {
+    method: 'POST',
+    headers: { 'X-CSRFToken': csrf, 'X-Requested-With': 'XMLHttpRequest' }
+  }).then(function(r) {
+    if (r.ok || r.redirected) {
+      // Update row
+      var row = document.querySelector('[data-pk="' + pk + '"][data-source="' + source + '"]');
+      if (row) {
+        row.style.opacity = '0.5';
+        var pill = row.querySelector('.status-pill');
+        if (pill) { pill.className = 'status-pill processed'; pill.textContent = '처리완료'; }
+      }
+      showToast('처리완료', 'success');
+
+      // Auto-navigate to next unprocessed
+      _loadNextUnprocessed(pk, source);
+    }
+  }).catch(function() {
+    showToast('처리 실패', 'error');
+  });
+}
+
+function _loadNextUnprocessed(excludePk, source) {
+  var tabParam = source || 'email';
+  fetch('/inbox/api/next/?tab=' + tabParam + '&exclude=' + excludePk)
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.pk) {
+        // Try to open from current page first
+        var exists = document.querySelector('[data-pk="' + data.pk + '"][data-source="' + source + '"]');
+        if (exists) {
+          openSlidePanel(data.pk, source);
+        } else {
+          // Navigate to next within current list
+          var nextIdx = _currentPanelIdx + 1;
+          while (nextIdx < _panelPks.length) {
+            var nextRow = document.querySelector('[data-pk="' + _panelPks[nextIdx] + '"]');
+            if (nextRow && nextRow.style.opacity !== '0.5') {
+              openSlidePanel(_panelPks[nextIdx], source);
+              return;
+            }
+            nextIdx++;
+          }
+          closeSlidePanel();
+          showToast('현재 페이지의 미처리 건을 모두 처리했습니다.', 'success');
+        }
+      } else {
+        closeSlidePanel();
+        showToast('모든 메시지를 처리했습니다!', 'success');
+      }
+    });
+}
+
 function skipFromPanel() {
   if (!_currentPanelPk) return;
   showConfirm({
     title: '처리완료',
     message: '이 메시지를 처리완료로 표시하시겠습니까?',
-    confirmText: '처리완료',
-    confirmClass: 'btn-orange',
+    confirmText: '처리완료', confirmClass: 'btn-orange',
+    onConfirm: _panelSkipAction
+  });
+}
+
+function deleteFromPanel() {
+  if (!_currentPanelPk) return;
+  showConfirm({
+    title: '메시지 삭제',
+    message: '이 메시지를 삭제하시겠습니까? 복구할 수 없습니다.',
+    confirmText: '삭제', confirmClass: 'btn-red',
     onConfirm: function() {
-      var form = document.createElement('form');
-      form.method = 'POST';
-      form.action = '/inbox/' + _currentPanelPk + '/skip/';
-      var csrf = document.createElement('input');
-      csrf.type = 'hidden'; csrf.name = 'csrfmiddlewaretoken';
-      csrf.value = document.querySelector('[name=csrfmiddlewaretoken]').value;
-      form.appendChild(csrf);
-      document.body.appendChild(form);
-      form.submit();
+      var pk = _currentPanelPk;
+      var csrf = document.querySelector('[name=csrfmiddlewaretoken]').value;
+      fetch('/inbox/' + pk + '/delete/', {
+        method: 'POST',
+        headers: { 'X-CSRFToken': csrf, 'X-Requested-With': 'XMLHttpRequest' }
+      }).then(function(r) {
+        if (r.ok || r.redirected) {
+          var row = document.querySelector('[data-pk="' + pk + '"]');
+          if (row) row.style.display = 'none';
+          showToast('삭제됨', 'success');
+          navigatePanel(1);
+        }
+      });
     }
   });
 }
 
+/* Panel order creation callback */
+window._onPanelOrderCreated = function(data) {
+  // Update row in list
+  var row = document.querySelector('[data-pk="' + data.inbox_pk + '"]');
+  if (row) {
+    row.style.opacity = '0.5';
+    var pill = row.querySelector('.status-pill');
+    if (pill) { pill.className = 'status-pill has-order'; pill.textContent = '주문'; }
+  }
+  showToast('주문 등록 완료: ' + data.order_no, 'success');
+  // Auto-navigate to next
+  setTimeout(function() {
+    _loadNextUnprocessed(data.inbox_pk, _currentPanelSource);
+  }, 1500);
+};
+
+window._onPanelSkipped = function(data) {
+  var row = document.querySelector('[data-pk="' + data.inbox_pk + '"]');
+  if (row) {
+    row.style.opacity = '0.5';
+    var pill = row.querySelector('.status-pill');
+    if (pill) { pill.className = 'status-pill processed'; pill.textContent = '처리완료'; }
+  }
+  showToast('처리완료', 'success');
+  _loadNextUnprocessed(data.inbox_pk, _currentPanelSource);
+};
+
+/* ── Keyboard shortcuts ── */
 document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape') closeSlidePanel();
+  // Don't intercept when typing in inputs
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+
+  if (e.key === 'Escape') { closeSlidePanel(); return; }
+  if (!_currentPanelPk) return;
+
+  if (e.key === 'ArrowLeft') { e.preventDefault(); navigatePanel(-1); }
+  if (e.key === 'ArrowRight') { e.preventDefault(); navigatePanel(1); }
+  // S = Skip (처리완료)
+  if (e.key === 's' || e.key === 'S') { e.preventDefault(); _panelSkipAction(); }
 });
 
-// 2.3: AJAX 이메일 fetch + 스켈레톤 로더
+/* ── AJAX email fetch ── */
 function fetchEmailsAjax() {
   var btn = document.getElementById('fetchEmailBtn');
   if (!btn) return;
@@ -608,13 +1143,12 @@ function fetchEmailsAjax() {
   btn.textContent = '가져오는 중...';
   btn.classList.add('loading');
 
-  // 스켈레톤 오버레이 표시
   var tableBox = document.querySelector('.inbox-panel.active .content-box');
   if (tableBox) {
     tableBox.classList.add('skeleton-overlay');
     var skelDiv = document.createElement('div');
     skelDiv.className = 'skeleton-content';
-    skelDiv.innerHTML = '<div style="padding:12px"><div class="skeleton-row"></div><div class="skeleton-row"></div><div class="skeleton-row"></div><div class="skeleton-row"></div><div class="skeleton-row"></div></div>';
+    skelDiv.innerHTML = '<div style="padding:12px"><div class="skeleton-row"></div><div class="skeleton-row"></div><div class="skeleton-row"></div></div>';
     tableBox.appendChild(skelDiv);
   }
 
@@ -623,17 +1157,10 @@ function fetchEmailsAjax() {
 
   fetch('{% url "fetch_emails" %}', {
     method: 'POST',
-    headers: {
-      'X-CSRFToken': csrfToken,
-      'X-Requested-With': 'XMLHttpRequest'
-    }
+    headers: { 'X-CSRFToken': csrfToken, 'X-Requested-With': 'XMLHttpRequest' }
   })
   .then(function(res) {
-    if (res.redirected) {
-      // 서버가 리다이렉트 응답 → 페이지 새로고침
-      location.reload();
-      return;
-    }
+    if (res.redirected) { location.reload(); return; }
     return res.json();
   })
   .then(function(data) {
@@ -643,7 +1170,6 @@ function fetchEmailsAjax() {
       if (data.count > 0) {
         setTimeout(function() { location.reload(); }, 1000);
       } else {
-        // 스켈레톤 제거
         if (tableBox) {
           tableBox.classList.remove('skeleton-overlay');
           var skel = tableBox.querySelector('.skeleton-content');

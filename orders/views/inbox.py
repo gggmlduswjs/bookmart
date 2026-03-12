@@ -121,6 +121,7 @@ def inbox_list(request):
     # 활성 탭 데이터만 로드 (다른 탭은 빈 값)
     email_page = None
     sms_conversations = []
+    sms_page = None
     call_page = None
 
     base_qs = InboxMessage.objects.select_related('order')
@@ -140,8 +141,56 @@ def inbox_list(request):
         paginator = Paginator(email_qs, 50)
         email_page = paginator.get_page(request.GET.get('page'))
     elif tab == 'sms':
-        sms_all = base_qs.filter(source='sms').order_by('-received_at')
-        sms_conversations = _build_sms_conversations(sms_all, hide_done)
+        # DB-level grouping by phone
+        sms_group_qs = (InboxMessage.objects.filter(source='sms')
+            .exclude(subject='[발신]')
+            .exclude(phone=''))
+        if hide_done:
+            sms_group_qs = sms_group_qs.filter(is_processed=False)
+        if search:
+            sms_group_qs = sms_group_qs.filter(
+                Q(sender__icontains=search) |
+                Q(content__icontains=search) |
+                Q(phone__icontains=search)
+            )
+        sms_groups = (sms_group_qs
+            .values('phone')
+            .annotate(
+                latest_time=Max('received_at'),
+                total_count=Count('id'),
+                unread_count=Count('id', filter=Q(is_read=False)),
+                has_order=Count('order', distinct=True),
+            )
+            .order_by('-latest_time'))
+
+        sms_paginator = Paginator(sms_groups, 50)
+        sms_page = sms_paginator.get_page(request.GET.get('sms_page'))
+
+        # Fetch latest message per phone for preview
+        phone_list = [g['phone'] for g in sms_page]
+        latest_msgs = {}
+        if phone_list:
+            latest_pks = (InboxMessage.objects.filter(source='sms', phone__in=phone_list)
+                .exclude(subject='[발신]')
+                .values('phone')
+                .annotate(latest_pk=Max('id'))
+                .values_list('latest_pk', flat=True))
+            for msg in InboxMessage.objects.filter(pk__in=latest_pks):
+                latest_msgs[msg.phone] = msg
+
+        sms_conversations = []
+        for g in sms_page:
+            msg = latest_msgs.get(g['phone'])
+            sms_conversations.append({
+                'phone': g['phone'],
+                'sender_name': msg.sender if msg else '',
+                'latest_time': g['latest_time'],
+                'total_count': g['total_count'],
+                'unread_count': g['unread_count'],
+                'latest_pk': msg.pk if msg else 0,
+                'preview': msg.content[:80] if msg and msg.content else '',
+                'has_order': g['has_order'] > 0,
+            })
     elif tab == 'call':
         call_qs = CallRecording.objects.all()
         call_status_filter = request.GET.get('call_status', '')
@@ -152,13 +201,27 @@ def inbox_list(request):
 
     call_status_val = request.GET.get('call_status', '')
 
+    # Cross-tab search counts (Phase 3.2)
+    search_counts = None
+    if search:
+        search_filter = Q(sender__icontains=search) | Q(subject__icontains=search) | Q(content__icontains=search)
+        search_counts = {
+            'email': InboxMessage.objects.filter(source='email').filter(search_filter).count(),
+            'sms': InboxMessage.objects.filter(source='sms').exclude(subject='[발신]').filter(search_filter).count(),
+            'call': CallRecording.objects.filter(
+                Q(caller_phone__icontains=search) | Q(summary__icontains=search) | Q(transcript__icontains=search) | Q(file_name__icontains=search)
+            ).count(),
+        }
+
     return render(request, 'orders/inbox_list.html', {
         'email_page': email_page,
         'email_messages': email_page,  # 템플릿 호환
         'sms_conversations': sms_conversations,
+        'sms_page': sms_page,
         'tab': tab,
         'hide_done': hide_done,
         'search': search,
+        'search_counts': search_counts,
         'unread_email': unread_email,
         'unread_sms': unread_sms,
         'unread_count': unread_email + unread_sms,
@@ -180,6 +243,8 @@ def inbox_single_skip(request, pk):
     if not msg.is_processed:
         msg.is_processed = True
         msg.save(update_fields=['is_processed'])
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'ok': True, 'pk': pk})
         messages.success(request, '처리완료했습니다.')
     return redirect(f'/inbox/?tab={tab}')
 
@@ -232,6 +297,8 @@ def inbox_delete(request, pk):
         _delete_imap_by_key(msg.imap_key)
     msg.attachments.all().delete()
     msg.delete()
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return JsonResponse({'ok': True, 'pk': pk})
     messages.success(request, '삭제했습니다.')
     return redirect(f'/inbox/?tab={tab}')
 
@@ -386,6 +453,8 @@ def inbox_process(request, pk):
     if request.method == 'POST' and 'skip' in request.POST:
         inbox_msg.is_processed = True
         inbox_msg.save(update_fields=['is_processed'])
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'ok': True, 'skipped': True, 'inbox_pk': inbox_msg.pk})
         messages.info(request, '처리 완료되었습니다.')
         nxt = InboxMessage.objects.filter(is_processed=False, source=inbox_msg.source).order_by('-received_at').first()
         if nxt:
@@ -534,6 +603,14 @@ def inbox_process(request, pk):
             inbox_msg.order = order
             inbox_msg.save(update_fields=['is_processed', 'order'])
 
+            # AJAX → JSON 응답
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'ok': True,
+                    'order_pk': order.pk,
+                    'order_no': order.order_no,
+                    'inbox_pk': inbox_msg.pk,
+                })
             messages.success(request, f'주문 등록 완료. 주문번호: {order.order_no}')
             nxt = InboxMessage.objects.filter(is_processed=False, source=inbox_msg.source).order_by('-received_at').first()
             if nxt:
@@ -1258,3 +1335,172 @@ def parse_order_excel(request):
             json.dumps({'error': f'파싱 오류: {str(e)}'}),
             content_type='application/json', status=400,
         )
+
+
+# ── 슬라이드패널 API ──────────────────────────────────────────────────────────
+
+@role_required('admin')
+def inbox_detail_api(request, pk):
+    """슬라이드패널용 메시지 상세 JSON"""
+    msg = get_object_or_404(InboxMessage, pk=pk)
+
+    # Mark as read
+    if not msg.is_read:
+        msg.is_read = True
+        msg.save(update_fields=['is_read'])
+
+    data = {
+        'pk': msg.pk,
+        'source': msg.source,
+        'sender': msg.sender,
+        'subject': msg.subject or '',
+        'content': msg.content or '',
+        'received_at': msg.received_at.strftime('%m/%d %H:%M') if msg.received_at else '',
+        'is_processed': msg.is_processed,
+        'order_pk': msg.order_id,
+        'order_no': msg.order.order_no if msg.order else None,
+        'attachments': [
+            {'pk': att.pk, 'filename': att.filename, 'is_excel': att.is_excel,
+             'download_url': f'/inbox/attachment/{att.pk}/download/',
+             'preview_url': f'/inbox/attachment/{att.pk}/preview/' if att.is_excel else None}
+            for att in msg.attachments.all()
+        ],
+    }
+
+    # SMS: include conversation thread
+    if msg.source == 'sms':
+        phone = msg.phone or _extract_phone_digits(msg.sender)
+        thread_msgs = []
+        if phone:
+            sms_qs = InboxMessage.objects.filter(source='sms', phone=phone).order_by('received_at')[:100]
+            for m in sms_qs:
+                thread_msgs.append({
+                    'pk': m.pk,
+                    'content': m.content or '',
+                    'time': m.received_at.strftime('%H:%M') if m.received_at else '',
+                    'date': m.received_at.strftime('%Y-%m-%d') if m.received_at else '',
+                    'is_sent': m.subject == '[발신]',
+                    'is_current': m.pk == msg.pk,
+                })
+        data['sms_thread'] = thread_msgs
+        data['sms_reply_phone'] = _extract_reply_phone(msg)
+
+    return JsonResponse(data)
+
+
+@role_required('admin')
+def inbox_call_detail_api(request, pk):
+    """슬라이드패널용 통화 상세 JSON"""
+    rec = get_object_or_404(CallRecording, pk=pk)
+    data = {
+        'pk': rec.pk,
+        'caller_phone': rec.caller_phone or '',
+        'file_name': rec.file_name or '',
+        'status': rec.status,
+        'status_display': rec.get_status_display(),
+        'is_order': rec.is_order,
+        'summary': rec.summary or '',
+        'transcript': rec.transcript or '',
+        'error_msg': rec.error_msg or '',
+        'recorded_at': rec.recorded_at.strftime('%Y-%m-%d %H:%M') if rec.recorded_at else '',
+        'created_at': rec.created_at.strftime('%m/%d %H:%M') if rec.created_at else '',
+        'audio_url': rec.audio_file.url if rec.audio_file else '',
+        'order_pk': rec.order_id,
+        'order_no': rec.order.order_no if rec.order else None,
+        'parsed_data': rec.parsed_data or {},
+    }
+    return JsonResponse(data)
+
+
+@role_required('admin')
+def inbox_order_form_partial(request, pk):
+    """슬라이드패널용 주문 폼 부분 템플릿"""
+    inbox_msg = get_object_or_404(InboxMessage, pk=pk)
+
+    books = Book.objects.filter(is_active=True).select_related('publisher')
+    series_list = sorted(set(b.series for b in books if b.series))
+    books_json = json.dumps([{
+        'id': b.id,
+        'series': b.series or '기타',
+        'name': b.name,
+        'publisher': b.publisher.name,
+        'unit_price': math.floor(b.list_price * float(b.publisher.supply_rate) / 100),
+    } for b in books], ensure_ascii=False)
+
+    _, agencies_json = get_agencies_json()
+    _, teachers_json = get_teachers_json()
+
+    # AI parsing for email
+    parsed_json = 'null'
+    if inbox_msg.content and not inbox_msg.is_processed:
+        try:
+            from orders.call_order import parse_order_from_email
+            agencies = User.objects.filter(role='agency', is_active=True)
+            teachers = User.objects.filter(role='teacher', is_active=True).select_related('agency', 'delivery_address')
+            books_data = [{
+                'id': b.id, 'series': b.series or '기타', 'name': b.name,
+                'publisher': b.publisher.name,
+                'unit_price': math.floor(b.list_price * float(b.publisher.supply_rate) / 100),
+            } for b in books]
+            agencies_data = [{'id': a.pk, 'name': a.name} for a in agencies]
+            teachers_data = [{
+                'id': t.pk, 'name': t.name, 'agency_id': t.agency_id,
+                'agency_name': t.agency.name if t.agency else '',
+                'delivery_name': t.delivery_address.name if t.delivery_address else '',
+            } for t in teachers]
+            parsed, err = parse_order_from_email(
+                sender=inbox_msg.sender or '',
+                subject=inbox_msg.subject or '',
+                body=inbox_msg.content,
+                book_list=books_data,
+                agencies=agencies_data,
+                teachers=teachers_data,
+            )
+            if parsed and not err:
+                parsed_json = json.dumps(parsed, ensure_ascii=False)
+        except Exception:
+            logger.exception('이메일 AI 파싱 오류 (partial)')
+
+    return render(request, 'orders/_inbox_order_form.html', {
+        'inbox_msg': inbox_msg,
+        'agencies_json': agencies_json,
+        'teachers_json': teachers_json,
+        'series_list': series_list,
+        'books_json': books_json,
+        'parsed_json': parsed_json,
+    })
+
+
+@role_required('admin')
+def inbox_next_api(request):
+    """다음 미처리 메시지 API"""
+    tab = request.GET.get('tab', 'email')
+    exclude_pk = request.GET.get('exclude', '')
+
+    if tab == 'call':
+        qs = CallRecording.objects.filter(status__in=['pending', 'parsed'])
+        if exclude_pk:
+            qs = qs.exclude(pk=exclude_pk)
+        rec = qs.order_by('-created_at').first()
+        if rec:
+            return JsonResponse({
+                'pk': rec.pk,
+                'type': 'call',
+                'caller_phone': rec.caller_phone or rec.file_name or '녹음',
+                'status': rec.status,
+            })
+    else:
+        source = 'sms' if tab == 'sms' else 'email'
+        qs = InboxMessage.objects.filter(is_processed=False, source=source)
+        if exclude_pk:
+            qs = qs.exclude(pk=exclude_pk)
+        msg = qs.order_by('-received_at').first()
+        if msg:
+            return JsonResponse({
+                'pk': msg.pk,
+                'type': source,
+                'sender': msg.sender,
+                'subject': msg.subject[:50] if msg.subject else '',
+            })
+
+    return JsonResponse({'pk': None})
