@@ -2,10 +2,11 @@ import json
 import logging
 import math
 import re as _re
+from collections import OrderedDict
 
 from django.contrib import messages
 from django.core.files.base import ContentFile
-from django.db.models import Count, Q
+from django.db.models import Count, Q, Max, Subquery, OuterRef
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.csrf import csrf_exempt
@@ -22,6 +23,67 @@ from orders.sms import send_sms
 from ._helpers import _audit, get_books_json, get_agencies_json, get_teachers_json, get_series_list
 
 logger = logging.getLogger(__name__)
+
+
+def _extract_phone_digits(sender: str) -> str:
+    """sender 문자열에서 전화번호 숫자만 추출 (예: '이쁜둘째딸' → '', '010-5429-6196' → '01054296196')"""
+    m = _re.search(r'(\d[\d\-]{8,})', sender or '')
+    if m:
+        return m.group(1).replace('-', '')
+    return ''
+
+
+def _build_sms_conversations(sms_qs, hide_done):
+    """SMS 메시지를 전화번호 기준으로 대화별로 그룹핑"""
+    conversations = OrderedDict()  # phone_key -> conv dict
+
+    for msg in sms_qs:
+        is_sent = msg.subject == '[발신]'
+        # 발신 메시지의 sender는 전화번호
+        phone = _extract_phone_digits(msg.sender)
+        if not phone:
+            # 전화번호 없으면 sender 원본을 키로
+            phone = msg.sender.strip()
+
+        if phone not in conversations:
+            conversations[phone] = {
+                'phone': phone,
+                'sender_name': '' if is_sent else msg.sender,
+                'latest_msg': msg,
+                'latest_time': msg.received_at,
+                'total_count': 0,
+                'unread_count': 0,
+                'unprocessed_count': 0,
+                'latest_pk': msg.pk,
+                'preview': msg.content[:80] if msg.content else '',
+                'has_order': msg.order_id is not None,
+            }
+        else:
+            conv = conversations[phone]
+            if msg.received_at > conv['latest_time']:
+                conv['latest_msg'] = msg
+                conv['latest_time'] = msg.received_at
+                conv['latest_pk'] = msg.pk
+                conv['preview'] = msg.content[:80] if msg.content else ''
+            # 발신자 이름이 비어있으면 수신 메시지에서 가져오기
+            if not conv['sender_name'] and not is_sent:
+                conv['sender_name'] = msg.sender
+
+        conv = conversations[phone]
+        if not is_sent:
+            conv['total_count'] += 1
+        if not msg.is_read and not is_sent:
+            conv['unread_count'] += 1
+        if not msg.is_processed and not is_sent:
+            conv['unprocessed_count'] += 1
+        if msg.order_id:
+            conv['has_order'] = True
+
+    result = list(conversations.values())
+    # 미처리만 보기일 때, 수신 메시지가 0건인 대화는 제외
+    if hide_done:
+        result = [c for c in result if c['total_count'] > 0]
+    return result
 
 
 # ── 통합 수신함 ────────────────────────────────────────────────────────────────
@@ -43,7 +105,9 @@ def inbox_list(request):
             Q(content__icontains=search)
         )
     email_qs = qs.filter(source='email').order_by('-received_at')
-    sms_qs = qs.filter(source='sms').exclude(subject='[발신]').order_by('-received_at')
+    # SMS: 발신 포함해서 가져와서 대화별 그룹핑
+    sms_all = qs.filter(source='sms').order_by('-received_at')
+    sms_conversations = _build_sms_conversations(sms_all, hide_done)
     unread_email = InboxMessage.objects.filter(is_processed=False, source='email').count()
     unread_sms = InboxMessage.objects.filter(is_processed=False, source='sms').exclude(subject='[발신]').count()
 
@@ -66,7 +130,7 @@ def inbox_list(request):
 
     return render(request, 'orders/inbox_list.html', {
         'email_messages': email_qs,
-        'sms_messages': sms_qs,
+        'sms_conversations': sms_conversations,
         'tab': tab,
         'hide_done': hide_done,
         'search': search,
