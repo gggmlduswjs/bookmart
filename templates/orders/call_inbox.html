@@ -63,6 +63,7 @@
     {% if last_sync %}마지막 동기화: {{ last_sync }}{% endif %}
   </div>
   <a href="{% url 'call_sync_drive' %}" class="btn btn-blue btn-sm">수동 동기화</a>
+  <a href="{% url 'call_recording_retry_all' %}" class="btn btn-blue btn-sm" onclick="return confirm('실패한 녹음을 전체 재시도합니다.')">전체 재시도</a>
   {% else %}
   <div class="info">
     Google Drive를 연동하면 엄마 폰 통화 녹음이 자동으로 수집됩니다.

@@ -371,6 +371,21 @@ def call_recording_retry(request, pk):
 
 
 @role_required('admin')
+def call_recording_retry_all(request):
+    """실패한 녹음 전체 재시도"""
+    count = CallRecording.objects.filter(status=CallRecording.Status.FAILED).update(
+        status=CallRecording.Status.PENDING, error_msg=''
+    )
+    if count:
+        from orders.management.commands.sync_call_recordings import process_pending_recordings
+        processed = process_pending_recordings()
+        messages.success(request, f'{count}건 재시도 → {processed}건 처리 완료')
+    else:
+        messages.info(request, '재시도할 실패 건이 없습니다.')
+    return redirect('call_inbox')
+
+
+@role_required('admin')
 def call_sync_drive(request):
     """Google Drive 수동 동기화 트리거"""
     from orders.management.commands.sync_call_recordings import sync_from_drive, process_pending_recordings

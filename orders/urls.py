@@ -90,6 +90,7 @@ urlpatterns = [
     path('orders/call/inbox/<int:pk>/', views.call_recording_process, name='call_recording_process'),
     path('orders/call/inbox/<int:pk>/skip/', views.call_recording_skip, name='call_recording_skip'),
     path('orders/call/inbox/<int:pk>/retry/', views.call_recording_retry, name='call_recording_retry'),
+    path('orders/call/inbox/retry-all/', views.call_recording_retry_all, name='call_recording_retry_all'),
     path('orders/call/sync/', views.call_sync_drive, name='call_sync_drive'),
     path('orders/call/gdrive-auth/', views.gdrive_auth_start, name='gdrive_auth_start'),
     path('orders/call/gdrive-callback/', views.gdrive_auth_callback, name='gdrive_auth_callback'),
