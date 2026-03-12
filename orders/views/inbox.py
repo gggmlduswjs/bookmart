@@ -33,16 +33,30 @@ def _extract_phone_digits(sender: str) -> str:
     return ''
 
 
+def _extract_reply_phone(msg) -> str:
+    """수신 SMS에서 답장용 전화번호 추출 (sender → subject → content 순)"""
+    for text in [msg.sender, msg.subject, (msg.content or '')[:200]]:
+        if not text:
+            continue
+        m = _re.search(r'(\d[\d\-]{8,})', text)
+        if m:
+            return m.group(1).replace('-', '')
+    return ''
+
+
 def _build_sms_conversations(sms_qs, hide_done):
-    """SMS 메시지를 전화번호 기준으로 대화별로 그룹핑"""
+    """SMS 메시지를 전화번호 기준으로 대화별로 그룹핑.
+    phone 필드가 있으면 우선 사용, 없으면 sender에서 추출."""
     conversations = OrderedDict()  # phone_key -> conv dict
 
-    for msg in sms_qs:
+    msgs = list(sms_qs)
+    for msg in msgs:
         is_sent = msg.subject == '[발신]'
-        # 발신 메시지의 sender는 전화번호
-        phone = _extract_phone_digits(msg.sender)
+        # phone 필드 우선, 없으면 sender에서 추출
+        phone = getattr(msg, 'phone', '') or ''
         if not phone:
-            # 전화번호 없으면 sender 원본을 키로
+            phone = _extract_phone_digits(msg.sender)
+        if not phone:
             phone = msg.sender.strip()
 
         if phone not in conversations:
@@ -65,7 +79,6 @@ def _build_sms_conversations(sms_qs, hide_done):
                 conv['latest_time'] = msg.received_at
                 conv['latest_pk'] = msg.pk
                 conv['preview'] = msg.content[:80] if msg.content else ''
-            # 발신자 이름이 비어있으면 수신 메시지에서 가져오기
             if not conv['sender_name'] and not is_sent:
                 conv['sender_name'] = msg.sender
 
@@ -80,7 +93,6 @@ def _build_sms_conversations(sms_qs, hide_done):
             conv['has_order'] = True
 
     result = list(conversations.values())
-    # 미처리만 보기일 때, 수신 메시지가 0건인 대화는 제외
     if hide_done:
         result = [c for c in result if c['total_count'] > 0]
     return result
@@ -735,8 +747,26 @@ def sms_webhook(request):
         except UnicodeDecodeError:
             body_str = body.decode('euc-kr', errors='replace')
         data = json.loads(body_str)
+        logger.info('SMS 웹훅 수신 데이터: %s', body_str[:500])
         from_name = data.get('from', '')
         from_number = data.get('from_number') or data.get('number', '')
+        # formatted-msg에서 전화번호 추출 시도
+        formatted = data.get('detail') or data.get('formatted-msg', '')
+        if formatted:
+            logger.info('SMS formatted-msg: %s', formatted[:300])
+            fm = _re.search(r'(01\d[\d\-]{7,})', formatted)
+            if fm and not from_number:
+                from_number = fm.group(1).replace('-', '')
+        # {number} 리터럴 제거 (Forward SMS 앱에서 변수 치환 실패 시)
+        if from_number == '{number}':
+            from_number = ''
+        from_name = _re.sub(r'\(\{number\}\)', '', from_name).strip()
+        # from_name에서 실제 전화번호 추출: "김은경선생님 (01032278210)" → 번호 분리
+        name_phone_match = _re.search(r'\(?(01\d[\d\-]{7,})\)?', from_name)
+        if name_phone_match and not from_number:
+            from_number = name_phone_match.group(1).replace('-', '')
+            # 이름에서 번호 부분 제거: "김은경선생님 (010...)" → "김은경선생님"
+            from_name = from_name[:name_phone_match.start()].strip().rstrip('(').strip()
         # 이름과 번호 모두 있으면 "이름(번호)" 형식
         if from_name and from_number and from_number not in from_name:
             sender = f'{from_name}({from_number})'
@@ -767,12 +797,20 @@ def sms_webhook(request):
         if not received_at:
             received_at = timezone.now()
 
+        # 전화번호 추출 (from_number 또는 sender에서)
+        phone_digits = from_number.replace('-', '') if from_number else ''
+        if not phone_digits:
+            pm = _re.search(r'(\d[\d\-]{8,})', sender)
+            if pm:
+                phone_digits = pm.group(1).replace('-', '')
+
         if content:
             InboxMessage.objects.create(
                 source=InboxMessage.Source.SMS,
                 sender=sender,
                 content=content,
                 received_at=received_at,
+                phone=phone_digits,
             )
     except Exception:
         logger.exception('SMS 웹훅 처리 오류')
@@ -1035,6 +1073,7 @@ def send_sms_ajax(request):
             received_at=timezone.now(),
             is_processed=True,
             is_read=True,
+            phone=receiver.replace('-', ''),
         )
         return JsonResponse({'success': True, 'message': '발송 완료'})
     detail = getattr(send_sms, '_last_error', '알리고 설정을 확인하세요.')

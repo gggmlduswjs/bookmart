@@ -343,6 +343,8 @@ class InboxMessage(models.Model):
         related_name='inbox_messages', verbose_name='연결 주문'
     )
     is_read      = models.BooleanField(default=False, verbose_name='읽음')
+    # SMS 전화번호 (수신: 발신자 번호, 발신: 수신자 번호 — 대화 그룹핑용)
+    phone        = models.CharField(max_length=20, blank=True, default='', db_index=True, verbose_name='전화번호')
     # 이메일 중복 방지: account_label + IMAP UID
     imap_key     = models.CharField(max_length=100, null=True, blank=True,
                                     unique=True, verbose_name='IMAP 키')
