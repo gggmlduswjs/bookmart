@@ -625,7 +625,12 @@ def sms_webhook(request):
     import datetime
 
     try:
-        data = json.loads(request.body)
+        body = request.body
+        try:
+            body_str = body.decode('utf-8')
+        except UnicodeDecodeError:
+            body_str = body.decode('euc-kr', errors='replace')
+        data = json.loads(body_str)
         sender = data.get('from') or data.get('from_number', '')
         content = data.get('text') or data.get('message', '')
         ts = data.get('sentStamp') or data.get('timestamp')
