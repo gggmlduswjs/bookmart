@@ -34,12 +34,13 @@
     /* ── 본문 영역 (왼쪽: 귀중, 오른쪽: 공급자) ── */
     .header-area {
       display: flex;
-      gap: 0;
+      gap: 10px;
       margin-bottom: 6px;
     }
     .header-left {
       flex: 1;
-      padding-right: 16px;
+      min-width: 200px;
+      padding-right: 10px;
       font-size: 12px;
       line-height: 2.0;
     }
@@ -52,7 +53,7 @@
     .header-left .remark-line { margin-top: 14px; }
 
     .header-right {
-      flex: 0 0 380px;
+      flex: 0 0 400px;
     }
 
     /* ── 공급자 테이블 ── */
@@ -60,29 +61,36 @@
       width: 100%;
       border-collapse: collapse;
       font-size: 11px;
+      table-layout: fixed;
     }
     .supplier-tbl th, .supplier-tbl td {
       border: 1px solid #000;
-      padding: 4px 8px;
+      padding: 4px 6px;
+      overflow: hidden;
+      word-break: keep-all;
     }
     .supplier-tbl th {
       background: #f5f5f0;
       text-align: center;
       font-weight: bold;
       white-space: nowrap;
-      width: 70px;
+      width: 65px;
     }
     .supplier-tbl td {
       text-align: left;
     }
     .supplier-tbl .label-cell {
-      writing-mode: vertical-lr;
+      writing-mode: vertical-rl;
+      text-orientation: upright;
       text-align: center;
       font-weight: bold;
-      font-size: 12px;
-      letter-spacing: 6px;
-      width: 28px;
+      font-size: 13px;
+      letter-spacing: 8px;
+      width: 32px;
+      min-width: 32px;
+      max-width: 32px;
       background: #f5f5f0;
+      padding: 8px 2px;
     }
 
     /* ── 금액 행 ── */
@@ -125,10 +133,12 @@
     }
     .items-tbl tbody td {
       font-size: 11px;
+      overflow: hidden;
+      word-break: keep-all;
     }
-    .items-tbl .r { text-align: right; font-family: 'Consolas', monospace; }
-    .items-tbl .c { text-align: center; }
-    .items-tbl .name-cell { text-align: left; }
+    .items-tbl .r { text-align: right; font-family: 'Consolas', monospace; white-space: nowrap; }
+    .items-tbl .c { text-align: center; white-space: nowrap; }
+    .items-tbl .name-cell { text-align: left; word-break: break-all; }
     .items-tbl tbody tr:last-child td { border-bottom: 2px solid #000; }
 
     /* 합계 행 */
