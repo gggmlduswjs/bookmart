@@ -228,6 +228,19 @@
         </tbody>
       </table>
     </div>
+
+    {% if email_page and email_page.paginator.num_pages > 1 %}
+    <div style="display:flex;justify-content:center;gap:6px;margin-top:12px;align-items:center;font-size:13px">
+      {% if email_page.has_previous %}
+      <a href="?tab=email&page={{ email_page.previous_page_number }}{% if hide_done %}&hide_done=1{% endif %}{% if search %}&q={{ search|urlencode }}{% endif %}" class="btn btn-outline btn-sm">&laquo; 이전</a>
+      {% endif %}
+      <span style="color:#64748b">{{ email_page.number }} / {{ email_page.paginator.num_pages }}</span>
+      {% if email_page.has_next %}
+      <a href="?tab=email&page={{ email_page.next_page_number }}{% if hide_done %}&hide_done=1{% endif %}{% if search %}&q={{ search|urlencode }}{% endif %}" class="btn btn-outline btn-sm">다음 &raquo;</a>
+      {% endif %}
+    </div>
+    {% endif %}
+
   </form>
 </div>
 

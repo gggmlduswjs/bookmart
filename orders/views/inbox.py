@@ -105,43 +105,56 @@ def inbox_list(request):
     hide_done = request.GET.get('hide_done', '')
     search = request.GET.get('q', '').strip()
     tab = request.GET.get('tab', 'email')
-    qs = InboxMessage.objects.annotate(
-        attachment_count=Count('attachments')
-    ).select_related('order')
-    if hide_done:
-        qs = qs.filter(is_processed=False)
-    if search:
-        qs = qs.filter(
-            Q(sender__icontains=search) |
-            Q(subject__icontains=search) |
-            Q(content__icontains=search)
-        )
-    email_qs = qs.filter(source='email').order_by('-received_at')
-    # SMS: 발신 포함해서 가져와서 대화별 그룹핑
-    sms_all = qs.filter(source='sms').order_by('-received_at')
-    sms_conversations = _build_sms_conversations(sms_all, hide_done)
-    unread_email = InboxMessage.objects.filter(is_processed=False, source='email').count()
-    unread_sms = InboxMessage.objects.filter(is_processed=False, source='sms').exclude(subject='[발신]').count()
-
-    # 통화 녹음 탭 데이터
     from pathlib import Path
     from django.conf import settings as conf
     from django.core.paginator import Paginator
 
-    call_qs = CallRecording.objects.all()
-    call_status = request.GET.get('call_status', '')
-    if call_status:
-        call_qs = call_qs.filter(status=call_status)
-    call_paginator = Paginator(call_qs.order_by('-created_at'), 30)
-    call_page = call_paginator.get_page(request.GET.get('call_page'))
+    # 공통 카운트 (탭 배지용) — 가볍게
+    unread_email = InboxMessage.objects.filter(is_processed=False, source='email').count()
+    unread_sms = InboxMessage.objects.filter(is_processed=False, source='sms').exclude(subject='[발신]').count()
     call_counts = dict(
         CallRecording.objects.values_list('status').annotate(c=Count('id')).values_list('status', 'c')
     )
     pending_calls = call_counts.get('pending', 0) + call_counts.get('parsed', 0)
     token_path = Path(conf.BASE_DIR) / 'gdrive_token.json'
 
+    # 활성 탭 데이터만 로드 (다른 탭은 빈 값)
+    email_page = None
+    sms_conversations = []
+    call_page = None
+
+    base_qs = InboxMessage.objects.select_related('order')
+    if hide_done:
+        base_qs = base_qs.filter(is_processed=False)
+    if search:
+        base_qs = base_qs.filter(
+            Q(sender__icontains=search) |
+            Q(subject__icontains=search) |
+            Q(content__icontains=search)
+        )
+
+    if tab == 'email':
+        email_qs = base_qs.filter(source='email').annotate(
+            attachment_count=Count('attachments')
+        ).prefetch_related('attachments').order_by('-received_at')
+        paginator = Paginator(email_qs, 50)
+        email_page = paginator.get_page(request.GET.get('page'))
+    elif tab == 'sms':
+        sms_all = base_qs.filter(source='sms').order_by('-received_at')
+        sms_conversations = _build_sms_conversations(sms_all, hide_done)
+    elif tab == 'call':
+        call_qs = CallRecording.objects.all()
+        call_status_filter = request.GET.get('call_status', '')
+        if call_status_filter:
+            call_qs = call_qs.filter(status=call_status_filter)
+        call_paginator = Paginator(call_qs.order_by('-created_at'), 30)
+        call_page = call_paginator.get_page(request.GET.get('call_page'))
+
+    call_status_val = request.GET.get('call_status', '')
+
     return render(request, 'orders/inbox_list.html', {
-        'email_messages': email_qs,
+        'email_page': email_page,
+        'email_messages': email_page,  # 템플릿 호환
         'sms_conversations': sms_conversations,
         'tab': tab,
         'hide_done': hide_done,
@@ -150,7 +163,7 @@ def inbox_list(request):
         'unread_sms': unread_sms,
         'unread_count': unread_email + unread_sms,
         'call_page': call_page,
-        'call_status': call_status,
+        'call_status': call_status_val,
         'call_counts': call_counts,
         'pending_calls': pending_calls,
         'gdrive_connected': token_path.exists(),
