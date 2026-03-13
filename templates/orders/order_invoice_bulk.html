@@ -365,11 +365,11 @@
   <!-- 데이터 (화면+인쇄 모두 출력) -->
   <span class="v-date">{{ data.order.ordered_at|date:"Y-m-d" }}</span>
   <span class="v-no">{{ data.order.order_no }}</span>
-  <span class="v-client">{{ data.order.delivery.name }}  {{ data.order.teacher.name }} ({{ data.order.agency.name }})</span>
+  <span class="v-client">{{ data.order.delivery.name }}  {{ data.order.teacher.name }}{% if data.order.agency %} ({{ data.order.agency.name }}){% endif %}</span>
   <span class="v-cphone">{{ data.order.delivery.phone|default:data.order.teacher.phone|default:"" }}</span>
   <span class="v-caddr">{{ data.order.delivery.address|default:"" }}</span>
   <span class="v-total">{{ data.total_amount|floatformat:0 }}</span>
-  <span class="v-code">({{ data.order.agency.name }})</span>
+  <span class="v-code">{% if data.order.agency %}({{ data.order.agency.name }}){% endif %}</span>
   <span class="v-page">{{ forloop.counter }}/{{ orders_data|length }}</span>
 
   <span class="v-reg">108-91-20797</span>

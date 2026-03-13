@@ -98,7 +98,7 @@ def order_quote_bulk(request):
 
 @role_required('admin', 'agency')
 def order_invoice(request, pk):
-    order = get_object_or_404(Order, pk=pk)
+    order = get_object_or_404(Order.objects.select_related('agency', 'teacher', 'delivery'), pk=pk)
     items = order.items.select_related('book', 'book__publisher')
     total_amount = sum(item.amount for item in items)
     total_qty = sum(item.quantity for item in items)

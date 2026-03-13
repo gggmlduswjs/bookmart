@@ -392,7 +392,7 @@
     <!-- 데이터 (화면+인쇄 모두 출력) -->
     <span class="v-date">{{ order.ordered_at|date:"Y-m-d" }}</span>
     <span class="v-no">{{ order.order_no }}</span>
-    <span class="v-client">{{ order.delivery.name }} {{ order.teacher.name }}</span>
+    <span class="v-client">{{ order.delivery.name }} {{ order.teacher.name }}{% if order.agency %} ({{ order.agency.name }}){% endif %}</span>
     <span class="v-cphone">{{ order.delivery.phone|default:order.teacher.phone|default:"" }}</span>
     <span class="v-caddr">{{ order.delivery.address|default:"" }}</span>
     <span class="v-total">{{ total_amount|floatformat:0 }}</span>
