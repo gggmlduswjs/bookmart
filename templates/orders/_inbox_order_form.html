@@ -187,16 +187,7 @@
       acIdx: -1, excelLoading: false,
       rows: [{ series:'', book_id:'', qty:1, unit_price:0 }],
 
-      init() {
-        // Listen for excel attachment apply event from slide panel
-        var self = this;
-        document.addEventListener('apply-excel-attachment', function() {
-          if (window._applyExcelData) {
-            self._applyExcelResult(window._applyExcelData);
-            window._applyExcelData = null;
-          }
-        });
-      },
+      init() {},
       _applyExcelResult(data) {
         this.rows = this.rows.filter(r => r.book_id || (r.is_custom && r.custom_name));
         if (data.matched) {
