@@ -108,7 +108,11 @@
   </div>
   {% elif order.tracking_no %}
   <div class="tracking-info">
-    운송장번호: <strong>{{ order.tracking_no }}</strong> (한진택배)
+    운송장번호: <a href="https://www.hanjin.com/kor/CMS/DeliveryMgr/WaybillResult.do?mession=open&wblnumText2={{ order.tracking_no }}" target="_blank" rel="noopener">{{ order.tracking_no }}</a> (한진택배)
+    <div style="margin-top:6px">
+      <a href="https://www.hanjin.com/kor/CMS/DeliveryMgr/WaybillResult.do?mession=open&wblnumText2={{ order.tracking_no }}" target="_blank" rel="noopener"
+         style="display:inline-block;padding:4px 12px;background:#0369a1;color:#fff;border-radius:4px;font-size:11px;font-weight:600;text-decoration:none">배송 추적</a>
+    </div>
   </div>
   {% endif %}
 </div>

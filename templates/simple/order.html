@@ -82,6 +82,14 @@
     margin: 0 4px 4px 0; transition: all 0.15s;
   }
   .recent-book-chip:hover { background: #dbeafe; border-color: #93c5fd; }
+  .series-filter { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+  .series-chip {
+    padding: 5px 12px; background: #f1f5f9; border: 1px solid #e2e8f0;
+    border-radius: 16px; font-size: 12px; color: #475569; cursor: pointer;
+    transition: all 0.15s; white-space: nowrap;
+  }
+  .series-chip:hover { background: #e2e8f0; }
+  .series-chip.active { background: #2563eb; color: #fff; border-color: #2563eb; }
 {% endblock %}
 
 {% block content %}
@@ -187,6 +195,14 @@
         </template>
       </div>
     </template>
+
+    <!-- 시리즈 빠른 필터 -->
+    <div class="series-filter" x-show="orderTab === 'direct'">
+      <span class="series-chip" :class="{'active': seriesFilter === ''}" @click="seriesFilter = ''">전체</span>
+      {% for s in series_list %}
+      <span class="series-chip" :class="{'active': seriesFilter === '{{ s }}'}" @click="seriesFilter = '{{ s }}'">{{ s }}</span>
+      {% endfor %}
+    </div>
 
     <div class="order-row-wrap" style="border:1px solid #e2e8f0;border-radius:10px 10px 0 0;overflow:hidden">
       <table class="data-table">
@@ -301,6 +317,7 @@ function orderForm() {
       catch(e) { return []; }
     })(),
     orderError: '',
+    seriesFilter: '',
     // 교재
     rows: (() => {
       const copy = {{ copy_rows_json|safe }};
@@ -326,7 +343,10 @@ function orderForm() {
       if (nums.length <= 7) return nums.slice(0, 3) + '-' + nums.slice(3);
       return nums.slice(0, 3) + '-' + nums.slice(3, 7) + '-' + nums.slice(7);
     },
-    getBooks(series) { return series ? BOOKS.filter(b => b.series === series) : BOOKS; },
+    getBooks(series) {
+      const s = series || this.seriesFilter;
+      return s ? BOOKS.filter(b => b.series === s) : BOOKS;
+    },
     updatePrice(row) {
       const b = BOOKS.find(b => b.id == row.book_id);
       row.list_price = b ? b.list_price : 0;
@@ -389,6 +409,7 @@ function orderForm() {
       this.rows.push({ series: book.series || '', book_id: String(book.id), qty: 1, list_price: book.list_price, is_custom: false });
       this.bookSearchQuery = '';
       this.showSearchResults = false;
+      if (book.series && !this.seriesFilter) this.seriesFilter = book.series;
     },
     addRecentBook(book) {
       // Don't add duplicates

@@ -3,13 +3,35 @@
 
 {% block content %}
 <div class="simple-card" style="text-align:center;padding:32px 24px">
-  <div style="font-size:48px;margin-bottom:8px">&#10003;</div>
+  <div style="width:56px;height:56px;background:#ecfdf5;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;margin-bottom:12px">
+    <span style="font-size:28px;color:#059669">&#10003;</span>
+  </div>
   <h2 style="border:none;padding:0;text-align:center;font-size:20px;margin-bottom:6px">주문이 완료되었습니다</h2>
-  <p style="color:#64748b;font-size:14px;margin-bottom:20px">주문번호: <strong>{{ order.order_no }}</strong></p>
+  <p style="color:#64748b;font-size:14px;margin-bottom:4px">주문번호: <strong style="color:#1e293b">{{ order.order_no }}</strong></p>
+  <p style="color:#94a3b8;font-size:12px;margin:0">주문일시: {{ order.ordered_at|date:"Y년 m월 d일 H:i" }}</p>
 </div>
 
 <div class="simple-card">
   <h2>주문 내역</h2>
+  <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:13px;color:#475569">
+    <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+      <span>선생님</span><strong>{{ order.teacher.name }}</strong>
+    </div>
+    <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+      <span>배송지</span><strong>{{ order.delivery.name }}</strong>
+    </div>
+    {% if order.delivery.address %}
+    <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+      <span>주소</span><span style="text-align:right;max-width:200px">{{ order.delivery.address }}</span>
+    </div>
+    {% endif %}
+    {% if order.memo %}
+    <div style="display:flex;justify-content:space-between">
+      <span>메모</span><span>{{ order.memo }}</span>
+    </div>
+    {% endif %}
+  </div>
+
   <table class="data-table">
     <thead>
       <tr>
@@ -32,9 +54,8 @@
     합계: {{ list_price_total }}원
   </div>
 
-  <div style="margin-top:4px;font-size:13px;color:#64748b">
-    <p>배송지: {{ order.delivery.name }} ({{ order.delivery.address }})</p>
-    {% if order.memo %}<p>메모: {{ order.memo }}</p>{% endif %}
+  <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 14px;margin-top:12px;font-size:12px;color:#1e40af">
+    발송 처리 시 배송 안내 문자가 발송됩니다.
   </div>
 </div>
 
