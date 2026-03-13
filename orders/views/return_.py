@@ -175,9 +175,19 @@ def return_create_from_order(request, pk):
 def return_detail(request, pk):
     ret = get_object_or_404(get_return_queryset(request.user), pk=pk)
     items = ret.items.select_related('book', 'book__publisher')
+    # 상태 변경 이력 (AuditLog 기반)
+    return_logs = AuditLog.objects.filter(
+        action__in=[
+            AuditLog.Action.RETURN_CREATE,
+            AuditLog.Action.RETURN_CONFIRM,
+            AuditLog.Action.RETURN_REJECT,
+        ],
+        detail__contains=ret.return_no,
+    ).select_related('user').order_by('created_at')
     return render(request, 'orders/return_detail.html', {
         'ret': ret,
         'items': items,
+        'return_logs': return_logs,
         'can_confirm': request.user.role == 'admin' and ret.status == Return.Status.REQUESTED,
         'can_reject': request.user.role == 'admin' and ret.status == Return.Status.REQUESTED,
     })

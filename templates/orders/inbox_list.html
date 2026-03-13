@@ -222,6 +222,10 @@
 
 <!-- 탭 -->
 <div class="inbox-tabs">
+  <a class="inbox-tab {% if tab == 'all' %}active{% endif %}"
+     href="?tab=all{% if search %}&q={{ search|urlencode }}{% endif %}">
+    전체{% if total_unprocessed %} <span class="tab-count">{{ total_unprocessed }}</span>{% endif %}
+  </a>
   <a class="inbox-tab {% if tab == 'email' %}active{% endif %}"
      href="?tab=email{% if hide_done %}&hide_done=1{% endif %}{% if search %}&q={{ search|urlencode }}{% endif %}">
     메일{% if unread_email %} <span class="tab-count">{{ unread_email }}</span>{% endif %}
@@ -237,6 +241,81 @@
     통화{% if pending_calls %} <span class="tab-count">{{ pending_calls }}</span>{% endif %}
     {% if search and search_counts %}<span class="search-count">{{ search_counts.call }}</span>{% endif %}
   </a>
+</div>
+
+<!-- ═══════════════ 전체 탭 ═══════════════ -->
+<div class="inbox-panel {% if tab == 'all' %}active{% endif %}">
+  <div style="margin-bottom:10px;font-size:12px;color:#64748b">
+    미처리 항목을 시간순으로 통합 표시합니다.
+  </div>
+  <div class="content-box scroll-hint">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th style="width:60px">채널</th>
+          <th style="width:150px">발신자</th>
+          <th>내용 미리보기</th>
+          <th style="width:130px">수신 시각</th>
+          <th style="width:80px">상태</th>
+          <th style="width:70px"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in all_items %}
+        <tr class="unread" style="cursor:pointer"
+            onclick="{% if item.type == 'email' %}openSlidePanel({{ item.pk }}, 'email'){% elif item.type == 'sms' %}openSlidePanel({{ item.pk }}, 'sms'){% elif item.type == 'call' %}openSlidePanel({{ item.pk }}, 'call'){% endif %}">
+          <td class="center">
+            {% if item.type == 'email' %}<span class="badge badge-blue" style="font-size:10px">메일</span>
+            {% elif item.type == 'sms' %}<span class="badge badge-green" style="font-size:10px">문자</span>
+            {% elif item.type == 'call' %}<span class="badge badge-orange" style="font-size:10px">통화</span>
+            {% endif %}
+          </td>
+          <td style="font-size:11px;max-width:130px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">
+            {{ item.sender }}
+          </td>
+          <td>
+            <div style="font-size:12px;max-width:400px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">
+              {{ item.preview }}
+            </div>
+            {% if item.attachment_count %}<div style="font-size:10px;color:#1a73e8;margin-top:2px">첨부 {{ item.attachment_count }}건</div>{% endif %}
+            {% if item.duration %}<div style="font-size:10px;color:#888;margin-top:2px">{{ item.duration }}초</div>{% endif %}
+          </td>
+          <td class="center" style="font-size:11px">{{ item.timestamp|date:"m/d H:i" }}</td>
+          <td class="center">
+            {% if item.status == 'has_order' %}<span class="status-pill has-order">주문</span>
+            {% elif item.status == 'parsed' %}<span class="status-pill" style="background:#ecfdf5;color:#059669;border:1px solid #a7f3d0">파싱완료</span>
+            {% else %}<span class="status-pill unprocessed">미처리</span>
+            {% endif %}
+          </td>
+          <td class="center" style="white-space:nowrap">
+            {% if item.type == 'email' %}
+            <a href="{% url 'inbox_process' item.pk %}" class="btn btn-outline btn-sm" style="font-size:10px;padding:2px 6px" onclick="event.stopPropagation()">처리</a>
+            {% elif item.type == 'sms' %}
+            <a href="{% url 'sms_desk' %}?phone={{ item.phone }}" class="btn btn-outline btn-sm" style="font-size:10px;padding:2px 6px" onclick="event.stopPropagation()">처리</a>
+            {% elif item.type == 'call' %}
+            <button type="button" class="btn btn-outline btn-sm" style="font-size:10px;padding:2px 6px" onclick="event.stopPropagation();openSlidePanel({{ item.pk }}, 'call')">처리</button>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="6" class="center" style="padding:30px;color:#888">미처리 항목이 없습니다.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if all_items.has_other_pages %}
+  <div style="margin-top:10px;text-align:center">
+    {% if all_items.has_previous %}
+      <a href="?tab=all&page={{ all_items.previous_page_number }}{% if search %}&q={{ search|urlencode }}{% endif %}" class="btn btn-outline btn-sm">&laquo; 이전</a>
+    {% endif %}
+    {{ all_items.number }} / {{ all_items.paginator.num_pages }}
+    {% if all_items.has_next %}
+      <a href="?tab=all&page={{ all_items.next_page_number }}{% if search %}&q={{ search|urlencode }}{% endif %}" class="btn btn-outline btn-sm">다음 &raquo;</a>
+    {% endif %}
+  </div>
+  {% endif %}
 </div>
 
 <!-- ═══════════════ 메일 탭 ═══════════════ -->

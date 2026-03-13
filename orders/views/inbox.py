@@ -126,6 +126,7 @@ def inbox_list(request):
     sms_conversations = []
     sms_page = None
     call_page = None
+    all_items = None
 
     base_qs = InboxMessage.objects.select_related('order')
     if hide_done:
@@ -201,6 +202,46 @@ def inbox_list(request):
             call_qs = call_qs.filter(status=call_status_filter)
         call_paginator = Paginator(call_qs.order_by('-created_at'), 30)
         call_page = call_paginator.get_page(request.GET.get('call_page'))
+    elif tab == 'all':
+        # 통합 타임라인: 미처리 이메일 + SMS + 대기/파싱완료 통화
+        unified = []
+        emails = base_qs.filter(source='email', is_processed=False).annotate(
+            attachment_count=Count('attachments')
+        ).order_by('-received_at')[:100]
+        for e in emails:
+            unified.append({
+                'type': 'email', 'pk': e.pk, 'sender': e.sender,
+                'preview': e.subject or (e.content[:80] if e.content else ''),
+                'timestamp': e.received_at, 'status': 'has_order' if e.order_id else 'unprocessed',
+                'attachment_count': e.attachment_count,
+            })
+        # SMS: 최근 미처리 수신 메시지 (발신 제외)
+        sms_msgs = base_qs.filter(source='sms', is_processed=False).exclude(
+            subject='[발신]'
+        ).order_by('-received_at')[:100]
+        for s in sms_msgs:
+            unified.append({
+                'type': 'sms', 'pk': s.pk, 'sender': s.sender or s.phone,
+                'preview': (s.content[:80] if s.content else ''),
+                'timestamp': s.received_at, 'status': 'has_order' if s.order_id else 'unprocessed',
+                'phone': s.phone,
+            })
+        # 통화: 대기/파싱완료
+        calls = CallRecording.objects.filter(
+            status__in=['pending', 'parsed']
+        ).order_by('-created_at')[:50]
+        for c in calls:
+            unified.append({
+                'type': 'call', 'pk': c.pk,
+                'sender': c.caller_phone or c.file_name,
+                'preview': c.summary or '통화 녹음',
+                'timestamp': c.created_at,
+                'status': c.status,
+                'duration': c.duration_sec,
+            })
+        unified.sort(key=lambda x: x['timestamp'], reverse=True)
+        all_paginator = Paginator(unified, 50)
+        all_items = all_paginator.get_page(request.GET.get('page'))
 
     call_status_val = request.GET.get('call_status', '')
 
@@ -215,6 +256,8 @@ def inbox_list(request):
                 Q(caller_phone__icontains=search) | Q(summary__icontains=search) | Q(transcript__icontains=search) | Q(file_name__icontains=search)
             ).count(),
         }
+
+    total_unprocessed = unread_email + unread_sms + pending_calls
 
     return render(request, 'orders/inbox_list.html', {
         'email_page': email_page,
@@ -232,6 +275,8 @@ def inbox_list(request):
         'call_status': call_status_val,
         'call_counts': call_counts,
         'pending_calls': pending_calls,
+        'total_unprocessed': total_unprocessed,
+        'all_items': all_items,
         'gdrive_connected': token_path.exists(),
     })
 
