@@ -185,6 +185,24 @@
     letter-spacing: 0.5px; padding: 10px 20px 6px; border-bottom: 1px solid #f1f5f9;
     background: #f8fafc; flex-shrink: 0;
   }
+  /* Right panel segment tabs */
+  .sp-right-tabs {
+    display: flex; gap: 0; padding: 6px 8px;
+    background: #f8fafc; border-bottom: 1px solid #e2e8f0;
+    flex-shrink: 0;
+  }
+  .sp-right-tabs button {
+    flex: 1; padding: 7px 12px; font-size: 12px; font-weight: 600;
+    background: transparent; border: 1px solid transparent;
+    border-radius: 6px; color: #94a3b8; cursor: pointer;
+    transition: all 0.15s;
+  }
+  .sp-right-tabs button:hover { color: #475569; background: rgba(255,255,255,.5); }
+  .sp-right-tabs button.active {
+    background: #fff; color: #1e293b;
+    border-color: #e2e8f0;
+    box-shadow: 0 1px 3px rgba(0,0,0,.06);
+  }
   .sp-preview-body { padding: 16px 20px; }
   .sp-order-body { padding: 0; }
   .slide-panel-footer {
@@ -878,20 +896,13 @@
           </div>
           <!-- Call detail (shown for calls) -->
           <div id="spCallSection" style="display:none"></div>
-          <!-- Reply section -->
-          <div id="spReplySection" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid #e2e8f0">
-            <div style="font-size:11px;font-weight:700;color:#64748b;margin-bottom:4px">
-              <span id="spReplyLabel">답장</span>
-              <span id="spReplyTo" style="font-weight:400;color:#94a3b8;margin-left:4px"></span>
-            </div>
-            <textarea id="spReplyBody" rows="3"
-                      style="width:100%;box-sizing:border-box;padding:6px 8px;border:1px solid #bbb;border-radius:4px;font-size:12px;font-family:inherit;resize:vertical"
-                      placeholder="답장 내용을 입력하세요..."></textarea>
-            <button type="button" id="spReplyBtn" onclick="sendReplyFromPanel()"
-                    class="btn btn-sm" style="width:100%;margin-top:4px;background:#2563eb;color:#fff;border:none;padding:6px 0;font-size:12px;border-radius:4px;cursor:pointer">
-              답장 보내기
+          <!-- Reply hint (메일발송 탭으로 이동) -->
+          <div id="spReplyHintSection" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid #e2e8f0">
+            <button type="button" onclick="switchRightTab('email')"
+                    style="width:100%;padding:8px 12px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;font-size:12px;color:#1e40af;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;font-weight:500">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+              답장 / 메일 발송 &rarr;
             </button>
-            <div id="spReplyResult" style="display:none;margin-top:4px;font-size:11px;padding:4px 8px;border-radius:4px"></div>
           </div>
         </div>
       </div>
@@ -900,12 +911,62 @@
         <div id="spAttPreviewBody" style="width:100%;height:100%;background:#f9fafb"></div>
       </div>
     </div><!-- /sp-split-left -->
-    <!-- Right: Order Form -->
+    <!-- Right: Order Form / Email Compose -->
     <div class="sp-split-right" id="spOrderSide">
-      <!-- Order form -->
-      <div class="sp-split-label">주문 등록</div>
-      <div class="sp-order-body" id="spOrderFormContainer" style="padding:16px 20px">
-        <div style="text-align:center;padding:40px;color:#94a3b8">폼 로딩 중...</div>
+      <!-- Right panel segment control -->
+      <div class="sp-right-tabs" id="spRightTabBar">
+        <button class="active" onclick="switchRightTab('order')">주문등록</button>
+        <button id="spEmailTabBtn" onclick="switchRightTab('email')" style="display:none">메일발송</button>
+      </div>
+      <!-- Order form tab -->
+      <div id="spRightOrderTab">
+        <div class="sp-order-body" id="spOrderFormContainer" style="padding:16px 20px">
+          <div style="text-align:center;padding:40px;color:#94a3b8">폼 로딩 중...</div>
+        </div>
+      </div>
+      <!-- Email compose tab -->
+      <div id="spRightEmailTab" style="display:none">
+        <div style="padding:16px 20px">
+          <!-- 받는사람 -->
+          <div style="margin-bottom:8px">
+            <label style="font-size:11px;font-weight:600;color:#334155;display:block;margin-bottom:2px">받는사람</label>
+            <input type="email" id="spEmailTo" style="width:100%;padding:6px 8px;border:1px solid #d1d5db;border-radius:4px;font-size:12px;font-family:inherit" placeholder="example@email.com">
+          </div>
+          <!-- 제목 -->
+          <div style="margin-bottom:8px">
+            <label style="font-size:11px;font-weight:600;color:#334155;display:block;margin-bottom:2px">제목</label>
+            <input type="text" id="spEmailSubject" style="width:100%;padding:6px 8px;border:1px solid #d1d5db;border-radius:4px;font-size:12px;font-family:inherit" placeholder="메일 제목">
+          </div>
+          <!-- 본문 -->
+          <div style="margin-bottom:8px">
+            <label style="font-size:11px;font-weight:600;color:#334155;display:block;margin-bottom:2px">본문</label>
+            <textarea id="spEmailBody" rows="8"
+                      style="width:100%;box-sizing:border-box;padding:8px;border:1px solid #d1d5db;border-radius:4px;font-size:12px;font-family:inherit;resize:vertical;line-height:1.6"
+                      placeholder="메일 내용을 입력하세요..."></textarea>
+          </div>
+          <!-- 사업자 서류 첨부 -->
+          <div id="spDocAttachSection" style="margin-bottom:10px;padding:8px 10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px">
+            <div style="font-size:11px;font-weight:600;color:#334155;margin-bottom:4px">서류 첨부</div>
+            <div id="spDocList" style="display:flex;flex-direction:column;gap:3px">
+              <!-- dynamically populated -->
+            </div>
+          </div>
+          <!-- 주문 연결 견적서 (주문 등록 후 활성화) -->
+          <div id="spQuoteHint" style="display:none;margin-bottom:10px;padding:8px 10px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;font-size:11px;color:#1e40af">
+            <span id="spQuoteOrderNo" style="font-weight:600"></span> 주문이 등록되었습니다.
+            <button type="button" id="spQuoteAutoBtn" onclick="prefillQuoteEmail()" style="margin-left:6px;font-size:10px;padding:2px 8px;background:#2563eb;color:#fff;border:none;border-radius:3px;cursor:pointer">견적서 메일 작성</button>
+          </div>
+          <!-- SMS 답장 모드 표시 -->
+          <div id="spSmsReplyHint" style="display:none;margin-bottom:10px;padding:8px 10px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;font-size:11px;color:#166534">
+            <strong>문자 답장</strong> — <span id="spSmsReplyPhone"></span>
+          </div>
+          <!-- 발송 버튼 -->
+          <button type="button" id="spEmailSendBtn" onclick="sendEmailFromPanel()" class="btn btn-sm"
+                  style="width:100%;padding:8px 0;background:#2563eb;color:#fff;border:none;font-size:12px;border-radius:4px;cursor:pointer;font-weight:600">
+            메일 발송
+          </button>
+          <div id="spEmailResult" style="display:none;margin-top:6px;padding:6px 10px;border-radius:4px;font-size:11px;text-align:center"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -1146,7 +1207,6 @@ function openSlidePanel(pk, source) {
   document.getElementById('spSmsSection').style.display = 'none';
   document.getElementById('spEmailThreadSection').style.display = 'none';
   document.getElementById('spCallSection').style.display = 'none';
-  document.getElementById('spReplySection').style.display = 'none';
   // Reset attachment column, resizer & tab
   document.getElementById('spAttCol').innerHTML = '';
   document.getElementById('spAttCol').style.display = 'none';
@@ -1159,6 +1219,11 @@ function openSlidePanel(pk, source) {
   var _ofc = document.getElementById('spOrderFormContainer');
   if (window.Alpine && Alpine.destroyTree) { try { Alpine.destroyTree(_ofc); } catch(e) {} }
   _ofc.innerHTML = '<div style="text-align:center;padding:40px;color:#94a3b8">폼 로딩 중...</div>';
+  // Reset right panel to order tab
+  switchRightTab('order');
+  _resetEmailTab();
+  document.getElementById('spEmailTabBtn').style.display = 'none';
+  document.getElementById('spReplyHintSection').style.display = 'none';
 
   document.getElementById('slidePanelOverlay').classList.add('open');
   document.getElementById('slidePanel').classList.add('open');
@@ -1276,32 +1341,8 @@ function _loadMessageDetail(pk, source) {
         attTabBtn.style.display = 'none';
       }
 
-      // Reply section
-      var replySection = document.getElementById('spReplySection');
-      var replyLabel = document.getElementById('spReplyLabel');
-      var replyTo = document.getElementById('spReplyTo');
-      document.getElementById('spReplyBody').value = '';
-      document.getElementById('spReplyResult').style.display = 'none';
-
-      if (data.source === 'email') {
-        replySection.style.display = '';
-        replySection.dataset.type = 'email';
-        replySection.dataset.pk = pk;
-        replyLabel.textContent = '이메일 답장';
-        // Extract email from sender
-        var emailMatch = (data.sender || '').match(/[\w.\-+]+@[\w.\-]+\.\w+/);
-        replyTo.textContent = emailMatch ? emailMatch[0] : data.sender;
-        document.getElementById('spReplyBtn').textContent = '답장 보내기';
-      } else if (data.source === 'sms' && data.sms_reply_phone) {
-        replySection.style.display = '';
-        replySection.dataset.type = 'sms';
-        replySection.dataset.phone = data.sms_reply_phone;
-        replyLabel.textContent = '문자 답장';
-        replyTo.textContent = data.sms_reply_phone;
-        document.getElementById('spReplyBtn').textContent = '문자 발송';
-      } else {
-        replySection.style.display = 'none';
-      }
+      // Setup email/SMS compose tab on right panel
+      _setupEmailTab(data);
 
       // Mark row as read
       var row = document.querySelector('[data-pk="' + pk + '"][data-source]');
@@ -1614,6 +1655,13 @@ window._onPanelOrderCreated = function(data) {
     if (pill) { pill.className = 'status-pill has-order'; pill.textContent = '주문'; }
   }
   showToast('주문 등록 완료: ' + data.order_no, 'success');
+  // Show quote email hint (email source only)
+  if (_spEmailMode === 'email') {
+    _spLastOrderNo = data.order_no;
+    var hint = document.getElementById('spQuoteHint');
+    hint.style.display = '';
+    document.getElementById('spQuoteOrderNo').textContent = data.order_no;
+  }
   // Auto-navigate to next
   setTimeout(function() {
     _loadNextUnprocessed(data.inbox_pk, _currentPanelSource);
@@ -1656,29 +1704,138 @@ window._onCallSkipped = function(data) {
   _loadNextUnprocessed(data.call_pk, 'call');
 };
 
-/* ── Reply from panel ── */
-function sendReplyFromPanel() {
-  var section = document.getElementById('spReplySection');
-  var body = document.getElementById('spReplyBody').value.trim();
-  var btn = document.getElementById('spReplyBtn');
-  var result = document.getElementById('spReplyResult');
+/* ── Right panel tab switching ── */
+var _spEmailPk = null;  // current email PK for compose
+var _spEmailMode = null;  // 'email' or 'sms'
+var _spSmsPhone = null;  // SMS reply phone
+var _spLastOrderNo = null;  // last created order number
 
-  if (!body) { alert('답장 내용을 입력하세요.'); return; }
+function switchRightTab(tab) {
+  var btns = document.querySelectorAll('#spRightTabBar button');
+  btns.forEach(function(b) { b.classList.remove('active'); });
+  if (tab === 'order') {
+    btns[0].classList.add('active');
+    document.getElementById('spRightOrderTab').style.display = '';
+    document.getElementById('spRightEmailTab').style.display = 'none';
+  } else {
+    if (btns[1]) btns[1].classList.add('active');
+    document.getElementById('spRightOrderTab').style.display = 'none';
+    document.getElementById('spRightEmailTab').style.display = '';
+  }
+}
 
-  var type = section.dataset.type;
+function _setupEmailTab(data) {
+  var emailTabBtn = document.getElementById('spEmailTabBtn');
+  var smsHint = document.getElementById('spSmsReplyHint');
+  var replyHint = document.getElementById('spReplyHintSection');
+  smsHint.style.display = 'none';
+  _spLastOrderNo = null;
+  document.getElementById('spQuoteHint').style.display = 'none';
+  document.getElementById('spEmailResult').style.display = 'none';
+
+  if (data.source === 'email') {
+    emailTabBtn.style.display = '';
+    emailTabBtn.textContent = '메일발송';
+    _spEmailPk = data.pk;
+    _spEmailMode = 'email';
+    // Prefill compose form
+    document.getElementById('spEmailTo').value = data.sender_email || '';
+    var subj = data.subject || '';
+    document.getElementById('spEmailSubject').value = subj.toLowerCase().startsWith('re:') ? subj : 'Re: ' + subj;
+    document.getElementById('spEmailBody').value = '';
+    // Populate business docs
+    var docList = document.getElementById('spDocList');
+    docList.innerHTML = '';
+    document.getElementById('spDocAttachSection').style.display = 'none';
+    if (data.business_docs && data.business_docs.length) {
+      document.getElementById('spDocAttachSection').style.display = '';
+      data.business_docs.forEach(function(doc) {
+        var label = document.createElement('label');
+        label.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:11px;color:#334155;cursor:pointer';
+        label.innerHTML = '<input type="checkbox" class="sp-doc-check" value="' + doc.id + '"' + (doc.auto_attach ? ' checked' : '') + '> ' + doc.name;
+        docList.appendChild(label);
+      });
+    }
+    // Reply hint
+    if (replyHint) replyHint.style.display = '';
+    // Send button label
+    document.getElementById('spEmailSendBtn').textContent = '메일 발송';
+  } else if (data.source === 'sms' && data.sms_reply_phone) {
+    emailTabBtn.style.display = '';
+    emailTabBtn.textContent = '문자발송';
+    _spEmailPk = null;
+    _spEmailMode = 'sms';
+    _spSmsPhone = data.sms_reply_phone;
+    document.getElementById('spEmailTo').value = data.sms_reply_phone;
+    document.getElementById('spEmailTo').disabled = true;
+    document.getElementById('spEmailSubject').parentElement.style.display = 'none';
+    document.getElementById('spEmailBody').value = '';
+    document.getElementById('spDocAttachSection').style.display = 'none';
+    smsHint.style.display = '';
+    document.getElementById('spSmsReplyPhone').textContent = data.sms_reply_phone;
+    if (replyHint) replyHint.style.display = '';
+    document.getElementById('spEmailSendBtn').textContent = '문자 발송';
+  } else {
+    emailTabBtn.style.display = 'none';
+    if (replyHint) replyHint.style.display = 'none';
+  }
+}
+
+function _resetEmailTab() {
+  document.getElementById('spEmailTo').disabled = false;
+  document.getElementById('spEmailSubject').parentElement.style.display = '';
+  document.getElementById('spEmailTo').value = '';
+  document.getElementById('spEmailSubject').value = '';
+  document.getElementById('spEmailBody').value = '';
+  document.getElementById('spDocList').innerHTML = '';
+  document.getElementById('spEmailResult').style.display = 'none';
+  document.getElementById('spQuoteHint').style.display = 'none';
+  document.getElementById('spSmsReplyHint').style.display = 'none';
+  _spEmailPk = null;
+  _spEmailMode = null;
+  _spSmsPhone = null;
+  _spLastOrderNo = null;
+}
+
+function prefillQuoteEmail() {
+  // 견적서 메일 내용으로 프리필
+  var subj = document.getElementById('spEmailSubject');
+  subj.value = '[북마트] 견적서 발송드립니다';
+  var body = document.getElementById('spEmailBody');
+  body.value = '안녕하세요.\n북마트E&C입니다.\n\n요청하신 교재 견적서를 보내드립니다.\n\n문의사항은 연락 주세요.\n전화: 02-833-0864 / 031-917-0864\n감사합니다.\n\n북마트E&C 전우득 드림';
+  // Auto-check all business docs
+  document.querySelectorAll('.sp-doc-check').forEach(function(cb) { cb.checked = true; });
+  switchRightTab('email');
+}
+
+function sendEmailFromPanel() {
+  var btn = document.getElementById('spEmailSendBtn');
+  var result = document.getElementById('spEmailResult');
+  var body = document.getElementById('spEmailBody').value.trim();
+
+  if (!body) { alert('내용을 입력하세요.'); return; }
+
   var csrf = document.querySelector('[name=csrfmiddlewaretoken]').value;
-
   btn.disabled = true;
-  btn.textContent = '발송 중...';
   result.style.display = 'none';
 
-  if (type === 'email') {
-    // Email reply via existing inbox_reply endpoint
-    var pk = section.dataset.pk;
+  if (_spEmailMode === 'email' && _spEmailPk) {
+    var to = document.getElementById('spEmailTo').value.trim();
+    var subject = document.getElementById('spEmailSubject').value.trim();
+    if (!to) { alert('받는사람을 입력하세요.'); btn.disabled = false; return; }
+    btn.textContent = '발송 중...';
+
     var fd = new FormData();
     fd.append('csrfmiddlewaretoken', csrf);
     fd.append('reply_body', body);
-    fetch('/inbox/' + pk + '/reply/', {
+    fd.append('to_email', to);
+    fd.append('subject', subject);
+    // 첨부 서류
+    document.querySelectorAll('.sp-doc-check:checked').forEach(function(cb) {
+      fd.append('doc_ids', cb.value);
+    });
+
+    fetch('/inbox/' + _spEmailPk + '/reply/', {
       method: 'POST', body: fd,
       headers: { 'X-Requested-With': 'XMLHttpRequest' }
     }).then(_safeJson)
@@ -1687,12 +1844,12 @@ function sendReplyFromPanel() {
       if (data.ok) {
         result.style.background = '#ecfdf5';
         result.style.color = '#065f46';
-        result.textContent = data.message || '답장이 발송되었습니다.';
-        document.getElementById('spReplyBody').value = '';
+        result.textContent = data.message || '메일이 발송되었습니다.';
+        document.getElementById('spEmailBody').value = '';
       } else {
         result.style.background = '#fef2f2';
         result.style.color = '#dc2626';
-        result.textContent = data.error || '답장 발송 실패';
+        result.textContent = data.error || '발송 실패';
       }
     }).catch(function(err) {
       result.style.display = '';
@@ -1701,14 +1858,13 @@ function sendReplyFromPanel() {
       result.textContent = err.message;
     }).finally(function() {
       btn.disabled = false;
-      btn.textContent = '답장 보내기';
+      btn.textContent = '메일 발송';
     });
-  } else if (type === 'sms') {
-    // SMS reply via send_sms_ajax endpoint
-    var phone = section.dataset.phone;
+  } else if (_spEmailMode === 'sms' && _spSmsPhone) {
+    btn.textContent = '발송 중...';
     var fd = new FormData();
     fd.append('csrfmiddlewaretoken', csrf);
-    fd.append('receiver', phone);
+    fd.append('receiver', _spSmsPhone);
     fd.append('message', body);
     fetch('/inbox/send-sms/', { method: 'POST', body: fd })
       .then(_safeJson)
@@ -1718,7 +1874,7 @@ function sendReplyFromPanel() {
           result.style.background = '#ecfdf5';
           result.style.color = '#065f46';
           result.textContent = '문자가 발송되었습니다.';
-          document.getElementById('spReplyBody').value = '';
+          document.getElementById('spEmailBody').value = '';
         } else {
           throw new Error(data.error || '문자 발송 실패');
         }

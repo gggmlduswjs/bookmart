@@ -831,25 +831,34 @@ def inbox_process(request, pk):
 
 @role_required('admin')
 def inbox_reply(request, pk):
-    """수신 이메일에 답장 발송"""
+    """수신 이메일에 답장 발송 (첨부파일 지원)"""
     inbox_msg = get_object_or_404(InboxMessage, pk=pk)
     if request.method != 'POST' or inbox_msg.source != 'email':
         return redirect('inbox_process', pk=pk)
 
     reply_body = request.POST.get('reply_body', '').strip()
     if not reply_body:
+        is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+        if is_ajax:
+            return JsonResponse({'ok': False, 'error': '답장 내용을 입력하세요.'})
         messages.warning(request, '답장 내용을 입력하세요.')
         return redirect('inbox_process', pk=pk)
 
     from django.conf import settings as conf
-    from orders.email_utils import send_reply_email
+
+    # 커스텀 수신자/제목 지원
+    custom_to = request.POST.get('to_email', '').strip()
+    custom_subject = request.POST.get('subject', '').strip()
 
     sender = inbox_msg.sender or ''
     match = _re.search(r'[\w.\-+]+@[\w.\-]+\.\w+', sender)
-    to_email = match.group(0) if match else sender
+    to_email = custom_to or (match.group(0) if match else sender)
 
     subj = inbox_msg.subject or ''
-    reply_subject = subj if subj.lower().startswith('re:') else f'Re: {subj}'
+    if custom_subject:
+        reply_subject = custom_subject
+    else:
+        reply_subject = subj if subj.lower().startswith('re:') else f'Re: {subj}'
 
     in_reply_to = inbox_msg.message_id or None
     references = inbox_msg.message_id or None
@@ -864,15 +873,47 @@ def inbox_reply(request, pk):
     if not creds:
         creds = (conf.NAVER_EMAIL_1_ID, conf.NAVER_EMAIL_1_PW)
 
-    ok = send_reply_email(
-        account_id=creds[0],
-        account_pw=creds[1],
-        to_email=to_email,
-        subject=reply_subject,
-        body=reply_body,
-        in_reply_to=in_reply_to,
-        references=references,
-    )
+    # 사업자 서류 첨부 처리
+    doc_ids = request.POST.getlist('doc_ids')
+    attachments = []
+    if doc_ids:
+        from orders.models import BusinessDocument
+        for doc in BusinessDocument.objects.filter(pk__in=doc_ids):
+            try:
+                doc.file.open('rb')
+                data = doc.file.read()
+                doc.file.close()
+                ext = doc.extension
+                filename = f'{doc.name}.{ext}' if ext else doc.name
+                attachments.append({
+                    'filename': filename,
+                    'data': data,
+                    'content_type': 'application/octet-stream',
+                })
+            except Exception as e:
+                logger.error('서류 파일 읽기 실패 (%s): %s', doc.name, e)
+
+    if attachments:
+        from orders.email_utils import send_email_with_attachments
+        ok = send_email_with_attachments(
+            account_id=creds[0],
+            account_pw=creds[1],
+            to_email=to_email,
+            subject=reply_subject,
+            body=reply_body,
+            attachments=attachments,
+        )
+    else:
+        from orders.email_utils import send_reply_email
+        ok = send_reply_email(
+            account_id=creds[0],
+            account_pw=creds[1],
+            to_email=to_email,
+            subject=reply_subject,
+            body=reply_body,
+            in_reply_to=in_reply_to,
+            references=references,
+        )
 
     is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
 
@@ -890,13 +931,14 @@ def inbox_reply(request, pk):
             is_read=True,
             phone=to_email,  # phone 필드를 이메일 그룹핑에 재사용
         )
+        att_msg = f' (첨부 {len(attachments)}건)' if attachments else ''
         if is_ajax:
-            return JsonResponse({'ok': True, 'message': f'{to_email}에 답장을 발송했습니다.'})
-        messages.success(request, f'{to_email}에 답장을 발송했습니다.')
+            return JsonResponse({'ok': True, 'message': f'{to_email}에 메일을 발송했습니다.{att_msg}'})
+        messages.success(request, f'{to_email}에 메일을 발송했습니다.{att_msg}')
     else:
         if is_ajax:
-            return JsonResponse({'ok': False, 'error': '답장 발송에 실패했습니다.'}, status=500)
-        messages.error(request, '답장 발송에 실패했습니다. 로그를 확인하세요.')
+            return JsonResponse({'ok': False, 'error': '메일 발송에 실패했습니다.'}, status=500)
+        messages.error(request, '메일 발송에 실패했습니다. 로그를 확인하세요.')
 
     return redirect('inbox_process', pk=pk)
 
@@ -1700,11 +1742,19 @@ def inbox_detail_api(request, pk):
         data['sms_thread'] = thread_msgs
         data['sms_reply_phone'] = _extract_reply_phone(msg)
 
-    # Email: include conversation thread (same sender email address)
+    # Email: include conversation thread + business docs
     if msg.source == 'email':
+        # 사업자 서류 목록 (메일발송 폼에서 사용)
+        from orders.models import BusinessDocument
+        data['business_docs'] = [
+            {'id': d.pk, 'name': d.name, 'auto_attach': d.auto_attach}
+            for d in BusinessDocument.objects.all()
+        ]
+
         sender_str = msg.sender or ''
         email_match = _re.search(r'[\w.\-+]+@[\w.\-]+\.\w+', sender_str)
         sender_email = email_match.group(0) if email_match else ''
+        data['sender_email'] = sender_email
         email_thread = []
         if sender_email:
             # 수신: sender에 해당 이메일 포함 / 발신: phone 필드에 해당 이메일 저장
