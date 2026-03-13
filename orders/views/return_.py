@@ -3,9 +3,11 @@ import math
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.http import JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.utils import timezone
 from django.core.paginator import Paginator
+from django.views.decorators.http import require_POST
 
 from accounts.decorators import role_required
 from books.models import Book
@@ -206,6 +208,69 @@ def return_confirm(request, pk):
         return redirect('return_detail', pk=pk)
 
     return render(request, 'orders/return_confirm.html', {'ret': ret, 'items': items})
+
+
+@require_POST
+@role_required('admin')
+def return_create_inline(request, pk):
+    """주문 상세에서 인라인 반품 생성 (AJAX)"""
+    order = get_object_or_404(Order, pk=pk)
+
+    try:
+        data = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({'ok': False, 'error': '잘못된 요청입니다.'}, status=400)
+
+    items_data = data.get('items', [])
+    reason = data.get('reason', 'etc')
+    memo = data.get('memo', '')
+
+    # 유효한 반품 아이템 필터링
+    ret_items = []
+    for item in items_data:
+        try:
+            book_id = int(item.get('book_id', 0))
+            qty = int(item.get('qty', 0))
+            if book_id and qty > 0:
+                ret_items.append((book_id, qty))
+        except (ValueError, TypeError):
+            continue
+
+    if not ret_items:
+        return JsonResponse({'ok': False, 'error': '반품할 교재를 1권 이상 선택하세요.'}, status=400)
+
+    ret = Return.objects.create(
+        return_no=Return.generate_return_no(),
+        agency=order.agency,
+        teacher=order.teacher,
+        delivery=order.delivery,
+        memo=memo,
+        reason=reason,
+        order=order,
+    )
+
+    created_count = 0
+    for book_id, qty in ret_items:
+        try:
+            book = Book.objects.get(id=book_id, is_active=True)
+            ReturnItem(ret=ret, book=book, requested_qty=qty).save()
+            created_count += 1
+        except Book.DoesNotExist:
+            continue
+
+    if created_count == 0:
+        ret.delete()
+        return JsonResponse({'ok': False, 'error': '유효한 교재가 없습니다.'}, status=400)
+
+    _audit(request, AuditLog.Action.RETURN_CREATE, ret,
+           f'주문 {order.order_no}에서 인라인 반품 {ret.return_no} 생성')
+
+    return JsonResponse({
+        'ok': True,
+        'return_no': ret.return_no,
+        'return_pk': ret.pk,
+        'message': f'반품 {ret.return_no} 신청 완료 ({created_count}건)',
+    })
 
 
 @role_required('admin')

@@ -2,6 +2,8 @@ import json
 import logging
 import math
 import re as _re
+import threading
+import uuid
 from collections import OrderedDict
 
 from django.contrib import messages
@@ -351,74 +353,135 @@ def inbox_bulk_skip(request):
     return redirect(f'/inbox/?tab={tab}')
 
 
-@role_required('admin')
-def fetch_emails(request):
-    """네이버 IMAP 메일 가져오기"""
-    if request.method != 'POST':
-        return redirect('inbox_list')
+# 비동기 이메일 가져오기 상태 관리
+_fetch_tasks = {}  # task_id -> {status, count, sync, error}
+_fetch_lock = threading.Lock()
+
+
+def _do_fetch_emails(task_id):
+    """백그라운드 스레드에서 이메일 가져오기 실행"""
+    import django
+    django.setup()
 
     from django.conf import settings as conf
     from orders.email_utils import fetch_naver_emails
 
-    accounts = [
-        (conf.NAVER_EMAIL_1_ID, conf.NAVER_EMAIL_1_PW, '007bm'),
-        (conf.NAVER_EMAIL_2_ID, conf.NAVER_EMAIL_2_PW, '002bm'),
-    ]
+    try:
+        accounts = [
+            (conf.NAVER_EMAIL_1_ID, conf.NAVER_EMAIL_1_PW, '007bm'),
+            (conf.NAVER_EMAIL_2_ID, conf.NAVER_EMAIL_2_PW, '002bm'),
+        ]
 
-    all_existing_keys = set(
-        InboxMessage.objects.values_list('imap_key', flat=True)
-    )
+        all_existing_keys = set(
+            InboxMessage.objects.values_list('imap_key', flat=True)
+        )
 
-    new_count = 0
-    sync_count = 0
-    for acc_id, acc_pw, label in accounts:
-        if not acc_id or not acc_pw:
-            continue
-        emails, read_sync = fetch_naver_emails(acc_id, acc_pw, label,
-                                               existing_keys=all_existing_keys)
+        new_count = 0
+        sync_count = 0
+        for acc_id, acc_pw, label in accounts:
+            if not acc_id or not acc_pw:
+                continue
+            emails, read_sync = fetch_naver_emails(acc_id, acc_pw, label,
+                                                   existing_keys=all_existing_keys)
 
-        if read_sync:
-            for imap_key, is_seen in read_sync.items():
-                updated = InboxMessage.objects.filter(
-                    imap_key=imap_key, is_read=not is_seen
-                ).update(is_read=is_seen)
-                sync_count += updated
+            if read_sync:
+                for imap_key, is_seen in read_sync.items():
+                    updated = InboxMessage.objects.filter(
+                        imap_key=imap_key, is_read=not is_seen
+                    ).update(is_read=is_seen)
+                    sync_count += updated
 
-        if not emails:
-            continue
+            if not emails:
+                continue
 
-        for e in emails:
-            msg_obj = InboxMessage.objects.create(
-                source=InboxMessage.Source.EMAIL,
-                account_label=e['account_label'],
-                sender=e['sender'],
-                subject=e['subject'],
-                content=e['content'],
-                received_at=e['received_at'],
-                imap_key=e['imap_key'],
-                is_processed=False,
-                is_read=e.get('is_seen', False),
-                message_id=e.get('message_id', ''),
-            )
-            for att in e.get('attachments', []):
-                file_obj = ContentFile(att['data'], name=att['filename'])
-                InboxAttachment.objects.create(
-                    message=msg_obj,
-                    file=file_obj,
-                    filename=att['filename'],
-                    content_type=att['content_type'],
-                    size=len(att['data']),
+            for e in emails:
+                msg_obj = InboxMessage.objects.create(
+                    source=InboxMessage.Source.EMAIL,
+                    account_label=e['account_label'],
+                    sender=e['sender'],
+                    subject=e['subject'],
+                    content=e['content'],
+                    received_at=e['received_at'],
+                    imap_key=e['imap_key'],
+                    is_processed=False,
+                    is_read=e.get('is_seen', False),
+                    message_id=e.get('message_id', ''),
                 )
-            new_count += 1
+                for att in e.get('attachments', []):
+                    file_obj = ContentFile(att['data'], name=att['filename'])
+                    InboxAttachment.objects.create(
+                        message=msg_obj,
+                        file=file_obj,
+                        filename=att['filename'],
+                        content_type=att['content_type'],
+                        size=len(att['data']),
+                    )
+                new_count += 1
 
+        with _fetch_lock:
+            _fetch_tasks[task_id] = {'status': 'done', 'count': new_count, 'sync': sync_count, 'error': ''}
+
+    except Exception as exc:
+        logger.exception('fetch_emails background error')
+        with _fetch_lock:
+            _fetch_tasks[task_id] = {'status': 'error', 'count': 0, 'sync': 0, 'error': str(exc)}
+
+
+@role_required('admin')
+def fetch_emails(request):
+    """네이버 IMAP 메일 가져오기 (비동기)"""
+    if request.method != 'POST':
+        return redirect('inbox_list')
+
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+
+    # 이미 실행 중인 작업이 있으면 중복 실행 방지
+    with _fetch_lock:
+        for tid, task in list(_fetch_tasks.items()):
+            if task['status'] == 'running':
+                if is_ajax:
+                    return JsonResponse({'ok': True, 'task_id': tid, 'status': 'running'})
+                messages.info(request, '이미 메일을 가져오고 있습니다.')
+                return redirect('inbox_list')
+
+    task_id = uuid.uuid4().hex[:12]
+    with _fetch_lock:
+        _fetch_tasks[task_id] = {'status': 'running', 'count': 0, 'sync': 0, 'error': ''}
+
+    t = threading.Thread(target=_do_fetch_emails, args=(task_id,), daemon=True)
+    t.start()
+
+    if is_ajax:
+        return JsonResponse({'ok': True, 'task_id': task_id, 'status': 'running'})
+
+    # 비-AJAX 폴백: 스레드 완료 대기 (최대 90초)
+    t.join(timeout=90)
+    with _fetch_lock:
+        result = _fetch_tasks.pop(task_id, {})
+    new_count = result.get('count', 0)
+    sync_count = result.get('sync', 0)
     sync_msg = f' (읽음 상태 {sync_count}건 동기화)' if sync_count else ''
-
-    # AJAX 요청이면 JSON 응답
-    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-        return JsonResponse({'ok': True, 'count': new_count, 'sync': sync_count})
-
     messages.success(request, f'새 메일 {new_count}건을 가져왔습니다.{sync_msg}')
     return redirect('inbox_list')
+
+
+@role_required('admin')
+def fetch_emails_status(request):
+    """비동기 이메일 가져오기 상태 확인 (polling)"""
+    task_id = request.GET.get('task_id', '')
+    with _fetch_lock:
+        task = _fetch_tasks.get(task_id)
+    if not task:
+        return JsonResponse({'status': 'not_found'})
+    if task['status'] == 'done':
+        with _fetch_lock:
+            _fetch_tasks.pop(task_id, None)
+    return JsonResponse({
+        'status': task['status'],
+        'count': task.get('count', 0),
+        'sync': task.get('sync', 0),
+        'error': task.get('error', ''),
+    })
 
 
 @role_required('admin')

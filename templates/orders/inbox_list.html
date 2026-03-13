@@ -114,32 +114,32 @@
     flex: 1; overflow: hidden; padding: 0;
     display: flex;
   }
-  .slide-panel.triple { width: 1600px; }
-  .sp-att-col {
-    display: none; overflow: hidden; min-width: 200px; width: 40%;
-  }
-  .sp-att-col.visible { display: flex; flex-direction: column; }
   .sp-split-left {
     overflow-y: auto;
-    min-width: 200px; flex: 1; border-right: 1px solid #e2e8f0;
+    min-width: 200px; flex: 0 0 420px; border-right: 1px solid #e2e8f0;
+    display: flex; flex-direction: column;
   }
   .sp-split-right {
     flex: 1; overflow-y: auto;
     min-width: 200px;
   }
-  .sp-resizer {
-    width: 5px; cursor: col-resize; background: #e2e8f0;
-    flex-shrink: 0; position: relative; transition: background 0.15s;
-    display: none;
+  .sp-tab-bar {
+    display: flex; gap: 0; border-bottom: 1px solid #e2e8f0;
+    background: #f8fafc; flex-shrink: 0;
   }
-  .sp-resizer.visible { display: block; }
-  .sp-resizer:hover, .sp-resizer.dragging { background: #3b82f6; }
-  .sp-resizer::after {
-    content: ''; position: absolute; top: 50%; left: 50%;
-    transform: translate(-50%, -50%);
-    width: 3px; height: 24px; border-left: 1px solid #94a3b8;
-    border-right: 1px solid #94a3b8;
+  .sp-tab-bar button {
+    flex: 1; padding: 8px 12px; font-size: 11px; font-weight: 600;
+    background: none; border: none; border-bottom: 2px solid transparent;
+    color: #94a3b8; cursor: pointer; transition: all 0.15s;
   }
+  .sp-tab-bar button:hover { color: #475569; }
+  .sp-tab-bar button.active { color: #1e293b; border-bottom-color: #3b82f6; }
+  .sp-tab-bar .tab-count {
+    background: #e2e8f0; color: #64748b; font-size: 10px;
+    padding: 1px 5px; border-radius: 8px; margin-left: 3px;
+  }
+  .sp-left-content { flex: 1; overflow-y: auto; }
+  .sp-att-preview-pane { flex: 1; overflow: hidden; min-height: 0; }
   .sp-split-label {
     font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;
     letter-spacing: 0.5px; padding: 10px 20px 6px; border-bottom: 1px solid #f1f5f9;
@@ -187,19 +187,13 @@
   .sp-call-info .field { margin-bottom:8px; }
   .sp-call-info .field-label { font-size:10px; color:#94a3b8; text-transform:uppercase; font-weight:600; margin-bottom:2px; }
   .sp-call-info .field-value { font-size:13px; color:#0f172a; }
-  @media (max-width: 1600px) {
-    .slide-panel.triple { width: 100vw; }
-  }
   @media (max-width: 1280px) {
     .slide-panel { width: 100vw; }
-    .slide-panel.call-only { width: 100vw; }
   }
   @media (max-width: 768px) {
     .slide-panel-body { flex-direction: column; }
-    .sp-att-col.visible { width: 100% !important; max-height: 40vh; border-bottom: 1px solid #e2e8f0; }
-    .sp-split-left { border-bottom: 1px solid #e2e8f0; max-height: 40vh; }
+    .sp-split-left { border-bottom: 1px solid #e2e8f0; max-height: 40vh; flex: none; width: 100%; }
     .sp-split-right { flex: 1; }
-    .sp-resizer { display: none !important; }
   }
 </style>
 {% endblock %}
@@ -615,51 +609,53 @@
     </div>
   </div>
   <div class="slide-panel-body" id="spBody">
-    <!-- Attachment preview column (hidden by default, leftmost) -->
-    <div class="sp-att-col" id="spAttCol">
-      <div class="sp-split-label" style="display:flex;justify-content:space-between;align-items:center">
-        <span id="spAttPreviewTitle">첨부파일 미리보기</span>
-        <button type="button" onclick="closeAttPreview()" style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:16px;padding:0 4px">&times;</button>
-      </div>
-      <div id="spAttPreviewBody" style="flex:1;background:#f9fafb;min-height:0"></div>
-    </div>
-    <!-- Resizer: between attachment and email -->
-    <div class="sp-resizer" id="spResizer"></div>
-    <!-- Email preview -->
+    <!-- Left: preview + attachment tabs -->
     <div class="sp-split-left">
-      <div class="sp-split-label">미리보기</div>
-      <div class="sp-preview-body">
-        <div class="sp-meta">
-          <div><strong>발신:</strong> <span id="spSender"></span></div>
-          <div><strong>제목:</strong> <span id="spSubject"></span></div>
-          <div><strong>수신:</strong> <span id="spTime"></span></div>
-        </div>
-        <div class="sp-content" id="spContent">로딩 중...</div>
-        <div class="sp-attachments" id="spAttachments" style="display:none">
-          <div style="font-size:11px;font-weight:600;color:#64748b;margin-bottom:4px">첨부파일</div>
-          <div id="spAttList"></div>
-        </div>
-        <!-- SMS chat thread (shown for SMS) -->
-        <div id="spSmsSection" style="display:none">
-          <div class="sp-chat-thread" id="spSmsThread"></div>
-        </div>
-        <!-- Call detail (shown for calls) -->
-        <div id="spCallSection" style="display:none"></div>
-        <!-- Reply section -->
-        <div id="spReplySection" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid #e2e8f0">
-          <div style="font-size:11px;font-weight:700;color:#64748b;margin-bottom:4px">
-            <span id="spReplyLabel">답장</span>
-            <span id="spReplyTo" style="font-weight:400;color:#94a3b8;margin-left:4px"></span>
+      <div class="sp-tab-bar" id="spTabBar">
+        <button class="active" onclick="switchLeftTab('content')">원문</button>
+        <button id="spAttTabBtn" onclick="switchLeftTab('attach')" style="display:none">
+          첨부 <span class="tab-count" id="spAttTabCount">0</span>
+        </button>
+      </div>
+      <!-- Content tab -->
+      <div class="sp-left-content" id="spContentTab">
+        <div class="sp-preview-body">
+          <div class="sp-meta">
+            <div><strong>발신:</strong> <span id="spSender"></span></div>
+            <div><strong>제목:</strong> <span id="spSubject"></span></div>
+            <div><strong>수신:</strong> <span id="spTime"></span></div>
           </div>
-          <textarea id="spReplyBody" rows="3"
-                    style="width:100%;box-sizing:border-box;padding:6px 8px;border:1px solid #bbb;border-radius:4px;font-size:12px;font-family:inherit;resize:vertical"
-                    placeholder="답장 내용을 입력하세요..."></textarea>
-          <button type="button" id="spReplyBtn" onclick="sendReplyFromPanel()"
-                  class="btn btn-sm" style="width:100%;margin-top:4px;background:#2563eb;color:#fff;border:none;padding:6px 0;font-size:12px;border-radius:4px;cursor:pointer">
-            답장 보내기
-          </button>
-          <div id="spReplyResult" style="display:none;margin-top:4px;font-size:11px;padding:4px 8px;border-radius:4px"></div>
+          <div class="sp-content" id="spContent">로딩 중...</div>
+          <div class="sp-attachments" id="spAttachments" style="display:none">
+            <div style="font-size:11px;font-weight:600;color:#64748b;margin-bottom:4px">첨부파일</div>
+            <div id="spAttList"></div>
+          </div>
+          <!-- SMS chat thread (shown for SMS) -->
+          <div id="spSmsSection" style="display:none">
+            <div class="sp-chat-thread" id="spSmsThread"></div>
+          </div>
+          <!-- Call detail (shown for calls) -->
+          <div id="spCallSection" style="display:none"></div>
+          <!-- Reply section -->
+          <div id="spReplySection" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid #e2e8f0">
+            <div style="font-size:11px;font-weight:700;color:#64748b;margin-bottom:4px">
+              <span id="spReplyLabel">답장</span>
+              <span id="spReplyTo" style="font-weight:400;color:#94a3b8;margin-left:4px"></span>
+            </div>
+            <textarea id="spReplyBody" rows="3"
+                      style="width:100%;box-sizing:border-box;padding:6px 8px;border:1px solid #bbb;border-radius:4px;font-size:12px;font-family:inherit;resize:vertical"
+                      placeholder="답장 내용을 입력하세요..."></textarea>
+            <button type="button" id="spReplyBtn" onclick="sendReplyFromPanel()"
+                    class="btn btn-sm" style="width:100%;margin-top:4px;background:#2563eb;color:#fff;border:none;padding:6px 0;font-size:12px;border-radius:4px;cursor:pointer">
+              답장 보내기
+            </button>
+            <div id="spReplyResult" style="display:none;margin-top:4px;font-size:11px;padding:4px 8px;border-radius:4px"></div>
+          </div>
         </div>
+      </div>
+      <!-- Attachment preview tab -->
+      <div class="sp-att-preview-pane" id="spAttPreviewPane" style="display:none">
+        <div id="spAttPreviewBody" style="width:100%;height:100%;background:#f9fafb"></div>
       </div>
     </div><!-- /sp-split-left -->
     <!-- Right: Order Form -->
@@ -821,40 +817,7 @@ function _loadOrderForm() {
 }
 
 /* --- Resizer drag logic --- */
-(function() {
-  var body = document.getElementById('spBody');
-  // Invisible overlay to capture mouse events over iframes during drag
-  var dragOverlay = document.createElement('div');
-  dragOverlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;cursor:col-resize;display:none';
-  document.body.appendChild(dragOverlay);
-
-  function setupResizer(resizerId, targetEl) {
-    var resizer = document.getElementById(resizerId);
-    var dragging = false, startX, startW;
-    resizer.addEventListener('mousedown', function(e) {
-      dragging = true; startX = e.clientX; startW = targetEl.offsetWidth;
-      resizer.classList.add('dragging');
-      dragOverlay.style.display = 'block';
-      document.body.style.userSelect = 'none';
-      e.preventDefault();
-    });
-    document.addEventListener('mousemove', function(e) {
-      if (!dragging) return;
-      var bodyW = body.offsetWidth;
-      var newW = Math.min(Math.max(startW + (e.clientX - startX), 200), bodyW - 450);
-      targetEl.style.width = newW + 'px'; targetEl.style.flex = 'none';
-    });
-    document.addEventListener('mouseup', function() {
-      if (!dragging) return;
-      dragging = false;
-      resizer.classList.remove('dragging');
-      dragOverlay.style.display = 'none';
-      document.body.style.cursor = '';
-      document.body.style.userSelect = '';
-    });
-  }
-  setupResizer('spResizer', document.getElementById('spAttCol'));
-})();
+// Resizer removed — attachment preview is now a tab within the left panel
 
 function openSlidePanel(pk, source) {
   _currentPanelPk = pk;
@@ -891,11 +854,10 @@ function openSlidePanel(pk, source) {
   document.getElementById('spSmsSection').style.display = 'none';
   document.getElementById('spCallSection').style.display = 'none';
   document.getElementById('spReplySection').style.display = 'none';
-  // Reset attachment preview (3-column mode)
-  document.getElementById('spAttCol').classList.remove('visible');
-  document.getElementById('spResizer').classList.remove('visible');
+  // Reset attachment preview tab
   document.getElementById('spAttPreviewBody').innerHTML = '';
-  panel.classList.remove('triple');
+  switchLeftTab('content');
+  document.getElementById('spAttTabBtn').style.display = 'none';
   // Reset order form container (destroy Alpine tree first)
   var _ofc = document.getElementById('spOrderFormContainer');
   if (window.Alpine && Alpine.destroyTree) { try { Alpine.destroyTree(_ofc); } catch(e) {} }
@@ -967,9 +929,13 @@ function _loadMessageDetail(pk, source) {
       // Attachments
       var attDiv = document.getElementById('spAttachments');
       var attList = document.getElementById('spAttList');
+      var attTabBtn = document.getElementById('spAttTabBtn');
+      var attTabCount = document.getElementById('spAttTabCount');
       attList.innerHTML = '';
       if (data.attachments && data.attachments.length > 0) {
         attDiv.style.display = '';
+        attTabBtn.style.display = '';
+        attTabCount.textContent = data.attachments.length;
         data.attachments.forEach(function(att) {
           var d = document.createElement('div');
           d.className = 'att-item';
@@ -988,6 +954,7 @@ function _loadMessageDetail(pk, source) {
         });
       } else {
         attDiv.style.display = 'none';
+        attTabBtn.style.display = 'none';
       }
 
       // Reply section
@@ -1176,11 +1143,9 @@ function closeSlidePanel() {
   document.getElementById('slidePanelOverlay').classList.remove('open');
   var panel = document.getElementById('slidePanel');
   panel.classList.remove('open');
-  panel.classList.remove('triple');
   panel.classList.remove('call-only');
-  document.getElementById('spAttCol').classList.remove('visible');
-  document.getElementById('spResizer').classList.remove('visible');
   document.getElementById('spAttPreviewBody').innerHTML = '';
+  switchLeftTab('content');
   document.body.style.overflow = '';
   _currentPanelPk = null;
 }
@@ -1383,25 +1348,30 @@ function sendReplyFromPanel() {
   }
 }
 
-/* ── Attachment preview as left column (3-column mode) ── */
+/* ── Left panel tab switching ── */
+function switchLeftTab(tab) {
+  var btns = document.querySelectorAll('#spTabBar button');
+  btns.forEach(function(b) { b.classList.remove('active'); });
+  if (tab === 'content') {
+    btns[0].classList.add('active');
+    document.getElementById('spContentTab').style.display = '';
+    document.getElementById('spAttPreviewPane').style.display = 'none';
+  } else {
+    if (btns[1]) btns[1].classList.add('active');
+    document.getElementById('spContentTab').style.display = 'none';
+    document.getElementById('spAttPreviewPane').style.display = '';
+  }
+}
+
+/* ── Attachment preview (within left panel tab) ── */
 function openAttPreview(url, filename) {
-  var panel = document.getElementById('slidePanel');
-  var col = document.getElementById('spAttCol');
   var body = document.getElementById('spAttPreviewBody');
-  var title = document.getElementById('spAttPreviewTitle');
-  title.textContent = filename || '첨부파일 미리보기';
   body.innerHTML = '<iframe src="' + url + '" style="width:100%;height:100%;border:none"></iframe>';
-  col.classList.add('visible');
-  document.getElementById('spResizer').classList.add('visible');
-  panel.classList.add('triple');
+  switchLeftTab('attach');
 }
 function closeAttPreview() {
-  var panel = document.getElementById('slidePanel');
-  var col = document.getElementById('spAttCol');
-  col.classList.remove('visible');
-  document.getElementById('spResizer').classList.remove('visible');
   document.getElementById('spAttPreviewBody').innerHTML = '';
-  panel.classList.remove('triple');
+  switchLeftTab('content');
 }
 
 /* ── Apply Excel attachment to order form ── */
@@ -1450,12 +1420,15 @@ document.addEventListener('keydown', function(e) {
   if (e.key === 's' || e.key === 'S') { e.preventDefault(); _panelSkipAction(); }
 });
 
-/* ── AJAX email fetch ── */
+/* ── AJAX email fetch (비동기 polling) ── */
+var _fetchTaskId = null;
+var _fetchPollTimer = null;
+
 function fetchEmailsAjax() {
   var btn = document.getElementById('fetchEmailBtn');
-  if (!btn) return;
+  if (!btn || btn.disabled) return;
   btn.disabled = true;
-  btn.textContent = '가져오는 중...';
+  btn.textContent = '메일 확인 중...';
   btn.classList.add('loading');
 
   var tableBox = document.querySelector('.inbox-panel.active .content-box');
@@ -1480,29 +1453,71 @@ function fetchEmailsAjax() {
   })
   .then(function(data) {
     if (!data) return;
-    if (data.ok) {
-      showToast((data.count || 0) + '건의 새 메일을 가져왔습니다.', 'success');
-      if (data.count > 0) {
-        setTimeout(function() { location.reload(); }, 1000);
-      } else {
-        if (tableBox) {
-          tableBox.classList.remove('skeleton-overlay');
-          var skel = tableBox.querySelector('.skeleton-content');
-          if (skel) skel.remove();
-        }
-        btn.disabled = false;
-        btn.textContent = '새 메일 가져오기';
-        btn.classList.remove('loading');
-      }
+    if (data.ok && data.task_id) {
+      _fetchTaskId = data.task_id;
+      _pollFetchStatus();
     } else {
-      showToast(data.error || '메일 가져오기 실패', 'error');
-      location.reload();
+      _fetchComplete(0, 0);
     }
   })
   .catch(function(err) {
     showToast('메일 가져오기 실패: ' + err.message, 'error');
-    location.reload();
+    _fetchReset();
   });
+}
+
+function _pollFetchStatus() {
+  if (!_fetchTaskId) return;
+  _fetchPollTimer = setTimeout(function() {
+    fetch('{% url "fetch_emails_status" %}?task_id=' + _fetchTaskId)
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (data.status === 'running') {
+          var btn = document.getElementById('fetchEmailBtn');
+          if (btn) {
+            var dots = (btn.textContent.match(/\./g) || []).length;
+            btn.textContent = '메일 확인 중' + '.'.repeat((dots % 3) + 1);
+          }
+          _pollFetchStatus();
+        } else if (data.status === 'done') {
+          _fetchComplete(data.count, data.sync);
+        } else if (data.status === 'error') {
+          showToast('메일 가져오기 실패: ' + (data.error || '알 수 없는 오류'), 'error');
+          _fetchReset();
+        } else {
+          _fetchReset();
+        }
+      })
+      .catch(function() { _pollFetchStatus(); });
+  }, 2000);
+}
+
+function _fetchComplete(count, sync) {
+  _fetchTaskId = null;
+  var syncMsg = sync > 0 ? ' (읽음 ' + sync + '건 동기화)' : '';
+  showToast(count + '건의 새 메일을 가져왔습니다.' + syncMsg, 'success');
+  if (count > 0) {
+    setTimeout(function() { location.reload(); }, 1000);
+  } else {
+    _fetchReset();
+  }
+}
+
+function _fetchReset() {
+  _fetchTaskId = null;
+  if (_fetchPollTimer) { clearTimeout(_fetchPollTimer); _fetchPollTimer = null; }
+  var btn = document.getElementById('fetchEmailBtn');
+  if (btn) {
+    btn.disabled = false;
+    btn.textContent = '새 메일 가져오기';
+    btn.classList.remove('loading');
+  }
+  var tableBox = document.querySelector('.inbox-panel.active .content-box');
+  if (tableBox) {
+    tableBox.classList.remove('skeleton-overlay');
+    var skel = tableBox.querySelector('.skeleton-content');
+    if (skel) skel.remove();
+  }
 }
 </script>
 {% endblock %}

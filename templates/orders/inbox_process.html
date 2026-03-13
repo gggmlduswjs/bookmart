@@ -360,100 +360,7 @@
         </div>
       </div>
 
-      <!-- 엑셀 업로드 -->
-      <div class="content-box" style="padding:12px 14px;margin-bottom:10px">
-        <div style="display:flex;align-items:center;gap:10px">
-          <label style="font-size:12px;font-weight:bold;color:#334155;white-space:nowrap">엑셀 일괄 등록</label>
-          <input type="file" accept=".xlsx,.xls" @change="uploadExcel($event)" style="font-size:12px">
-          <span x-show="excelLoading" style="font-size:11px;color:#888">파싱 중...</span>
-        </div>
-        <template x-if="excelUnmatched.length > 0">
-          <div style="margin-top:8px;padding:6px 10px;background:#fff3cd;border:1px solid #ffc107;font-size:11px;color:#856404">
-            <strong>매칭 실패:</strong>
-            <template x-for="u in excelUnmatched" :key="u.name">
-              <span x-text="u.name + '(' + u.qty + '권) '" style="margin-right:6px"></span>
-            </template>
-          </div>
-        </template>
-      </div>
-
-      <!-- 교재 선택 -->
-      <div class="order-row-wrap">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th style="width:28%">시리즈</th>
-              <th style="width:34%">교재</th>
-              <th class="right" style="width:80px">단가</th>
-              <th class="center" style="width:65px">수량</th>
-              <th class="right" style="width:80px">금액</th>
-              <th style="width:28px"></th>
-            </tr>
-          </thead>
-          <tbody>
-            <template x-for="(row, index) in rows" :key="index">
-              <tr :style="row._lowConf ? 'background:#fefce8;border-left:3px solid #eab308' : row.is_custom ? 'background:#fff8f0' : ''">
-                <template x-if="!row.is_custom">
-                  <td>
-                    <select x-model="row.series" @change="row.book_id='';row.unit_price=0">
-                      <option value="">전체</option>
-                      {% for s in series_list %}
-                      <option value="{{ s }}">{{ s }}</option>
-                      {% endfor %}
-                      <option value="기타">기타</option>
-                    </select>
-                  </td>
-                </template>
-                <template x-if="row.is_custom">
-                  <td><span style="font-size:11px;color:#e8720c;font-weight:bold">직접입력</span></td>
-                </template>
-                <template x-if="!row.is_custom">
-                  <td>
-                    <select x-model="row.book_id" @change="updatePrice(row)">
-                      <option value="">교재</option>
-                      <template x-for="b in getBooks(row.series)" :key="b.id">
-                        <option :value="b.id" x-text="b.name"></option>
-                      </template>
-                    </select>
-                    <input type="hidden" :name="'book_' + index" :value="row.book_id">
-                  </td>
-                </template>
-                <template x-if="row.is_custom">
-                  <td>
-                    <input type="text" :name="'custom_name_' + index" x-model="row.custom_name"
-                           style="width:100%;padding:3px 5px;border:1px solid #bbb;font-size:12px" placeholder="교재명">
-                  </td>
-                </template>
-                <td class="right">
-                  <template x-if="!row.is_custom">
-                    <span x-text="row.unit_price ? row.unit_price.toLocaleString()+'원' : '-'" style="color:#666;font-size:11px"></span>
-                  </template>
-                  <template x-if="row.is_custom">
-                    <input type="number" :name="'custom_price_' + index" x-model.number="row.unit_price"
-                           style="width:60px;padding:3px 5px;border:1px solid #bbb;font-size:11px;text-align:right" placeholder="단가">
-                  </template>
-                </td>
-                <td class="center">
-                  <input type="number" :name="'qty_' + index" x-model.number="row.qty" min="1" max="9999">
-                </td>
-                <td class="right" style="font-weight:bold;font-size:11px">
-                  <span x-text="rowAmount(row) ? rowAmount(row).toLocaleString()+'원' : '-'"></span>
-                </td>
-                <td class="center">
-                  <button type="button" class="btn btn-sm btn-red" @click="rows.splice(index,1)"
-                          x-show="rows.length>1" style="padding:1px 5px">✕</button>
-                </td>
-              </tr>
-            </template>
-          </tbody>
-        </table>
-      </div>
-
-      <div class="order-total-bar">
-        <button type="button" class="btn btn-outline btn-sm" @click="addRow" style="float:left">+ 행 추가</button>
-        <button type="button" class="btn btn-outline btn-sm" @click="addCustomRow" style="float:left;margin-left:4px;color:#e8720c;border-color:#e8720c">+ 직접입력</button>
-        합계: <span x-text="total().toLocaleString()" style="font-size:15px;color:#e8720c"></span>원
-      </div>
+      {% include 'orders/_partials/book_table.html' with show_excel=True show_confidence=True show_custom=True %}
 
       <div style="margin-top:8px;display:flex;align-items:center;gap:8px">
         <label style="white-space:nowrap;background:#777;color:#fff;padding:3px 8px;font-size:12px">메모</label>
@@ -482,7 +389,9 @@ const BOOKS = {{ books_json|safe }};
 const ALL_TEACHERS = {{ teachers_json|safe }};
 const ALL_AGENCIES = {{ agencies_json|safe }};
 const PARSED = {{ parsed_json|safe }};
-
+</script>
+{% include 'orders/_partials/book_table_js.html' %}
+<script>
 function inboxOrderForm() {
   return {
     agencyId: '',
@@ -492,8 +401,6 @@ function inboxOrderForm() {
     isNewTeacher: false, newTeacherName: '', newTeacherPhone: '',
     deliverySchool: '', deliveryAddr: '', deliveryPhone: '',
     acIdx: { agency: -1, teacher: -1 },
-    excelLoading: false, excelUnmatched: [],
-    rows: [{ series: '', book_id: '', qty: 1, unit_price: 0 }],
     lowConfidenceFields: {},
 
     init() {
@@ -615,88 +522,29 @@ function inboxOrderForm() {
         type === 'agency' ? this.selectAgency(list[this.acIdx[type]]) : this.selectTeacher(list[this.acIdx[type]]);
       }
     },
-    getBooks(series) { return series ? BOOKS.filter(b => b.series === series) : BOOKS; },
-    updatePrice(row) { const b = BOOKS.find(b => b.id == row.book_id); row.unit_price = b ? b.unit_price : 0; },
-    rowAmount(row) { return ((row.book_id || row.is_custom) && row.qty) ? row.unit_price * row.qty : 0; },
-    total() { return this.rows.reduce((s, r) => s + this.rowAmount(r), 0); },
-    addRow() { this.rows.push({ series: '', book_id: '', qty: 1, unit_price: 0, is_custom: false }); },
-    addCustomRow() { this.rows.push({ is_custom: true, custom_name: '', qty: 1, unit_price: 0 }); },
-    async uploadExcel(e) {
-      const file = e.target.files[0];
-      if (!file) return;
-      this.excelLoading = true;
-      this.excelUnmatched = [];
-      const fd = new FormData();
-      fd.append('file', file);
-      fd.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
-      try {
-        const res = await fetch('{% url "parse_order_excel" %}', { method: 'POST', body: fd });
-        const data = await res.json();
-        if (data.error) { alert(data.error); return; }
-        // 메타데이터 자동 입력 (업체/학교/선생님/주소/전화)
-        if (data.meta) {
-          const m = data.meta;
-          // 1. 업체 매칭 (엑셀에 있는 업체명 우선)
-          if (m.agency && !this.agencyId) {
-            const found = ALL_AGENCIES.find(a => a.name.includes(m.agency) || m.agency.includes(a.name));
-            if (found) this.agencyId = String(found.id);
-          }
-          // 2. 선생님 매칭 (DB 검색 → 업체 보정)
-          if (m.teacher && !this.teacherId) {
-            let candidates = ALL_TEACHERS.filter(t => t.name === m.teacher);
-            // 업체가 이미 선택되었으면 해당 업체 소속만
-            if (this.agencyId && candidates.length > 0) {
-              const byAgency = candidates.filter(t => String(t.agency_id) === this.agencyId);
-              if (byAgency.length > 0) candidates = byAgency;
-            }
-            if (candidates.length >= 1) {
-              if (!this.agencyId) this.agencyId = String(candidates[0].agency_id);
-              this.selectTeacher(candidates[0]);
-            } else {
-              this.teacherQuery = m.teacher;
-            }
-          }
-          // 3. 빈 필드 보충
-          if (m.school && !this.deliverySchool) this.deliverySchool = m.school;
-          if (m.address && !this.deliveryAddr) this.deliveryAddr = m.address;
-          if (m.phone && !this.deliveryPhone) this.deliveryPhone = m.phone;
+    // 교재 테이블 (bookTableMixin)
+    ...bookTableMixin(),
+    _applyExcelMeta(m) {
+      if (m.agency && !this.agencyId) {
+        const found = ALL_AGENCIES.find(a => a.name.includes(m.agency) || m.agency.includes(a.name));
+        if (found) this.agencyId = String(found.id);
+      }
+      if (m.teacher && !this.teacherId) {
+        let candidates = ALL_TEACHERS.filter(t => t.name === m.teacher);
+        if (this.agencyId && candidates.length > 0) {
+          const byAgency = candidates.filter(t => String(t.agency_id) === this.agencyId);
+          if (byAgency.length > 0) candidates = byAgency;
         }
-        // 기존 빈 행 제거
-        this.rows = this.rows.filter(r => r.book_id || (r.is_custom && r.custom_name));
-        const sampleItems = [];
-        if (data.matched && data.matched.length) {
-          for (const m of data.matched) {
-            if (m.is_sample) { sampleItems.push(m.name); continue; }
-            this.rows.push({ series: m.series || '', book_id: String(m.id), qty: m.qty, unit_price: m.unit_price, is_custom: false });
-          }
-        }
-        if (data.unmatched && data.unmatched.length) {
-          this.excelUnmatched = data.unmatched.filter(u => !u.is_sample);
-          for (const u of data.unmatched) {
-            if (u.is_sample) { sampleItems.push(u.name); continue; }
-            this.rows.push({ is_custom: true, custom_name: u.name, qty: u.qty, unit_price: u.excel_price || 0 });
-          }
-        }
-        if (!this.rows.length) this.rows.push({ series: '', book_id: '', qty: 1, unit_price: 0, is_custom: false });
-        const mc = data.matched?.filter(x => !x.is_sample).length || 0;
-        const uc = data.unmatched?.filter(x => !x.is_sample).length || 0;
-        let msg = '';
-        if (mc || uc) {
-          msg = `${mc}건 매칭 완료` + (uc ? `, ${uc}건 직접입력 추가` : '');
+        if (candidates.length >= 1) {
+          if (!this.agencyId) this.agencyId = String(candidates[0].agency_id);
+          this.selectTeacher(candidates[0]);
         } else {
-          msg = '매칭된 교재가 없습니다.';
+          this.teacherQuery = m.teacher;
         }
-        if (sampleItems.length) msg += `\n\n샘플교재: ${sampleItems.join(', ')}`;
-        if (data.meta) {
-          const parts = [];
-          if (data.meta.school) parts.push(`학교: ${data.meta.school}`);
-          if (data.meta.teacher) parts.push(`선생님: ${data.meta.teacher}`);
-          if (data.meta.address) parts.push(`주소: ${data.meta.address}`);
-          if (parts.length) msg += `\n\n자동입력: ${parts.join(', ')}`;
-        }
-        alert(msg);
-      } catch (err) { alert('업로드 실패: ' + err.message); }
-      finally { this.excelLoading = false; e.target.value = ''; }
+      }
+      if (m.school && !this.deliverySchool) this.deliverySchool = m.school;
+      if (m.address && !this.deliveryAddr) this.deliveryAddr = m.address;
+      if (m.phone && !this.deliveryPhone) this.deliveryPhone = m.phone;
     },
     submitOrder() {
       if (!this.agencyId) { alert('업체를 선택하세요.'); return; }

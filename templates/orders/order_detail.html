@@ -149,7 +149,7 @@
   </div>
 
   <!-- 주문 품목 -->
-  <div style="flex:1;min-width:300px">
+  <div style="flex:1;min-width:300px" x-data="inlineReturn()">
     <div class="content-box">
       <table class="data-table">
         <thead>
@@ -158,6 +158,9 @@
             <th class="right" style="width:80px">단가</th>
             <th class="center" style="width:60px">수량</th>
             <th class="right" style="width:90px">금액</th>
+            {% if request.user.is_admin and order.status == 'delivered' %}
+            <th class="center" style="width:70px" x-show="returnMode" x-cloak>반품</th>
+            {% endif %}
           </tr>
         </thead>
         <tbody>
@@ -168,6 +171,18 @@
             <td class="right">{{ item.unit_price|floatformat:0 }}원</td>
             <td class="center">{{ item.quantity }}</td>
             <td class="right" style="font-weight:bold">{{ item.amount|floatformat:0 }}원</td>
+            {% if request.user.is_admin and order.status == 'delivered' %}
+            <td class="center" x-show="returnMode" x-cloak>
+              {% if item.book_id %}
+              <input type="number" min="0" max="{{ item.quantity }}"
+                     x-model.number="returnQty[{{ item.book_id }}]"
+                     style="width:50px;padding:2px 4px;border:1px solid #d1d5db;border-radius:4px;font-size:12px;text-align:center"
+                     placeholder="0">
+              {% else %}
+              <span style="color:#ccc">-</span>
+              {% endif %}
+            </td>
+            {% endif %}
           </tr>
           {% endfor %}
         </tbody>
@@ -177,12 +192,48 @@
             <td class="right" style="padding:6px 8px;background:#f0f0f0;font-weight:bold;font-size:14px;color:#1e40af">
               {{ order.total_amount|floatformat:0 }}원
             </td>
+            {% if request.user.is_admin and order.status == 'delivered' %}
+            <td x-show="returnMode" x-cloak></td>
+            {% endif %}
           </tr>
         </tfoot>
       </table>
     </div>
 
-    <div style="text-align:right;display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">
+    {% if request.user.is_admin and order.status == 'delivered' %}
+    <!-- 인라인 반품 컨트롤 -->
+    <div x-show="!returnMode" style="margin-top:8px">
+      <button class="btn btn-outline btn-sm" style="color:#d97706;border-color:#d97706"
+              @click="returnMode=true">반품 처리</button>
+    </div>
+    <div x-show="returnMode" x-cloak style="margin-top:8px;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:12px">
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
+        <label style="font-size:12px;font-weight:600;color:#92400e">사유</label>
+        <select x-model="returnReason" style="font-size:12px;padding:3px 8px;border:1px solid #d1d5db;border-radius:4px">
+          <option value="over_order">과주문</option>
+          <option value="damaged">파손</option>
+          <option value="wrong_item">오배송</option>
+          <option value="exchange">교체</option>
+          <option value="etc">기타</option>
+        </select>
+        <input type="text" x-model="returnMemo" placeholder="메모 (선택)" style="flex:1;min-width:120px;font-size:12px;padding:3px 8px;border:1px solid #d1d5db;border-radius:4px">
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button class="btn btn-gray btn-sm" @click="returnMode=false;resetQty()">취소</button>
+        <button class="btn btn-sm" style="background:#d97706;color:#fff;border:none"
+                @click="submitReturn()" :disabled="submitting">
+          <span x-text="submitting ? '처리중...' : '반품 신청'"></span>
+        </button>
+      </div>
+      <div x-show="returnError" x-cloak style="margin-top:6px;font-size:12px;color:#dc2626" x-text="returnError"></div>
+      <div x-show="returnSuccess" x-cloak style="margin-top:6px;font-size:12px;color:#059669">
+        <span x-text="returnSuccess"></span>
+        <a :href="'/returns/' + returnPk + '/'" style="color:#2563eb;margin-left:6px">상세 보기</a>
+      </div>
+    </div>
+    {% endif %}
+
+    <div style="text-align:right;display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:8px">
       {% if can_cancel %}
       <form method="post" action="{% url 'order_cancel' order.pk %}" id="cancelForm">
         {% csrf_token %}
@@ -202,6 +253,57 @@
 </div>
 
 <script>
+{% if request.user.is_admin and order.status == 'delivered' %}
+function inlineReturn() {
+  return {
+    returnMode: false,
+    returnReason: 'over_order',
+    returnMemo: '',
+    returnQty: { {% for item in items %}{% if item.book_id %}{{ item.book_id }}: 0{% if not forloop.last %}, {% endif %}{% endif %}{% endfor %} },
+    submitting: false,
+    returnError: '',
+    returnSuccess: '',
+    returnPk: null,
+    resetQty() {
+      var keys = Object.keys(this.returnQty);
+      for (var i = 0; i < keys.length; i++) this.returnQty[keys[i]] = 0;
+      this.returnError = '';
+      this.returnSuccess = '';
+    },
+    submitReturn() {
+      this.returnError = '';
+      this.returnSuccess = '';
+      var items = [];
+      var keys = Object.keys(this.returnQty);
+      for (var i = 0; i < keys.length; i++) {
+        var bid = keys[i], qty = parseInt(this.returnQty[bid]) || 0;
+        if (qty > 0) items.push({book_id: parseInt(bid), qty: qty});
+      }
+      if (items.length === 0) { this.returnError = '반품 수량을 입력하세요.'; return; }
+      this.submitting = true;
+      fetch('{% url "return_create_inline" order.pk %}', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}'},
+        body: JSON.stringify({items: items, reason: this.returnReason, memo: this.returnMemo})
+      })
+      .then(r => r.json())
+      .then(data => {
+        this.submitting = false;
+        if (data.ok) {
+          this.returnSuccess = data.message;
+          this.returnPk = data.return_pk;
+        } else {
+          this.returnError = data.error || '오류가 발생했습니다.';
+        }
+      })
+      .catch(() => { this.submitting = false; this.returnError = '네트워크 오류'; });
+    }
+  };
+}
+{% else %}
+function inlineReturn() { return {}; }
+{% endif %}
+
 // 1.4: 필터 상태 유지 - 목록 복귀 시 필터 유지
 (function() {
   var savedUrl = sessionStorage.getItem('orderListUrl');

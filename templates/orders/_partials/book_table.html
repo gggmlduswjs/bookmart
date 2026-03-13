@@ -1,0 +1,102 @@
+{# 교재 선택 테이블 partial (드롭다운 모드)
+   사용법: {% include 'orders/_partials/book_table.html' with show_excel=True show_confidence=True show_custom=True %}
+   요구사항: x-data 스코프 내에 bookTableMixin() 스프레드 필요 #}
+
+{% if show_excel %}
+<!-- 엑셀 업로드 -->
+<div class="content-box" style="padding:12px 14px;margin-bottom:10px">
+  <div style="display:flex;align-items:center;gap:10px">
+    <label style="font-size:12px;font-weight:bold;color:#334155;white-space:nowrap">엑셀 일괄 등록</label>
+    <input type="file" accept=".xlsx,.xls" @change="uploadExcel($event)" style="font-size:12px">
+    <span x-show="excelLoading" style="font-size:11px;color:#888">파싱 중...</span>
+  </div>
+  <template x-if="excelUnmatched.length > 0">
+    <div style="margin-top:8px;padding:6px 10px;background:#fff3cd;border:1px solid #ffc107;font-size:11px;color:#856404">
+      <strong>매칭 실패:</strong>
+      <template x-for="u in excelUnmatched" :key="u.name">
+        <span x-text="u.name + '(' + u.qty + '권) '" style="margin-right:6px"></span>
+      </template>
+    </div>
+  </template>
+</div>
+{% endif %}
+
+<!-- 교재 선택 테이블 -->
+<div class="order-row-wrap">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th style="width:28%">시리즈</th>
+        <th style="width:34%">교재</th>
+        <th class="right" style="width:80px">단가</th>
+        <th class="center" style="width:65px">수량</th>
+        <th class="right" style="width:80px">금액</th>
+        <th style="width:28px"></th>
+      </tr>
+    </thead>
+    <tbody>
+      <template x-for="(row, index) in rows" :key="index">
+        <tr :style="{% if show_confidence %}row._lowConf ? 'background:#fefce8;border-left:3px solid #eab308' : {% endif %}row.is_custom ? 'background:#fff8f0' : ''">
+          <template x-if="!row.is_custom">
+            <td>
+              <select x-model="row.series" @change="row.book_id='';row.unit_price=0">
+                <option value="">전체</option>
+                {% for s in series_list %}
+                <option value="{{ s }}">{{ s }}</option>
+                {% endfor %}
+                <option value="기타">기타</option>
+              </select>
+            </td>
+          </template>
+          <template x-if="row.is_custom">
+            <td><span style="font-size:11px;color:#e8720c;font-weight:bold">직접입력</span></td>
+          </template>
+          <template x-if="!row.is_custom">
+            <td>
+              <select x-model="row.book_id" @change="updatePrice(row)">
+                <option value="">교재</option>
+                <template x-for="b in getBooks(row.series)" :key="b.id">
+                  <option :value="b.id" x-text="b.name"></option>
+                </template>
+              </select>
+              <input type="hidden" :name="'book_' + index" :value="row.book_id">
+            </td>
+          </template>
+          <template x-if="row.is_custom">
+            <td>
+              <input type="text" :name="'custom_name_' + index" x-model="row.custom_name"
+                     style="width:100%;padding:3px 5px;border:1px solid #bbb;font-size:12px" placeholder="교재명">
+            </td>
+          </template>
+          <td class="right">
+            <template x-if="!row.is_custom">
+              <span x-text="row.unit_price ? row.unit_price.toLocaleString()+'원' : '-'" style="color:#666;font-size:11px"></span>
+            </template>
+            <template x-if="row.is_custom">
+              <input type="number" :name="'custom_price_' + index" x-model.number="row.unit_price"
+                     style="width:60px;padding:3px 5px;border:1px solid #bbb;font-size:11px;text-align:right" placeholder="단가">
+            </template>
+          </td>
+          <td class="center">
+            <input type="number" :name="'qty_' + index" x-model.number="row.qty" min="1" max="9999">
+          </td>
+          <td class="right" style="font-weight:bold;font-size:11px">
+            <span x-text="rowAmount(row) ? rowAmount(row).toLocaleString()+'원' : '-'"></span>
+          </td>
+          <td class="center">
+            <button type="button" class="btn btn-sm btn-red" @click="rows.splice(index,1)"
+                    x-show="rows.length>1" style="padding:1px 5px">✕</button>
+          </td>
+        </tr>
+      </template>
+    </tbody>
+  </table>
+</div>
+
+<div class="order-total-bar">
+  <button type="button" class="btn btn-outline btn-sm" @click="addRow" style="float:left">+ 행 추가</button>
+  {% if show_custom %}
+  <button type="button" class="btn btn-outline btn-sm" @click="addCustomRow" style="float:left;margin-left:4px;color:#e8720c;border-color:#e8720c">+ 직접입력</button>
+  {% endif %}
+  합계: <span x-text="total().toLocaleString()" style="font-size:15px;color:#e8720c"></span>원
+</div>
