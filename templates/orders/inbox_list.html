@@ -1522,7 +1522,7 @@ function switchLeftTab(tab) {
 function openAttPreview(url, filename) {
   var col = document.getElementById('spAttCol');
   col.innerHTML = '<iframe src="' + url + '"></iframe>';
-  col.style.display = '';
+  col.style.display = 'block';
   document.getElementById('slidePanel').classList.add('triple');
 }
 function closeAttPreview() {
