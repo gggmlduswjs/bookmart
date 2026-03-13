@@ -115,11 +115,16 @@
     display: flex;
   }
   .sp-att-col {
-    flex: 0 0 380px; overflow: hidden; border-right: 1px solid #e2e8f0;
+    flex: 0 0 380px; overflow: hidden;
     background: #f9fafb; display: none;
   }
   .sp-att-col iframe { width: 100%; height: 100%; border: none; }
   .slide-panel.triple { width: min(1500px, 100vw); }
+  .sp-resizer {
+    flex: 0 0 5px; cursor: col-resize; background: #e2e8f0;
+    display: none; transition: background 0.15s;
+  }
+  .sp-resizer:hover, .sp-resizer.dragging { background: #94a3b8; }
   .sp-split-left {
     overflow-y: auto;
     min-width: 200px; flex: 0 0 420px; border-right: 1px solid #e2e8f0;
@@ -709,6 +714,7 @@
   <div class="slide-panel-body" id="spBody">
     <!-- Attachment column (email 3-split) -->
     <div class="sp-att-col" id="spAttCol"></div>
+    <div class="sp-resizer" id="spResizer"></div>
     <!-- Center: preview + attachment tabs -->
     <div class="sp-split-left">
       <div class="sp-tab-bar" id="spTabBar">
@@ -920,8 +926,7 @@ function _loadOrderForm() {
     });
 }
 
-/* --- Resizer drag logic --- */
-// Resizer removed — attachment preview is now a tab within the left panel
+/* --- (resizer logic is at the bottom) --- */
 
 function openSlidePanel(pk, source) {
   _currentPanelPk = pk;
@@ -959,9 +964,10 @@ function openSlidePanel(pk, source) {
   document.getElementById('spEmailThreadSection').style.display = 'none';
   document.getElementById('spCallSection').style.display = 'none';
   document.getElementById('spReplySection').style.display = 'none';
-  // Reset attachment column & tab
+  // Reset attachment column, resizer & tab
   document.getElementById('spAttCol').innerHTML = '';
   document.getElementById('spAttCol').style.display = 'none';
+  document.getElementById('spResizer').style.display = 'none';
   panel.classList.remove('triple');
   document.getElementById('spAttPreviewBody').innerHTML = '';
   switchLeftTab('content');
@@ -1523,14 +1529,50 @@ function openAttPreview(url, filename) {
   var col = document.getElementById('spAttCol');
   col.innerHTML = '<iframe src="' + url + '"></iframe>';
   col.style.display = 'block';
+  document.getElementById('spResizer').style.display = 'block';
   document.getElementById('slidePanel').classList.add('triple');
 }
 function closeAttPreview() {
   var col = document.getElementById('spAttCol');
   col.innerHTML = '';
   col.style.display = 'none';
+  document.getElementById('spResizer').style.display = 'none';
   document.getElementById('slidePanel').classList.remove('triple');
 }
+
+/* --- Resizer drag logic --- */
+(function() {
+  var resizer = document.getElementById('spResizer');
+  var attCol = document.getElementById('spAttCol');
+  var dragging = false;
+  var startX, startW;
+
+  resizer.addEventListener('mousedown', function(e) {
+    dragging = true;
+    startX = e.clientX;
+    startW = attCol.getBoundingClientRect().width;
+    resizer.classList.add('dragging');
+    document.body.style.userSelect = 'none';
+    document.body.style.cursor = 'col-resize';
+    e.preventDefault();
+  });
+
+  document.addEventListener('mousemove', function(e) {
+    if (!dragging) return;
+    var newW = startW + (e.clientX - startX);
+    if (newW < 200) newW = 200;
+    if (newW > 800) newW = 800;
+    attCol.style.flex = '0 0 ' + newW + 'px';
+  });
+
+  document.addEventListener('mouseup', function() {
+    if (!dragging) return;
+    dragging = false;
+    resizer.classList.remove('dragging');
+    document.body.style.userSelect = '';
+    document.body.style.cursor = '';
+  });
+})();
 
 /* ── Apply Excel attachment to order form ── */
 function applyExcelAttachment(attPk) {
