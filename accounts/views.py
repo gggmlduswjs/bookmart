@@ -107,6 +107,8 @@ def individual_register(request):
 
 @role_required('admin')
 def agency_list(request):
+    from django.db.models import Count, Q
+    from orders.models import DeliveryAddress
     show_inactive = request.GET.get('inactive') == '1'
     filter_type = request.GET.get('type', '')  # '', 'agency', 'individual'
     if show_inactive:
@@ -117,6 +119,22 @@ def agency_list(request):
         agencies = agencies.filter(is_individual=False)
     elif filter_type == 'individual':
         agencies = agencies.filter(is_individual=True)
+
+    # 운영 지표 annotate
+    agencies = agencies.annotate(
+        book_count=Count('available_books', filter=Q(available_books__is_active=True), distinct=True),
+        teacher_count=Count('teachers', filter=Q(teachers__is_active=True), distinct=True),
+    )
+    # 학교 수는 DeliveryAddress에서 가져옴
+    school_counts = dict(
+        DeliveryAddress.objects.filter(is_active=True)
+        .values_list('agency_id')
+        .annotate(cnt=Count('id'))
+        .values_list('agency_id', 'cnt')
+    )
+    for a in agencies:
+        a.school_count = school_counts.get(a.pk, 0)
+
     site_url = request.build_absolute_uri('/').rstrip('/')
     return render(request, 'accounts/agency_list.html', {
         'agencies': agencies,

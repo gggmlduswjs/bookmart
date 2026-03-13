@@ -71,31 +71,64 @@
   <a href="{% url 'agency_create' %}" class="btn btn-orange btn-sm">+ 업체 추가</a>
 </div>
 
-<div style="margin-bottom:8px;display:flex;gap:6px;flex-wrap:wrap">
-  {% if show_inactive %}
-  <a href="{% url 'agency_list' %}{% if filter_type %}?type={{ filter_type }}{% endif %}" class="btn btn-outline btn-sm">활성 업체만 보기</a>
-  {% else %}
-  <a href="{% url 'agency_list' %}?inactive=1{% if filter_type %}&type={{ filter_type }}{% endif %}" class="btn btn-outline btn-sm">비활성 업체 포함</a>
-  {% endif %}
+<div style="margin-bottom:8px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+  <input type="text" id="agency-search" placeholder="업체명 검색..." oninput="filterAgencies()"
+         style="padding:5px 10px;font-size:13px;border:1px solid #d1d5db;border-radius:4px;width:160px">
+  <div style="border-left:1px solid #e2e8f0;height:20px;margin:0 4px"></div>
   <a href="{% url 'agency_list' %}{% if show_inactive %}?inactive=1{% endif %}" class="btn btn-sm {% if not filter_type %}btn-orange{% else %}btn-outline{% endif %}">전체</a>
-  <a href="{% url 'agency_list' %}?type=agency{% if show_inactive %}&inactive=1{% endif %}" class="btn btn-sm {% if filter_type == 'agency' %}btn-orange{% else %}btn-outline{% endif %}">업체만</a>
-  <a href="{% url 'agency_list' %}?type=individual{% if show_inactive %}&inactive=1{% endif %}" class="btn btn-sm {% if filter_type == 'individual' %}btn-orange{% else %}btn-outline{% endif %}">개인만</a>
+  <a href="{% url 'agency_list' %}?type=agency{% if show_inactive %}&inactive=1{% endif %}" class="btn btn-sm {% if filter_type == 'agency' %}btn-orange{% else %}btn-outline{% endif %}">업체</a>
+  <a href="{% url 'agency_list' %}?type=individual{% if show_inactive %}&inactive=1{% endif %}" class="btn btn-sm {% if filter_type == 'individual' %}btn-orange{% else %}btn-outline{% endif %}">개인</a>
+  <div style="border-left:1px solid #e2e8f0;height:20px;margin:0 4px"></div>
+  {% if show_inactive %}
+  <a href="{% url 'agency_list' %}{% if filter_type %}?type={{ filter_type }}{% endif %}" class="btn btn-outline btn-sm" style="font-size:11px">활성만</a>
+  {% else %}
+  <a href="{% url 'agency_list' %}?inactive=1{% if filter_type %}&type={{ filter_type }}{% endif %}" class="btn btn-outline btn-sm" style="font-size:11px">비활성 포함</a>
+  {% endif %}
 </div>
 
 <div class="content-box">
   <table class="data-table">
     <thead>
       <tr>
-        <th>업체명</th><th>아이디</th><th>비밀번호</th><th>연락처</th><th>상태</th><th style="width:240px"></th>
+        <th>업체명</th>
+        <th>아이디</th>
+        <th>비밀번호</th>
+        <th>연락처</th>
+        <th class="center">교재</th>
+        <th class="center">학교</th>
+        <th class="center">선생님</th>
+        <th>상태</th>
+        <th style="width:210px"></th>
       </tr>
     </thead>
     <tbody>
       {% for agency in agencies %}
-      <tr>
-        <td>{{ agency.name }}{% if agency.is_individual %} <span class="badge badge-blue" style="font-size:10px">개인</span>{% endif %}</td>
+      <tr class="agency-row" data-name="{{ agency.name }}">
+        <td style="font-weight:500">{{ agency.name }}{% if agency.is_individual %} <span class="badge badge-blue" style="font-size:10px">개인</span>{% endif %}</td>
         <td>{{ agency.login_id }}</td>
         <td style="font-size:12px;color:#64748b">{{ agency.plain_password|default:"-" }}</td>
         <td>{{ agency.phone }}</td>
+        <td class="center">
+          {% if agency.book_count %}
+            <span style="font-weight:600">{{ agency.book_count }}</span>
+          {% else %}
+            <span style="color:#cbd5e1">0</span>
+          {% endif %}
+        </td>
+        <td class="center">
+          {% if agency.school_count %}
+            <span style="font-weight:600">{{ agency.school_count }}</span>
+          {% else %}
+            <span style="color:#cbd5e1">0</span>
+          {% endif %}
+        </td>
+        <td class="center">
+          {% if agency.teacher_count %}
+            <span style="font-weight:600">{{ agency.teacher_count }}</span>
+          {% else %}
+            <span style="color:#cbd5e1">0</span>
+          {% endif %}
+        </td>
         <td class="center">
           {% if agency.is_active %}
             <span class="badge badge-green">활성</span>
@@ -104,20 +137,18 @@
           {% endif %}
         </td>
         <td class="center" style="white-space:nowrap">
-          <a href="{% url 'agency_edit' agency.pk %}" class="btn btn-outline btn-sm" aria-label="{{ agency.name }} 수정">수정</a>
+          <a href="{% url 'agency_edit' agency.pk %}" class="btn btn-outline btn-sm">수정</a>
           <button class="btn btn-sm btn-blue"
-            aria-label="{{ agency.name }} 문자양식"
-            onclick="openMsgModal('{{ agency.name }}', '{{ agency.login_id }}', '{{ site_url }}/s/{{ agency.agency_code }}/', {{ agency.pk }}, '{{ agency.plain_password }}')">문자양식</button>
+            onclick="openMsgModal('{{ agency.name }}', '{{ agency.login_id }}', '{{ site_url }}/s/{{ agency.agency_code }}/', {{ agency.pk }}, '{{ agency.plain_password }}')">안내문자</button>
           <a href="{% url 'agency_toggle' agency.pk %}"
              class="btn btn-sm {% if agency.is_active %}btn-red{% else %}btn-outline{% endif %}"
-             aria-label="{{ agency.name }} {% if agency.is_active %}비활성화{% else %}활성화{% endif %}"
              onclick="return confirm('{% if agency.is_active %}비활성화{% else %}활성화{% endif %}하시겠습니까?')">
-            {% if agency.is_active %}비활성화{% else %}활성화{% endif %}
+            {% if agency.is_active %}OFF{% else %}ON{% endif %}
           </a>
         </td>
       </tr>
       {% empty %}
-      <tr><td colspan="6" class="center" style="padding:20px;color:#888">등록된 업체가 없습니다.</td></tr>
+      <tr><td colspan="9" class="center" style="padding:20px;color:#888">등록된 업체가 없습니다.</td></tr>
       {% endfor %}
     </tbody>
   </table>
@@ -222,6 +253,13 @@ function resetPassword() {
 
 function closeMsgModal() {
   document.getElementById('msg-modal').classList.remove('active');
+}
+
+function filterAgencies() {
+  var q = document.getElementById('agency-search').value.toLowerCase();
+  document.querySelectorAll('.agency-row').forEach(function(row) {
+    row.style.display = !q || row.dataset.name.toLowerCase().includes(q) ? '' : 'none';
+  });
 }
 
 </script>
