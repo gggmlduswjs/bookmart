@@ -4,6 +4,7 @@
 {% block content %}
 <div class="page-title">
   주문현황
+  <span class="subtitle">총 {{ total_count }}건</span>
   {% if request.user.is_teacher %}
   <a href="{% url 'order_create' %}" class="btn btn-orange btn-sm">+ 주문 입력</a>
   {% endif %}
@@ -12,80 +13,166 @@
   {% endif %}
 </div>
 
+<!-- 상태 요약 칩 -->
+{% if request.user.is_admin %}
+<div class="status-summary">
+  <a href="{% url 'order_list' %}" class="status-chip {% if not filters.status %}active{% endif %}">
+    전체 <strong>{{ total_count }}</strong>
+  </a>
+  <a href="?status=pending" class="status-chip chip-blue {% if filters.status == 'pending' %}active{% endif %}">
+    접수 <strong>{{ status_counts.pending|default:"0" }}</strong>
+  </a>
+  <a href="?status=shipping" class="status-chip chip-orange {% if filters.status == 'shipping' %}active{% endif %}">
+    발송중 <strong>{{ status_counts.shipping|default:"0" }}</strong>
+  </a>
+  <a href="?status=delivered" class="status-chip chip-green {% if filters.status == 'delivered' %}active{% endif %}">
+    발송완료 <strong>{{ status_counts.delivered|default:"0" }}</strong>
+  </a>
+  <a href="?status=cancelled" class="status-chip chip-gray {% if filters.status == 'cancelled' %}active{% endif %}">
+    취소 <strong>{{ status_counts.cancelled|default:"0" }}</strong>
+  </a>
+</div>
+{% endif %}
+
 <!-- 필터 -->
-<form method="get" class="search-bar" id="filterForm">
-  <input type="text" name="q" value="{{ filters.q }}" placeholder="주문번호/선생님/학교/업체/운송장 검색"
-         aria-label="주문 검색" style="width:220px;padding:4px 8px;border:1px solid #bbb;font-size:12px"
-         x-data x-init="$el._timer=null" @input="clearTimeout($el._timer);$el._timer=setTimeout(()=>$el.form.submit(),500)">
+<form method="get" class="search-bar" id="filterForm" x-data="{ showAdvanced: {% if filters.delivery or filters.source or filters.agency_category or filters.region or filters.date_from or filters.date_to %}true{% else %}false{% endif %} }">
+  <div class="filter-primary">
+    <div class="search-input-wrap">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+      <input type="text" name="q" value="{{ filters.q }}" placeholder="주문번호 / 선생님 / 학교 / 업체 / 운송장 검색"
+             aria-label="주문 검색"
+             x-data x-init="$el._timer=null" @input="clearTimeout($el._timer);$el._timer=setTimeout(()=>$el.form.submit(),500)">
+    </div>
 
-  <label for="filter-status">상태</label>
-  <select name="status" id="filter-status" onchange="this.form.submit()">
-    <option value="">전체</option>
-    {% for val, label in status_choices %}
-    <option value="{{ val }}" {% if filters.status == val %}selected{% endif %}>{{ label }}</option>
-    {% endfor %}
-  </select>
+    {% if not request.user.is_admin %}
+    <select name="status" onchange="this.form.submit()">
+      <option value="">상태: 전체</option>
+      {% for val, label in status_choices %}
+      <option value="{{ val }}" {% if filters.status == val %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+    {% endif %}
 
-  {% if not request.user.is_teacher %}
-  <label for="filter-delivery">배송지</label>
-  <select name="delivery" id="filter-delivery" onchange="this.form.submit()">
-    <option value="">전체</option>
-    {% for d in deliveries %}
-    <option value="{{ d.pk }}" {% if filters.delivery == d.pk|stringformat:"s" %}selected{% endif %}>{{ d.name }}</option>
-    {% endfor %}
-  </select>
-  {% endif %}
+    <button type="submit" class="btn btn-dark btn-sm">조회</button>
 
+    {% if request.user.is_admin %}
+    <button type="button" class="btn btn-outline btn-sm filter-toggle" @click="showAdvanced = !showAdvanced">
+      <span x-text="showAdvanced ? '필터 접기' : '상세 필터'"></span>
+      {% if has_active_filter %}<span class="filter-dot"></span>{% endif %}
+    </button>
+    {% endif %}
+
+    {% if has_active_filter %}
+    <a href="{% url 'order_list' %}" class="btn-reset" id="filterReset">초기화</a>
+    {% endif %}
+  </div>
+
+  <!-- 상세 필터 (접을 수 있음) -->
   {% if request.user.is_admin %}
-  <label for="filter-source">경로</label>
-  <select name="source" id="filter-source" onchange="this.form.submit()">
-    <option value="">전체</option>
-    <option value="simple" {% if filters.source == 'simple' %}selected{% endif %}>간편주문</option>
-    <option value="inbox" {% if filters.source == 'inbox' %}selected{% endif %}>수신함</option>
-    <option value="admin" {% if filters.source == 'admin' %}selected{% endif %}>관리자</option>
-    <option value="call" {% if filters.source == 'call' %}selected{% endif %}>통화주문</option>
-  </select>
+  <div class="filter-advanced" x-show="showAdvanced" x-collapse x-cloak>
+    {% if not request.user.is_teacher %}
+    <div class="filter-item">
+      <label for="filter-delivery">배송지</label>
+      <select name="delivery" id="filter-delivery">
+        <option value="">전체</option>
+        {% for d in deliveries %}
+        <option value="{{ d.pk }}" {% if filters.delivery == d.pk|stringformat:"s" %}selected{% endif %}>{{ d.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    {% endif %}
 
-  <label for="filter-category">업체분류</label>
-  <select name="agency_category" id="filter-category" onchange="this.form.submit()">
-    <option value="">전체</option>
-    {% for cat in agency_categories %}
-    <option value="{{ cat }}" {% if filters.agency_category == cat %}selected{% endif %}>{{ cat }}</option>
-    {% endfor %}
-  </select>
+    <div class="filter-item">
+      <label for="filter-source">경로</label>
+      <select name="source" id="filter-source">
+        <option value="">전체</option>
+        <option value="simple" {% if filters.source == 'simple' %}selected{% endif %}>간편주문</option>
+        <option value="inbox" {% if filters.source == 'inbox' %}selected{% endif %}>수신함</option>
+        <option value="admin" {% if filters.source == 'admin' %}selected{% endif %}>관리자</option>
+        <option value="call" {% if filters.source == 'call' %}selected{% endif %}>통화주문</option>
+      </select>
+    </div>
 
-  <label for="filter-region">지역</label>
-  <select name="region" id="filter-region" onchange="this.form.submit()">
-    <option value="">전체</option>
-    {% for val, label in region_choices %}
-    <option value="{{ val }}" {% if filters.region == val %}selected{% endif %}>{{ label }}</option>
-    {% endfor %}
-  </select>
+    <div class="filter-item">
+      <label for="filter-category">업체분류</label>
+      <select name="agency_category" id="filter-category">
+        <option value="">전체</option>
+        {% for cat in agency_categories %}
+        <option value="{{ cat }}" {% if filters.agency_category == cat %}selected{% endif %}>{{ cat }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="filter-item">
+      <label for="filter-region">지역</label>
+      <select name="region" id="filter-region">
+        <option value="">전체</option>
+        {% for val, label in region_choices %}
+        <option value="{{ val }}" {% if filters.region == val %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="filter-item">
+      <label for="filter-date-from">시작일</label>
+      <input type="date" name="date_from" id="filter-date-from" value="{{ filters.date_from }}">
+    </div>
+
+    <div class="filter-item">
+      <label for="filter-date-to">종료일</label>
+      <input type="date" name="date_to" id="filter-date-to" value="{{ filters.date_to }}">
+    </div>
+  </div>
+  {% else %}
+  {# 비관리자: 배송지 + 날짜만 #}
+  {% if not request.user.is_teacher %}
+  <div class="filter-advanced" style="display:flex">
+    <div class="filter-item">
+      <label for="filter-delivery">배송지</label>
+      <select name="delivery" id="filter-delivery" onchange="this.form.submit()">
+        <option value="">전체</option>
+        {% for d in deliveries %}
+        <option value="{{ d.pk }}" {% if filters.delivery == d.pk|stringformat:"s" %}selected{% endif %}>{{ d.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="filter-item">
+      <label for="filter-date-from">시작일</label>
+      <input type="date" name="date_from" id="filter-date-from" value="{{ filters.date_from }}" onchange="this.form.submit()">
+    </div>
+    <div class="filter-item">
+      <label for="filter-date-to">종료일</label>
+      <input type="date" name="date_to" id="filter-date-to" value="{{ filters.date_to }}" onchange="this.form.submit()">
+    </div>
+  </div>
   {% endif %}
-
-  <label for="filter-date-from">시작일</label>
-  <input type="date" name="date_from" id="filter-date-from" value="{{ filters.date_from }}" onchange="this.form.submit()">
-
-  <label for="filter-date-to">종료일</label>
-  <input type="date" name="date_to" id="filter-date-to" value="{{ filters.date_to }}" onchange="this.form.submit()">
-
-  <button type="submit" class="btn btn-dark btn-sm">조회</button>
-  <a href="{% url 'order_list' %}" class="btn btn-outline btn-sm" id="filterReset">초기화</a>
+  {% endif %}
 </form>
 
-<!-- 일괄 작업 -->
+<!-- 결과 건수 (필터 적용 시) -->
+{% if has_active_filter %}
+<div class="result-count">
+  검색 결과 <strong>{{ filtered_count }}</strong>건
+  {% if filtered_count != total_count %}<span class="result-total">/ 전체 {{ total_count }}건</span>{% endif %}
+</div>
+{% endif %}
+
+<!-- 일괄 작업 (스티키) -->
 {% if not request.user.is_teacher %}
-<div style="margin-bottom:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-  <label style="font-size:13px;color:#64748b;cursor:pointer">
-    <input type="checkbox" id="check-all" onchange="toggleAll(this)"> 전체 선택
+<div id="bulk-bar" class="bulk-bar" style="display:none">
+  <label class="bulk-check-all">
+    <input type="checkbox" id="check-all" onchange="toggleAll(this)"> 전체
   </label>
-  <span id="bulk-count" style="font-size:12px;color:#2563eb;font-weight:600;display:none">0건 선택됨</span>
-  <button class="btn btn-dark btn-sm" onclick="bulkPrint()">거래명세서</button>
-  <button class="btn btn-outline btn-sm" onclick="bulkQuote()">견적서</button>
-  {% if request.user.is_admin %}
-  <button class="btn btn-orange btn-sm" onclick="bulkShipDirect()">직접배송 발송</button>
-  <button class="btn btn-red btn-sm" onclick="bulkDelete()">선택 삭제</button>
-  {% endif %}
+  <span class="bulk-divider"></span>
+  <span id="bulk-count" class="bulk-count">0건 선택</span>
+  <div class="bulk-actions">
+    <button class="btn btn-dark btn-sm" onclick="bulkPrint()">거래명세서</button>
+    <button class="btn btn-outline btn-sm" onclick="bulkQuote()">견적서</button>
+    {% if request.user.is_admin %}
+    <button class="btn btn-blue btn-sm" onclick="bulkShipDirect()">직접배송 발송</button>
+    <button class="btn btn-red btn-sm" onclick="bulkDelete()">선택 삭제</button>
+    {% endif %}
+  </div>
 </div>
 {% endif %}
 
@@ -94,12 +181,11 @@
   <table class="data-table">
     <thead>
       <tr>
-        {% if not request.user.is_teacher %}<th style="width:30px"><span class="sr-only">선택</span></th>{% endif %}
+        {% if not request.user.is_teacher %}<th style="width:30px"><input type="checkbox" id="check-all-header" onchange="toggleAll(this)" title="전체 선택"></th>{% endif %}
         <th>주문번호</th>
         {% if not request.user.is_teacher %}<th>선생님</th>{% endif %}
         <th>배송지</th>
         {% if request.user.is_admin %}<th>업체</th>{% endif %}
-        {% if request.user.is_admin %}<th>경로</th>{% endif %}
         {% if request.user.is_admin %}<th>요청배송일</th>{% endif %}
         <th>상태</th>
         <th>주문일시</th>
@@ -114,23 +200,24 @@
           <input type="checkbox" class="order-chk" value="{{ order.pk }}" aria-label="주문 {{ order.order_no }} 선택" onclick="handleCheckboxClick(event, this)">
         </td>
         {% endif %}
-        <td data-label="주문번호" style="font-size:11px;padding:10px 10px">{{ order.order_no }}</td>
+
+        {# 주문번호 + 경로 통합 #}
+        <td data-label="주문번호" style="padding:10px 10px">
+          <div class="order-no-cell">
+            {% if request.user.is_admin %}
+            <span class="source-dot source-{{ order.source }}" title="{% if order.source == 'simple' or order.source == 'teacher' %}간편주문{% elif order.source == 'inbox' %}수신함{% elif order.source == 'call' %}통화주문{% else %}관리자{% endif %}"></span>
+            {% endif %}
+            <span class="order-no">{{ order.order_no }}</span>
+          </div>
+        </td>
+
         {% if not request.user.is_teacher %}<td data-label="선생님" style="padding:10px 10px">{{ order.teacher.name }}</td>{% endif %}
         <td data-label="배송지" style="padding:10px 10px">{{ order.delivery.name }}</td>
         {% if request.user.is_admin %}<td data-label="업체" style="padding:10px 10px">{{ order.agency.name }}</td>{% endif %}
-        {% if request.user.is_admin %}
-        <td data-label="경로" class="center" style="font-size:11px;padding:10px 10px">
-          {% if order.source == 'simple' or order.source == 'teacher' %}<span class="badge badge-green">간편주문</span>
-          {% elif order.source == 'inbox' %}<span class="badge badge-orange">수신함</span>
-          {% elif order.source == 'call' %}<span class="badge badge-blue">통화주문</span>
-          {% else %}<span class="badge badge-gray">관리자</span>
-          {% endif %}
-        </td>
-        {% endif %}
 
         {% if request.user.is_admin %}
-        <td data-label="요청배송일" style="font-size:11px;padding:10px 10px{% if order.requested_delivery_date and order.requested_delivery_date < today %};color:#dc2626;font-weight:600{% endif %}">
-          {% if order.requested_delivery_date %}{{ order.requested_delivery_date|date:"m/d" }}{% if order.requested_delivery_date < today %} (초과){% endif %}{% else %}—{% endif %}
+        <td data-label="요청배송일" style="font-size:12px;padding:10px 10px{% if order.requested_delivery_date and order.requested_delivery_date < today %};color:#dc2626;font-weight:600{% endif %}">
+          {% if order.requested_delivery_date %}{{ order.requested_delivery_date|date:"m/d" }}{% if order.requested_delivery_date < today %} (초과){% endif %}{% else %}<span style="color:#cbd5e1">-</span>{% endif %}
         </td>
         {% endif %}
 
@@ -140,33 +227,31 @@
             x-data="statusPopover({{ order.pk }}, '{{ order.status }}', '{{ order.carrier|default:'' }}', '{{ order.tracking_no|default:'' }}')"
             @click.outside="open = false">
           <button type="button"
-                  class="badge {% if order.status == 'pending' %}badge-blue{% elif order.status == 'shipping' %}badge-orange{% elif order.status == 'delivered' %}badge-green{% else %}badge-gray{% endif %}"
-                  style="cursor:pointer;border:none;font-family:inherit"
+                  class="status-btn {% if order.status == 'pending' %}status-pending{% elif order.status == 'shipping' %}status-shipping{% elif order.status == 'delivered' %}status-delivered{% else %}status-cancelled{% endif %}"
                   :id="'status-badge-' + orderId"
-                  @click="open = !open">
+                  @click="open = !open"
+                  :class="{'status-no-action': status === 'delivered' || status === 'cancelled'}">
             {% if order.status == 'pending' %}접수{% elif order.status == 'shipping' %}발송중{% elif order.status == 'delivered' %}발송완료{% elif order.status == 'cancelled' %}취소{% endif %}
+            {% if order.status == 'pending' or order.status == 'shipping' %}<span class="status-arrow">&#9662;</span>{% endif %}
           </button>
 
-          <!-- 상태 변경 팝오버 (Alpine-driven) -->
+          <!-- 상태 변경 팝오버 -->
           <div x-show="open" x-cloak x-transition.opacity
-               style="position:absolute;top:100%;left:50%;transform:translateX(-50%);z-index:50;
-                      background:#fff;border:1px solid #e2e8f0;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.12);
-                      padding:12px;min-width:220px;text-align:left;margin-top:4px">
+               class="status-popover">
 
             <template x-if="status === 'pending'">
               <div>
-                <div style="font-size:12px;font-weight:600;color:#334155;margin-bottom:8px">발송 처리</div>
+                <div class="popover-title">발송 처리</div>
                 <div style="margin-bottom:6px">
-                  <label style="font-size:11px;color:#64748b;display:block;margin-bottom:2px;background:none;padding:0">택배사</label>
-                  <select x-model="carrier" style="width:100%;padding:4px 6px;border:1px solid #cbd5e1;border-radius:4px;font-size:12px">
+                  <label class="popover-label">택배사</label>
+                  <select x-model="carrier" class="popover-select">
                     <option value="한진택배">한진택배</option>
                     <option value="직접배송">직접배송</option>
                   </select>
                 </div>
                 <div style="margin-bottom:8px">
-                  <label style="font-size:11px;color:#64748b;display:block;margin-bottom:2px;background:none;padding:0">운송장번호</label>
-                  <input type="text" x-model="trackingNo" placeholder="운송장번호 입력"
-                         style="width:100%;padding:4px 6px;border:1px solid #cbd5e1;border-radius:4px;font-size:12px">
+                  <label class="popover-label">운송장번호</label>
+                  <input type="text" x-model="trackingNo" placeholder="운송장번호 입력" class="popover-input">
                 </div>
                 <button class="btn btn-blue btn-sm" style="width:100%" @click="submitShip()" :disabled="loading" type="button">
                   <span x-show="!loading">발송처리</span>
@@ -177,8 +262,8 @@
 
             <template x-if="status === 'shipping'">
               <div>
-                <div style="font-size:12px;font-weight:600;color:#334155;margin-bottom:8px">배송 완료 처리</div>
-                <p style="font-size:11px;color:#64748b;margin-bottom:8px">이 주문을 배송완료로 변경합니다.</p>
+                <div class="popover-title">배송 완료 처리</div>
+                <p style="font-size:12px;color:#64748b;margin-bottom:8px">이 주문을 배송완료로 변경합니다.</p>
                 <button class="btn btn-green btn-sm" style="width:100%" @click="submitDeliver()" :disabled="loading" type="button">
                   <span x-show="!loading">배송완료</span>
                   <span x-show="loading">처리중...</span>
@@ -201,32 +286,37 @@
         </td>
         {% endif %}
 
-        <td data-label="주문일시" style="font-size:11px;padding:10px 10px">{{ order.ordered_at|date:"Y-m-d H:i" }}</td>
+        <td data-label="주문일시" style="font-size:12px;padding:10px 10px;color:#64748b">{{ order.ordered_at|date:"Y-m-d H:i" }}</td>
 
         {# 컨텍스트 액션 메뉴 #}
         <td data-label="" class="center" style="padding:10px 6px;position:relative"
             x-data="{ menuOpen: false }" @click.outside="menuOpen = false">
           <button type="button" @click="menuOpen = !menuOpen"
-                  style="background:none;border:none;cursor:pointer;font-size:18px;color:#64748b;padding:2px 6px;line-height:1;font-family:inherit"
+                  class="kebab-btn"
                   aria-label="주문 메뉴">&#8942;</button>
           <div x-show="menuOpen" x-cloak x-transition.opacity
-               style="position:absolute;right:0;top:100%;z-index:40;
-                      background:#fff;border:1px solid #e2e8f0;border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,0.1);
-                      min-width:130px;padding:4px 0;margin-top:2px">
-            <a href="{% url 'order_detail' order.pk %}" style="display:block;padding:7px 14px;font-size:12px;color:#334155;text-decoration:none"
-               onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background=''">상세 보기</a>
+               class="context-menu">
             {% if not request.user.is_teacher %}
-            <a href="{% url 'order_invoice' order.pk %}" target="_blank" style="display:block;padding:7px 14px;font-size:12px;color:#334155;text-decoration:none"
-               onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background=''">거래명세서</a>
-            <a href="{% url 'order_quote' order.pk %}" target="_blank" style="display:block;padding:7px 14px;font-size:12px;color:#334155;text-decoration:none"
-               onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background=''">견적서</a>
-            <a href="{% url 'order_copy' order.pk %}" style="display:block;padding:7px 14px;font-size:12px;color:#334155;text-decoration:none"
-               onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background=''">주문 복사</a>
+            <a href="{% url 'order_invoice' order.pk %}" target="_blank"
+               onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background=''">
+              <span class="menu-icon">&#128196;</span> 거래명세서
+            </a>
+            <a href="{% url 'order_quote' order.pk %}" target="_blank"
+               onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background=''">
+              <span class="menu-icon">&#128203;</span> 견적서
+            </a>
+            <a href="{% url 'order_copy' order.pk %}"
+               onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background=''">
+              <span class="menu-icon">&#128203;</span> 주문 복사
+            </a>
             {% endif %}
             {% if request.user.is_admin %}
-            <div style="border-top:1px solid #e2e8f0;margin:4px 0"></div>
-            <a href="#" onclick="event.preventDefault();deleteOrder({{ order.pk }}, '{{ order.order_no }}')" style="display:block;padding:7px 14px;font-size:12px;color:#dc2626;text-decoration:none"
-               onmouseover="this.style.background='#fef2f2'" onmouseout="this.style.background=''">삭제</a>
+            <div class="menu-divider"></div>
+            <a href="#" onclick="event.preventDefault();deleteOrder({{ order.pk }}, '{{ order.order_no }}')"
+               class="menu-danger"
+               onmouseover="this.style.background='#fef2f2'" onmouseout="this.style.background=''">
+              <span class="menu-icon">&#128465;</span> 삭제
+            </a>
             {% endif %}
           </div>
         </td>
@@ -234,11 +324,14 @@
       {% empty %}
       <tr>
         <td colspan="9">
-          <div class="empty-state" style="padding:40px 20px;text-align:center">
-            <div style="font-size:48px;margin-bottom:12px;opacity:0.5">📋</div>
-            <p style="color:#64748b;font-size:14px;margin-bottom:12px">주문 내역이 없습니다.</p>
+          <div class="empty-state" style="padding:48px 20px;text-align:center">
+            <div style="font-size:40px;margin-bottom:12px;opacity:0.4">&#128203;</div>
+            <p style="color:#94a3b8;font-size:14px;margin-bottom:4px">주문 내역이 없습니다</p>
+            {% if has_active_filter %}
+            <p style="color:#cbd5e1;font-size:12px;margin-bottom:12px">필터 조건을 변경해보세요</p>
+            {% endif %}
             {% if request.user.is_teacher %}
-            <a href="{% url 'order_create' %}" class="btn btn-orange btn-sm">첫 주문을 등록해보세요</a>
+            <a href="{% url 'order_create' %}" class="btn btn-orange btn-sm" style="margin-top:8px">첫 주문을 등록해보세요</a>
             {% endif %}
           </div>
         </td>
@@ -250,23 +343,26 @@
 
 <!-- 페이지네이션 -->
 {% if page_obj.has_other_pages %}
-<nav class="pagination" aria-label="페이지 탐색">
-  {% if page_obj.has_previous %}
-  <a href="?page=1{% for k, v in filters.items %}{% if v %}&{{ k }}={{ v }}{% endif %}{% endfor %}">&laquo;</a>
-  <a href="?page={{ page_obj.previous_page_number }}{% for k, v in filters.items %}{% if v %}&{{ k }}={{ v }}{% endif %}{% endfor %}">&lsaquo;</a>
-  {% endif %}
-  {% for num in page_obj.paginator.page_range %}
-    {% if page_obj.number == num %}
-    <span class="current">{{ num }}</span>
-    {% elif num > page_obj.number|add:"-3" and num < page_obj.number|add:"3" %}
-    <a href="?page={{ num }}{% for k, v in filters.items %}{% if v %}&{{ k }}={{ v }}{% endif %}{% endfor %}">{{ num }}</a>
+<div class="pagination-wrap">
+  <span class="pagination-info">{{ page_obj.start_index }}-{{ page_obj.end_index }} / {{ filtered_count }}건</span>
+  <nav class="pagination" aria-label="페이지 탐색">
+    {% if page_obj.has_previous %}
+    <a href="?page=1{% for k, v in filters.items %}{% if v %}&{{ k }}={{ v }}{% endif %}{% endfor %}">&laquo;</a>
+    <a href="?page={{ page_obj.previous_page_number }}{% for k, v in filters.items %}{% if v %}&{{ k }}={{ v }}{% endif %}{% endfor %}">&lsaquo;</a>
     {% endif %}
-  {% endfor %}
-  {% if page_obj.has_next %}
-  <a href="?page={{ page_obj.next_page_number }}{% for k, v in filters.items %}{% if v %}&{{ k }}={{ v }}{% endif %}{% endfor %}">&rsaquo;</a>
-  <a href="?page={{ page_obj.paginator.num_pages }}{% for k, v in filters.items %}{% if v %}&{{ k }}={{ v }}{% endif %}{% endfor %}">&raquo;</a>
-  {% endif %}
-</nav>
+    {% for num in page_obj.paginator.page_range %}
+      {% if page_obj.number == num %}
+      <span class="current">{{ num }}</span>
+      {% elif num > page_obj.number|add:"-3" and num < page_obj.number|add:"3" %}
+      <a href="?page={{ num }}{% for k, v in filters.items %}{% if v %}&{{ k }}={{ v }}{% endif %}{% endfor %}">{{ num }}</a>
+      {% endif %}
+    {% endfor %}
+    {% if page_obj.has_next %}
+    <a href="?page={{ page_obj.next_page_number }}{% for k, v in filters.items %}{% if v %}&{{ k }}={{ v }}{% endif %}{% endfor %}">&rsaquo;</a>
+    <a href="?page={{ page_obj.paginator.num_pages }}{% for k, v in filters.items %}{% if v %}&{{ k }}={{ v }}{% endif %}{% endfor %}">&raquo;</a>
+    {% endif %}
+  </nav>
+</div>
 {% endif %}
 
 {% if request.user.is_admin %}
@@ -278,7 +374,369 @@
 <style>
   [x-cloak] { display: none !important; }
 
+  /* ── 상태 요약 칩 ── */
+  .status-summary {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+  }
+  .status-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    font-size: 13px;
+    color: #475569;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 20px;
+    text-decoration: none;
+    transition: all 0.15s;
+    cursor: pointer;
+  }
+  .status-chip:hover {
+    border-color: #94a3b8;
+    background: #f8fafc;
+    text-decoration: none;
+    color: #334155;
+  }
+  .status-chip.active {
+    background: #1e293b;
+    color: #fff;
+    border-color: #1e293b;
+  }
+  .status-chip strong { font-weight: 700; }
+  .chip-blue.active { background: #2563eb; border-color: #2563eb; }
+  .chip-orange.active { background: #1e40af; border-color: #1e40af; }
+  .chip-green.active { background: #059669; border-color: #059669; }
+  .chip-gray.active { background: #64748b; border-color: #64748b; }
+
+  /* ── 필터 개선 ── */
+  .filter-primary {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+    width: 100%;
+  }
+  .search-input-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    min-width: 200px;
+    padding: 4px 10px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    background: #fff;
+    transition: border-color 0.15s;
+  }
+  .search-input-wrap:focus-within {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 2px rgba(59,130,246,0.15);
+  }
+  .search-input-wrap input {
+    border: none !important;
+    outline: none;
+    font-size: 13px;
+    flex: 1;
+    padding: 4px 0;
+    background: transparent;
+    box-shadow: none !important;
+    height: auto;
+  }
+  .filter-toggle {
+    position: relative;
+  }
+  .filter-dot {
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    width: 8px;
+    height: 8px;
+    background: #2563eb;
+    border-radius: 50%;
+    border: 2px solid #fff;
+  }
+  .btn-reset {
+    font-size: 12px;
+    color: #94a3b8;
+    text-decoration: none;
+    cursor: pointer;
+  }
+  .btn-reset:hover {
+    color: #64748b;
+    text-decoration: underline;
+  }
+
+  .filter-advanced {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid #f1f5f9;
+    width: 100%;
+  }
+  .filter-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .filter-item label {
+    font-size: 12px;
+    color: #64748b;
+    white-space: nowrap;
+    background: none;
+    padding: 0;
+  }
+  .filter-item select,
+  .filter-item input[type=date] {
+    padding: 4px 8px;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    font-size: 12px;
+    height: 30px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .filter-item select:focus,
+  .filter-item input[type=date]:focus {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 2px rgba(59,130,246,0.15);
+  }
+
+  /* ── 결과 건수 ── */
+  .result-count {
+    font-size: 13px;
+    color: #475569;
+    margin-bottom: 8px;
+    padding: 0 2px;
+  }
+  .result-total {
+    color: #94a3b8;
+    font-size: 12px;
+  }
+
+  /* ── 일괄 작업 바 (스티키) ── */
+  .bulk-bar {
+    position: sticky;
+    top: 48px;
+    z-index: 30;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 8px;
+    padding: 8px 16px;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    animation: slideDown 0.2s ease;
+  }
+  @keyframes slideDown {
+    from { opacity: 0; transform: translateY(-8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .bulk-check-all {
+    font-size: 13px;
+    color: #475569;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .bulk-divider {
+    width: 1px;
+    height: 20px;
+    background: #bfdbfe;
+  }
+  .bulk-count {
+    font-size: 13px;
+    font-weight: 600;
+    color: #1e40af;
+  }
+  .bulk-actions {
+    display: flex;
+    gap: 6px;
+    margin-left: auto;
+  }
+
+  /* ── 주문번호 셀 ── */
+  .order-no-cell {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .order-no {
+    font-size: 13px;
+    font-weight: 600;
+    color: #1e293b;
+    letter-spacing: -0.3px;
+  }
+  .source-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .source-dot.source-simple,
+  .source-dot.source-teacher { background: #059669; }
+  .source-dot.source-inbox { background: #d97706; }
+  .source-dot.source-call { background: #2563eb; }
+  .source-dot.source-admin { background: #94a3b8; }
+
+  /* ── 상태 버튼 ── */
+  .status-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 3px 10px;
+    font-size: 11px;
+    border-radius: 10px;
+    color: #fff;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1px solid transparent;
+    font-family: inherit;
+    transition: all 0.15s;
+  }
+  .status-btn:hover:not(.status-no-action) {
+    transform: scale(1.05);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+  }
+  .status-pending { background: #2563eb; border-color: #1d4ed8; }
+  .status-shipping { background: #1e40af; border-color: #1e3a8a; }
+  .status-delivered { background: #059669; border-color: #047857; }
+  .status-cancelled { background: #94a3b8; border-color: #64748b; }
+  .status-no-action { cursor: default; opacity: 0.8; }
+  .status-arrow {
+    font-size: 8px;
+    margin-left: 1px;
+    opacity: 0.7;
+  }
+
+  /* ── 상태 변경 팝오버 ── */
+  .status-popover {
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 50;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    padding: 14px;
+    min-width: 230px;
+    text-align: left;
+    margin-top: 4px;
+  }
+  .popover-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: #1e293b;
+    margin-bottom: 10px;
+  }
+  .popover-label {
+    font-size: 11px;
+    color: #64748b;
+    display: block;
+    margin-bottom: 3px;
+    background: none !important;
+    padding: 0 !important;
+  }
+  .popover-select,
+  .popover-input {
+    width: 100%;
+    padding: 5px 8px;
+    border: 1px solid #cbd5e1;
+    border-radius: 5px;
+    font-size: 12px;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .popover-select:focus,
+  .popover-input:focus {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 2px rgba(59,130,246,0.1);
+  }
+
+  /* ── 케밥 메뉴 ── */
+  .kebab-btn {
+    background: none;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 18px;
+    color: #94a3b8;
+    padding: 2px 6px;
+    line-height: 1;
+    font-family: inherit;
+    transition: all 0.15s;
+  }
+  .kebab-btn:hover {
+    color: #475569;
+    background: #f1f5f9;
+    border-color: #e5e7eb;
+  }
+  .context-menu {
+    position: absolute;
+    right: 0;
+    top: 100%;
+    z-index: 40;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+    min-width: 150px;
+    padding: 4px 0;
+    margin-top: 2px;
+  }
+  .context-menu a {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    font-size: 13px;
+    color: #334155;
+    text-decoration: none;
+    transition: background 0.1s;
+  }
+  .context-menu .menu-icon {
+    font-size: 14px;
+    width: 18px;
+    text-align: center;
+  }
+  .context-menu .menu-divider {
+    border-top: 1px solid #e2e8f0;
+    margin: 4px 0;
+  }
+  .context-menu .menu-danger {
+    color: #dc2626;
+  }
+
+  /* ── 페이지네이션 ── */
+  .pagination-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    margin: 16px 0;
+  }
+  .pagination-info {
+    font-size: 12px;
+    color: #94a3b8;
+    white-space: nowrap;
+  }
+
+  /* ── 모바일 ── */
   @media (max-width: 768px) {
+    .status-summary { gap: 4px; }
+    .status-chip { padding: 4px 10px; font-size: 12px; }
+
     .scroll-hint { overflow: visible !important; }
     .data-table thead { display: none; }
     .data-table tbody tr {
@@ -305,6 +763,33 @@
     .data-table tbody tr { position: relative; }
     .search-bar { flex-wrap: wrap; }
     .search-bar input, .search-bar select { font-size: 13px !important; }
+    .filter-advanced { flex-direction: column; }
+    .filter-item { width: 100%; }
+    .filter-item select,
+    .filter-item input[type=date] { flex: 1; }
+
+    .bulk-bar {
+      top: 48px;
+      border-radius: 0;
+      margin: 0 -10px 8px;
+      padding: 8px 12px;
+    }
+    .bulk-actions { flex-wrap: wrap; gap: 4px; }
+
+    .status-popover {
+      position: fixed !important;
+      bottom: 0 !important;
+      left: 0 !important;
+      right: 0 !important;
+      top: auto !important;
+      transform: none !important;
+      border-radius: 16px 16px 0 0;
+      min-width: auto;
+      padding: 20px;
+      margin-top: 0;
+    }
+
+    .pagination-wrap { flex-direction: column; gap: 8px; }
   }
 </style>
 
@@ -348,8 +833,7 @@ function statusPopover(orderId, currentStatus, currentCarrier, currentTrackingNo
         var badge = document.getElementById('status-badge-' + self.orderId);
         if (badge) {
           badge.textContent = '발송중';
-          badge.className = 'badge badge-orange';
-          badge.style.cssText = 'cursor:pointer;border:none;font-family:inherit';
+          badge.className = 'status-btn status-shipping';
         }
         self.status = 'shipping';
         self.open = false;
@@ -390,8 +874,7 @@ function statusPopover(orderId, currentStatus, currentCarrier, currentTrackingNo
         var badge = document.getElementById('status-badge-' + self.orderId);
         if (badge) {
           badge.textContent = '발송완료';
-          badge.className = 'badge badge-green';
-          badge.style.cssText = 'cursor:pointer;border:none;font-family:inherit';
+          badge.className = 'status-btn status-delivered status-no-action';
         }
         self.status = 'delivered';
         self.open = false;
@@ -416,27 +899,35 @@ function statusPopover(orderId, currentStatus, currentCarrier, currentTrackingNo
 /* ── 체크박스: 전체 선택 ── */
 function toggleAll(el) {
   document.querySelectorAll('.order-chk').forEach(function(cb) { cb.checked = el.checked; });
+  // 헤더와 벌크바의 전체선택 동기화
+  var headerChk = document.getElementById('check-all-header');
+  var bulkChk = document.getElementById('check-all');
+  if (headerChk && headerChk !== el) headerChk.checked = el.checked;
+  if (bulkChk && bulkChk !== el) bulkChk.checked = el.checked;
   updateBulkCount();
 }
 
-/* ── 체크박스: 선택 건수 표시 ── */
+/* ── 체크박스: 선택 건수 + 벌크바 표시 ── */
 function updateBulkCount() {
   var count = document.querySelectorAll('.order-chk:checked').length;
-  var el = document.getElementById('bulk-count');
-  if (el) {
-    if (count > 0) {
-      el.textContent = count + '건 선택됨';
-      el.style.display = '';
-    } else {
-      el.style.display = 'none';
+  var bulkBar = document.getElementById('bulk-bar');
+  var countEl = document.getElementById('bulk-count');
+
+  if (bulkBar) {
+    bulkBar.style.display = count > 0 ? 'flex' : 'none';
+  }
+  if (countEl) {
+    countEl.textContent = count + '건 선택';
+  }
+
+  // 전체선택 체크박스 동기화
+  var total = document.querySelectorAll('.order-chk').length;
+  [document.getElementById('check-all'), document.getElementById('check-all-header')].forEach(function(chk) {
+    if (chk) {
+      chk.checked = total > 0 && count === total;
+      chk.indeterminate = count > 0 && count < total;
     }
-  }
-  var checkAll = document.getElementById('check-all');
-  if (checkAll) {
-    var total = document.querySelectorAll('.order-chk').length;
-    checkAll.checked = total > 0 && count === total;
-    checkAll.indeterminate = count > 0 && count < total;
-  }
+  });
 }
 
 /* ── 체크박스: Shift+Click 범위 선택 ── */
@@ -500,7 +991,7 @@ function bulkDelete() {
   });
 }
 
-/* ── 2.2: 일괄 직접배송 발송 ── */
+/* ── 일괄 직접배송 발송 ── */
 function bulkShipDirect() {
   var ids = [];
   document.querySelectorAll('.order-chk:checked').forEach(function(cb) { ids.push(cb.value); });
@@ -547,12 +1038,10 @@ function deleteOrder(pk, orderNo) {
   });
 }
 
-/* ── 필터 상태 유지 (1.4) ── */
+/* ── 필터 상태 유지 ── */
 (function() {
-  // 현재 URL을 sessionStorage에 저장 (상세→목록 복귀 시 사용)
   try { sessionStorage.setItem('orderListUrl', location.href); } catch(e) {}
 
-  // 현재 목록의 주문 PK 순서 저장 (이전/다음 네비게이션용, 3.4)
   var orderPks = [];
   document.querySelectorAll('tr[data-order-id]').forEach(function(tr) {
     orderPks.push(parseInt(tr.getAttribute('data-order-id')));

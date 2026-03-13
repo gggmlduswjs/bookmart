@@ -65,9 +65,20 @@ def order_list(request):
     )
     region_choices = [('seoul', '서울'), ('gyeonggi', '경기'), ('regional', '지방')]
 
+    # 상태별 건수 (필터 적용 전 전체 기준)
+    base_qs = get_order_queryset(request.user).filter(is_deleted=False)
+    from django.db.models import Count
+    status_counts_raw = base_qs.values('status').annotate(cnt=Count('id'))
+    status_counts = {r['status']: r['cnt'] for r in status_counts_raw}
+    total_count = sum(status_counts.values())
+
     page_number = request.GET.get('page', 1)
-    paginator = Paginator(qs.order_by('-ordered_at'), 50)
+    ordered_qs = qs.order_by('-ordered_at')
+    filtered_count = ordered_qs.count()
+    paginator = Paginator(ordered_qs, 50)
     page_obj = paginator.get_page(page_number)
+
+    has_active_filter = any([status, date_from, date_to, delivery_id, source, agency_category, region, q])
 
     return render(request, 'orders/order_list.html', {
         'orders': page_obj, 'page_obj': page_obj,
@@ -84,6 +95,10 @@ def order_list(request):
         'today': timezone.localtime().date(),
         'past_city': past_city,
         'past_region': past_region,
+        'total_count': total_count,
+        'filtered_count': filtered_count,
+        'status_counts': status_counts,
+        'has_active_filter': has_active_filter,
     })
 
 
