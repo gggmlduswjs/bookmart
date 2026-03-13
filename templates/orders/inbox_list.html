@@ -114,6 +114,12 @@
     flex: 1; overflow: hidden; padding: 0;
     display: flex;
   }
+  .sp-att-col {
+    flex: 0 0 380px; overflow: hidden; border-right: 1px solid #e2e8f0;
+    background: #f9fafb; display: none;
+  }
+  .sp-att-col iframe { width: 100%; height: 100%; border: none; }
+  .slide-panel.triple { width: min(1500px, 100vw); }
   .sp-split-left {
     overflow-y: auto;
     min-width: 200px; flex: 0 0 420px; border-right: 1px solid #e2e8f0;
@@ -189,9 +195,11 @@
   .sp-call-info .field-value { font-size:13px; color:#0f172a; }
   @media (max-width: 1280px) {
     .slide-panel { width: 100vw; }
+    .slide-panel.triple { width: 100vw; }
   }
   @media (max-width: 768px) {
     .slide-panel-body { flex-direction: column; }
+    .sp-att-col { display: none !important; }
     .sp-split-left { border-bottom: 1px solid #e2e8f0; max-height: 40vh; flex: none; width: 100%; }
     .sp-split-right { flex: 1; }
   }
@@ -688,7 +696,9 @@
     </div>
   </div>
   <div class="slide-panel-body" id="spBody">
-    <!-- Left: preview + attachment tabs -->
+    <!-- Attachment column (email 3-split) -->
+    <div class="sp-att-col" id="spAttCol"></div>
+    <!-- Center: preview + attachment tabs -->
     <div class="sp-split-left">
       <div class="sp-tab-bar" id="spTabBar">
         <button class="active" onclick="switchLeftTab('content')">원문</button>
@@ -933,7 +943,10 @@ function openSlidePanel(pk, source) {
   document.getElementById('spSmsSection').style.display = 'none';
   document.getElementById('spCallSection').style.display = 'none';
   document.getElementById('spReplySection').style.display = 'none';
-  // Reset attachment preview tab
+  // Reset attachment column & tab
+  document.getElementById('spAttCol').innerHTML = '';
+  document.getElementById('spAttCol').style.display = 'none';
+  panel.classList.remove('triple');
   document.getElementById('spAttPreviewBody').innerHTML = '';
   switchLeftTab('content');
   document.getElementById('spAttTabBtn').style.display = 'none';
@@ -1031,6 +1044,11 @@ function _loadMessageDetail(pk, source) {
           d.innerHTML = html;
           attList.appendChild(d);
         });
+        // Auto-show first previewable attachment in 3-column layout
+        var firstPreview = data.attachments.find(function(a) { return a.preview_url; });
+        if (firstPreview) {
+          openAttPreview(firstPreview.preview_url, firstPreview.filename);
+        }
       } else {
         attDiv.style.display = 'none';
         attTabBtn.style.display = 'none';
@@ -1442,15 +1460,18 @@ function switchLeftTab(tab) {
   }
 }
 
-/* ── Attachment preview (within left panel tab) ── */
+/* ── Attachment preview (3-column: left att col) ── */
 function openAttPreview(url, filename) {
-  var body = document.getElementById('spAttPreviewBody');
-  body.innerHTML = '<iframe src="' + url + '" style="width:100%;height:100%;border:none"></iframe>';
-  switchLeftTab('attach');
+  var col = document.getElementById('spAttCol');
+  col.innerHTML = '<iframe src="' + url + '"></iframe>';
+  col.style.display = '';
+  document.getElementById('slidePanel').classList.add('triple');
 }
 function closeAttPreview() {
-  document.getElementById('spAttPreviewBody').innerHTML = '';
-  switchLeftTab('content');
+  var col = document.getElementById('spAttCol');
+  col.innerHTML = '';
+  col.style.display = 'none';
+  document.getElementById('slidePanel').classList.remove('triple');
 }
 
 /* ── Apply Excel attachment to order form ── */
