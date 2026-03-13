@@ -1339,37 +1339,141 @@ def parse_order_excel(request):
             return HttpResponse(json.dumps({'error': '빈 파일입니다.'}),
                                 content_type='application/json', status=400)
 
-        header = rows[0]
-        name_col = qty_col = None
-        for idx, cell in enumerate(header):
-            if cell is None:
-                continue
-            h = str(cell).strip().lower()
-            if name_col is None and any(k in h for k in ['교재', '도서', '상품', '품명', '제목', 'book', 'title', 'name']):
-                name_col = idx
-            if qty_col is None and any(k in h for k in ['수량', '부수', '권수', 'qty', 'quantity', '주문수량']):
-                qty_col = idx
+        # ── 헤더 자동 탐지: 처음 20행 스캔 ──
+        NAME_KW = ['교재', '도서', '상품', '품명', '제목', 'book', 'title', 'name']
+        QTY_KW = ['수량', '부수', '권수', 'qty', 'quantity', '주문수량', '사용수량']
+        HEADER_KW = NAME_KW + QTY_KW + ['출판사', '정가', '단가', '시리즈', '과정', 'no']
 
+        header_row_idx = None
+        name_col = qty_col = None
+
+        for ri, row in enumerate(rows[:20]):
+            if not row:
+                continue
+            cells = [str(c).strip().lower() if c is not None else '' for c in row]
+            # 이 행에 헤더 키워드가 몇 개 있는지 카운트
+            hit = sum(1 for c in cells if c and any(k in c for k in HEADER_KW))
+            if hit >= 2:
+                header_row_idx = ri
+                # 교재명 열 찾기
+                for idx, c in enumerate(cells):
+                    if not c:
+                        continue
+                    if name_col is None and any(k in c for k in NAME_KW):
+                        name_col = idx
+                    if qty_col is None and any(k in c for k in QTY_KW):
+                        qty_col = idx
+                break
+
+        # 헤더를 못 찾으면 첫 행이 바로 데이터인 경우 (견적서 등)
+        # → 가장 긴 텍스트가 있는 열을 교재명으로, 숫자 열을 수량으로 추정
         if name_col is None:
-            for idx, cell in enumerate(header):
-                if cell and str(cell).strip():
-                    name_col = idx
-                    break
+            header_row_idx = None  # 헤더 없음, row 0부터 데이터
+            # 데이터 행 샘플링 (처음 20행)
+            sample_rows = [r for r in rows[:20] if r and any(c is not None for c in r)]
+            if sample_rows:
+                col_count = max(len(r) for r in sample_rows)
+                # 각 열별로: 텍스트 길이 평균 vs 숫자 비율
+                col_text_len = [0] * col_count
+                col_num_ratio = [0] * col_count
+                col_samples = [0] * col_count
+                for r in sample_rows:
+                    for ci in range(min(len(r), col_count)):
+                        v = r[ci]
+                        if v is None:
+                            continue
+                        s = str(v).strip()
+                        if not s:
+                            continue
+                        col_samples[ci] += 1
+                        col_text_len[ci] += len(s)
+                        try:
+                            float(s.replace(',', ''))
+                            col_num_ratio[ci] += 1
+                        except (ValueError, TypeError):
+                            pass
+                # 교재명 = 텍스트가 길고 숫자 비율이 낮은 열
+                best_name_score = -1
+                for ci in range(col_count):
+                    if col_samples[ci] < 2:
+                        continue
+                    avg_len = col_text_len[ci] / col_samples[ci]
+                    num_pct = col_num_ratio[ci] / col_samples[ci]
+                    if num_pct > 0.7:  # 숫자 위주 열은 skip
+                        continue
+                    if avg_len > best_name_score:
+                        best_name_score = avg_len
+                        name_col = ci
+                # 수량 = 숫자 위주이고 값이 작은 열 (정가/금액 열 제외)
+                for ci in range(col_count):
+                    if ci == name_col or col_samples[ci] < 2:
+                        continue
+                    num_pct = col_num_ratio[ci] / col_samples[ci]
+                    if num_pct < 0.5:
+                        continue
+                    # 값 크기 체크: 수량은 보통 1~999
+                    vals = []
+                    for r in sample_rows:
+                        if ci < len(r) and r[ci] is not None:
+                            try:
+                                vals.append(abs(float(str(r[ci]).replace(',', ''))))
+                            except (ValueError, TypeError):
+                                pass
+                    if vals:
+                        avg_val = sum(vals) / len(vals)
+                        if avg_val < 1000:  # 수량 범위
+                            qty_col = ci
+                            break
 
         if name_col is None:
             return HttpResponse(json.dumps({'error': '교재명 열을 찾을 수 없습니다.'}),
                                 content_type='application/json', status=400)
 
+        data_start = (header_row_idx + 1) if header_row_idx is not None else 0
+
+        # ── 데이터 행 필터링 강화 ──
+        def is_data_skip(name_val, row):
+            """교재 데이터가 아닌 행 skip"""
+            t = str(name_val).strip()
+            if not t:
+                return True
+            # 숫자만 (행번호, 날짜 숫자 등)
+            try:
+                float(t.replace(',', ''))
+                return True
+            except (ValueError, TypeError):
+                pass
+            # 날짜 형식
+            if re.match(r'^\d{4}[-/]\d{1,2}[-/]\d{1,2}', t):
+                return True
+            # datetime 객체
+            import datetime
+            if isinstance(name_val, (datetime.datetime, datetime.date)):
+                return True
+            # 너무 짧은 텍스트 (1~2글자이면서 한글이 아닌 경우)
+            if len(t) <= 2 and not re.search(r'[가-힣]', t):
+                return True
+            # 메타/합계 행
+            if re.match(r'^[●•◆■□▶▷※★☆\-\*]?\s*(출판사|샘플|합계|소계|총합계|거래처|전일잔액|기간누계|NO\.?)', t, re.IGNORECASE):
+                return True
+            # 전화번호
+            if re.match(r'^\d{2,3}[-.\s]?\d{3,4}[-.\s]?\d{4}$', t):
+                return True
+            # 주소
+            if re.match(r'^[가-힣]+\s*(시|도|군|구|읍|면|로|길|동|번지)', t):
+                return True
+            return False
+
         results = []
-        for row in rows[1:]:
+        for row in rows[data_start:]:
             if name_col >= len(row):
                 continue
             raw_name = row[name_col]
             if raw_name is None:
                 continue
-            name = str(raw_name).strip()
-            if not name or is_skip_row(name):
+            if is_data_skip(raw_name, row):
                 continue
+            name = str(raw_name).strip()
             qty = parse_qty(row[qty_col]) if qty_col is not None and qty_col < len(row) else 1
             if qty <= 0:
                 qty = 1
