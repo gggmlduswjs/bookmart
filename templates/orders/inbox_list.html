@@ -1420,20 +1420,26 @@ function applyExcelAttachment(attPk) {
     })
     .then(_safeJson)
     .then(function(data) {
+      console.log('[엑셀적용] 파싱 결과:', JSON.stringify(data).substring(0, 500));
       if (data.error) { alert(data.error); return; }
       // Directly access Alpine component
       var formEl = document.querySelector('#spOrderFormContainer [x-data]');
+      console.log('[엑셀적용] formEl:', formEl);
+      console.log('[엑셀적용] Alpine:', !!window.Alpine);
       if (formEl && window.Alpine) {
         var ad = Alpine.$data(formEl);
+        console.log('[엑셀적용] Alpine data:', ad);
+        console.log('[엑셀적용] _applyExcelResult 존재:', !!(ad && ad._applyExcelResult));
         if (ad && ad._applyExcelResult) {
           ad._applyExcelResult(data);
+          console.log('[엑셀적용] 적용 후 rows:', JSON.stringify(ad.rows));
           showToast('엑셀 데이터가 주문폼에 적용되었습니다.', 'success');
           return;
         }
       }
       alert('주문폼이 아직 로드되지 않았습니다. 잠시 후 다시 시도해주세요.');
     })
-    .catch(function(err) { alert('엑셀 적용 실패: ' + err.message); })
+    .catch(function(err) { console.error('[엑셀적용] 에러:', err); alert('엑셀 적용 실패: ' + err.message); })
     .finally(function() { btn.disabled = false; btn.textContent = '주문폼 적용'; });
 }
 
