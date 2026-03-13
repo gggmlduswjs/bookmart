@@ -119,6 +119,8 @@ def inbox_list(request):
         CallRecording.objects.values_list('status').annotate(c=Count('id')).values_list('status', 'c')
     )
     pending_calls = call_counts.get('pending', 0) + call_counts.get('parsed', 0)
+    call_counts['unprocessed'] = pending_calls
+    call_counts['total'] = sum(call_counts.get(s, 0) for s in ['pending', 'parsed', 'ordered', 'failed', 'skipped', 'processing'])
     token_path = Path(conf.BASE_DIR) / 'gdrive_token.json'
 
     # 활성 탭 데이터만 로드 (다른 탭은 빈 값)
@@ -200,7 +202,13 @@ def inbox_list(request):
     elif tab == 'call':
         call_qs = CallRecording.objects.all()
         call_status_filter = request.GET.get('call_status', '')
-        if call_status_filter:
+        if call_status_filter == 'unprocessed' or not call_status_filter:
+            call_qs = call_qs.filter(status__in=['pending', 'parsed'])
+        elif call_status_filter == 'failed':
+            call_qs = call_qs.filter(status='failed')
+        elif call_status_filter == 'all':
+            pass  # no filter
+        elif call_status_filter:
             call_qs = call_qs.filter(status=call_status_filter)
         call_paginator = Paginator(call_qs.order_by('-created_at'), 30)
         call_page = call_paginator.get_page(request.GET.get('call_page'))
@@ -1772,6 +1780,45 @@ def inbox_order_form_partial(request, pk):
         'books_json': books_json,
     })
 
+
+
+@role_required('admin')
+def call_order_form_partial(request, pk):
+    """슬라이드패널용 통화 주문 폼 부분 템플릿"""
+    rec = get_object_or_404(CallRecording, pk=pk)
+
+    books = Book.objects.filter(is_active=True).select_related('publisher')
+    series_list = sorted(set(b.series for b in books if b.series))
+    books_json = json.dumps([{
+        'id': b.id,
+        'series': b.series or '기타',
+        'name': b.name,
+        'publisher': b.publisher.name,
+        'unit_price': math.floor(b.list_price * float(b.publisher.supply_rate) / 100),
+    } for b in books], ensure_ascii=False)
+
+    _, agencies_json = get_agencies_json()
+    _, teachers_json = get_teachers_json()
+
+    # Pre-fill data from parsed_data
+    prefill_json = 'null'
+    if rec.parsed_data:
+        pd = rec.parsed_data
+        prefill_json = json.dumps({
+            'teacher_name': pd.get('teacher_name', ''),
+            'school_name': pd.get('school_name', ''),
+            'phone': pd.get('phone', ''),
+            'items': pd.get('items', []),
+        }, ensure_ascii=False)
+
+    return render(request, 'orders/_call_order_form.html', {
+        'call_rec': rec,
+        'agencies_json': agencies_json,
+        'teachers_json': teachers_json,
+        'series_list': series_list,
+        'books_json': books_json,
+        'prefill_json': prefill_json,
+    })
 
 
 @role_required('admin')

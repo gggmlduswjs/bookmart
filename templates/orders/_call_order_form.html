@@ -1,0 +1,359 @@
+<!-- 슬라이드패널용 통화 주문 폼 (부분 템플릿) -->
+<style>
+  .sp-order-form .form-table th { font-size:11px; width:55px; padding:4px 6px; }
+  .sp-order-form .form-table td { padding:4px 6px; }
+  .sp-order-form select, .sp-order-form input[type=text], .sp-order-form input[type=tel] {
+    padding:4px 6px; border:1px solid #bbb; font-size:12px; font-family:inherit;
+  }
+  .sp-order-form .ac-wrap { position:relative; display:inline-block; }
+  .sp-order-form .ac-wrap input[type=text] { width:180px; }
+  .sp-order-form .ac-list {
+    position:absolute; top:100%; left:0; right:0; z-index:100;
+    background:#fff; border:1px solid #ccc; border-top:none;
+    max-height:180px; overflow-y:auto; box-shadow:0 4px 12px rgba(0,0,0,.15);
+  }
+  .sp-order-form .ac-list div { padding:5px 8px; font-size:11px; cursor:pointer; }
+  .sp-order-form .ac-list div:hover, .sp-order-form .ac-list div.active { background:#e8f0fe; }
+  .sp-order-form .ac-list div .sub { color:#888; font-size:10px; }
+  .sp-order-form .new-fields { margin-top:6px; padding:6px 8px; background:#f8fafc; border:1px dashed #cbd5e1; border-radius:6px; }
+  .sp-order-form .new-fields .form-row { display:flex; align-items:center; gap:4px; margin-bottom:3px; }
+  .sp-order-form .new-fields label { font-size:10px; color:#666; width:45px; flex-shrink:0; }
+  .sp-order-form .new-fields input { flex:1; padding:3px 5px; border:1px solid #bbb; font-size:11px; }
+  .sp-order-form .book-row { display:flex; gap:4px; align-items:center; margin-bottom:4px; padding:4px 6px; background:#fafafa; border:1px solid #eee; border-radius:4px; }
+  .sp-order-form .book-row select { font-size:11px; padding:2px 4px; }
+  .sp-order-form .book-row input[type=number] { width:50px; text-align:center; padding:2px 4px; border:1px solid #bbb; font-size:11px; }
+  .sp-order-form .book-row .price { font-size:10px; color:#666; white-space:nowrap; }
+  .sp-order-form .book-row .remove-btn { background:none; border:none; color:#dc2626; cursor:pointer; font-size:14px; padding:0 2px; }
+</style>
+
+<div class="sp-order-form" x-data="spCallOrderForm()">
+  <form method="post" action="{% url 'call_recording_process' pk=call_rec.pk %}" id="spCallOrderFormEl">
+    {% csrf_token %}
+    <input type="hidden" name="agency_id" :value="agencyId">
+    <input type="hidden" name="teacher_id" :value="teacherId">
+    <input type="hidden" name="new_teacher_name" :value="newTeacherName">
+    <input type="hidden" name="new_teacher_phone" :value="newTeacherPhone">
+    <input type="hidden" name="delivery_school" :value="deliverySchool">
+    <input type="hidden" name="delivery_address" :value="deliveryAddr">
+    <input type="hidden" name="delivery_phone" :value="deliveryPhone">
+
+    <!-- 업체 -->
+    <div style="margin-bottom:6px">
+      <label style="font-size:11px;font-weight:600;color:#334155;display:block;margin-bottom:2px">업체</label>
+      <select x-model="agencyId" @change="onAgencyChange" style="width:100%;max-width:200px">
+        <option value="">-- 업체 선택 --</option>
+        <template x-for="a in ALL_AGENCIES" :key="a.id">
+          <option :value="a.id" x-text="a.name"></option>
+        </template>
+      </select>
+    </div>
+
+    <!-- 선생님 -->
+    <div style="margin-bottom:6px">
+      <label style="font-size:11px;font-weight:600;color:#334155;display:block;margin-bottom:2px">선생님</label>
+      <div class="ac-wrap">
+        <input type="text" x-model="teacherQuery" @input="filterTeachers" @focus="showTeacherList=true"
+               @keydown.arrow-down.prevent="acDown" @keydown.arrow-up.prevent="acUp"
+               @keydown.enter.prevent="acSelect" @keydown.escape="showTeacherList=false"
+               placeholder="이름 입력..." :disabled="!agencyId" autocomplete="off">
+        <div class="ac-list" x-show="showTeacherList && filteredTeachers.length" @click.outside="showTeacherList=false">
+          <template x-for="(t, i) in filteredTeachers" :key="t.id">
+            <div @click="selectTeacher(t)" :class="{'active': i === acIdx}">
+              <span x-text="t.name"></span>
+              <span class="sub" x-text="t.delivery_name ? ' — ' + t.delivery_name : ''"></span>
+            </div>
+          </template>
+        </div>
+      </div>
+      <template x-if="agencyId && !teacherId && teacherQuery.length >= 1">
+        <span style="font-size:10px;color:#2563eb;cursor:pointer;margin-left:4px" @click="isNewTeacher=true">+ 신규</span>
+      </template>
+    </div>
+
+    <!-- 신규 선생님 -->
+    <div class="new-fields" x-show="isNewTeacher">
+      <div class="form-row">
+        <label>이름*</label>
+        <input type="text" x-model="newTeacherName" placeholder="홍길동">
+      </div>
+      <div class="form-row">
+        <label>전화</label>
+        <input type="tel" x-model="newTeacherPhone" placeholder="010-1234-5678">
+      </div>
+    </div>
+
+    <!-- 배송지 -->
+    <div style="margin:8px 0 6px;padding-top:8px;border-top:1px solid #eee">
+      <div style="display:flex;gap:6px;margin-bottom:4px">
+        <div style="flex:1">
+          <label style="font-size:10px;color:#666">학교명</label>
+          <div style="display:flex;gap:3px">
+            <input type="text" x-model="deliverySchool" style="flex:1;padding:3px 6px;border:1px solid #bbb;font-size:11px" placeholder="OO초등학교"
+                   @keydown.enter.prevent="searchSchool()">
+            <button type="button" class="btn btn-outline btn-sm" @click="searchSchool()" style="font-size:10px;padding:2px 6px;white-space:nowrap">검색</button>
+          </div>
+        </div>
+        <div style="flex:1">
+          <label style="font-size:10px;color:#666">전화</label>
+          <input type="tel" x-model="deliveryPhone" style="width:100%;padding:3px 6px;border:1px solid #bbb;font-size:11px" placeholder="010-1234-5678">
+        </div>
+      </div>
+      <div>
+        <label style="font-size:10px;color:#666">주소</label>
+        <input type="text" x-model="deliveryAddr" style="width:100%;padding:3px 6px;border:1px solid #bbb;font-size:11px" placeholder="주소">
+      </div>
+    </div>
+
+    <!-- 엑셀 업로드 -->
+    <div style="margin:8px 0;padding:6px 8px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:4px">
+      <div style="display:flex;align-items:center;gap:6px">
+        <label style="font-size:11px;font-weight:600;color:#334155;white-space:nowrap">엑셀</label>
+        <input type="file" accept=".xlsx,.xls" @change="uploadExcel($event)" style="font-size:10px;flex:1">
+        <span x-show="excelLoading" style="font-size:10px;color:#888">파싱중...</span>
+      </div>
+    </div>
+
+    <!-- 교재 -->
+    <div style="margin-bottom:6px">
+      <div style="font-size:11px;font-weight:600;color:#334155;margin-bottom:4px">교재</div>
+      <template x-for="(row, index) in rows" :key="index">
+        <div class="book-row" :style="row._lowConf ? 'border-color:#eab308;background:#fefce8' : ''">
+          <template x-if="!row.is_custom">
+            <select x-model="row.series" @change="row.book_id='';row.unit_price=0" style="width:80px">
+              <option value="">전체</option>
+              {% for s in series_list %}
+              <option value="{{ s }}">{{ s }}</option>
+              {% endfor %}
+            </select>
+          </template>
+          <template x-if="!row.is_custom">
+            <select x-model="row.book_id" @change="updatePrice(row)" style="flex:1;min-width:0">
+              <option value="">교재 선택</option>
+              <template x-for="b in getBooks(row.series)" :key="b.id">
+                <option :value="b.id" x-text="b.name"></option>
+              </template>
+            </select>
+          </template>
+          <template x-if="row.is_custom">
+            <input type="text" :name="'custom_name_' + index" x-model="row.custom_name"
+                   style="flex:1;min-width:0;padding:2px 4px;border:1px solid #bbb;font-size:11px" placeholder="교재명">
+          </template>
+          <input type="hidden" :name="'book_' + index" :value="row.book_id" x-show="false">
+          <input type="number" :name="'qty_' + index" x-model.number="row.qty" min="1" max="9999">
+          <span class="price" x-text="rowAmount(row) ? rowAmount(row).toLocaleString()+'원' : '-'"></span>
+          <button type="button" class="remove-btn" @click="rows.splice(index,1)" x-show="rows.length>1">&times;</button>
+          <template x-if="row.is_custom">
+            <input type="hidden" :name="'custom_price_' + index" :value="row.unit_price">
+          </template>
+        </div>
+      </template>
+      <div style="display:flex;gap:4px;margin-top:4px">
+        <button type="button" class="btn btn-outline btn-sm" @click="addRow" style="font-size:10px;padding:2px 8px">+ 행</button>
+        <button type="button" class="btn btn-outline btn-sm" @click="addCustomRow" style="font-size:10px;padding:2px 8px;color:#e8720c;border-color:#e8720c">+ 직접입력</button>
+        <div style="flex:1;text-align:right;font-size:12px;font-weight:700;color:#e8720c;line-height:24px">
+          합계: <span x-text="total().toLocaleString()"></span>원
+        </div>
+      </div>
+    </div>
+
+    <!-- 메모 -->
+    <div style="margin-bottom:8px">
+      <input type="text" name="memo" style="width:100%;padding:4px 6px;border:1px solid #bbb;font-size:11px" placeholder="메모 (특이사항)">
+    </div>
+
+    <!-- 버튼 -->
+    <div style="display:flex;gap:6px">
+      <button type="button" class="btn btn-orange btn-sm" @click="submitOrder" style="flex:1;padding:6px 0">주문 등록</button>
+      <button type="button" class="btn btn-gray btn-sm" @click="markSkipped" style="padding:6px 12px">건너뛰기</button>
+    </div>
+
+    <!-- 결과 메시지 -->
+    <div id="spCallOrderResult" style="display:none;margin-top:8px;padding:10px;border-radius:6px;text-align:center"></div>
+  </form>
+</div>
+
+<script>
+(function() {
+  const SP_BOOKS = {{ books_json|safe }};
+  const SP_TEACHERS = {{ teachers_json|safe }};
+  const SP_AGENCIES = {{ agencies_json|safe }};
+  const PREFILL = {{ prefill_json|safe }};
+  window.spCallOrderForm = function() {
+    return {
+      agencyId: '', ALL_AGENCIES: SP_AGENCIES,
+      teacherId: '', teacherQuery: '', showTeacherList: false, filteredTeachers: [],
+      isNewTeacher: false, newTeacherName: '', newTeacherPhone: '',
+      deliverySchool: '', deliveryAddr: '', deliveryPhone: '',
+      acIdx: -1, excelLoading: false,
+      rows: [{ series:'', book_id:'', qty:1, unit_price:0 }],
+
+      init() {
+        if (PREFILL) {
+          // Try to match teacher by name
+          if (PREFILL.teacher_name) {
+            var tName = PREFILL.teacher_name;
+            var matched = SP_TEACHERS.filter(function(t) { return t.name === tName; });
+            if (matched.length === 1) {
+              this.agencyId = String(matched[0].agency_id);
+              this.selectTeacher(matched[0]);
+            } else if (matched.length > 1) {
+              this.teacherQuery = tName;
+            } else {
+              this.teacherQuery = tName;
+            }
+          }
+          if (PREFILL.school_name && !this.deliverySchool) {
+            this.deliverySchool = PREFILL.school_name;
+          }
+          if (PREFILL.phone && !this.deliveryPhone) {
+            this.deliveryPhone = PREFILL.phone;
+          }
+          // Prefill book items
+          if (PREFILL.items && PREFILL.items.length) {
+            var newRows = [];
+            for (var item of PREFILL.items) {
+              if (item.book_id) {
+                var b = SP_BOOKS.find(function(bk) { return bk.id === item.book_id; });
+                if (b) {
+                  newRows.push({
+                    series: b.series || '', book_id: String(b.id),
+                    qty: item.qty || 1, unit_price: b.unit_price,
+                    is_custom: false, _lowConf: item.confidence === 'low'
+                  });
+                } else {
+                  newRows.push({ is_custom: true, custom_name: item.name || item.book_name || '', qty: item.qty || 1, unit_price: 0, _lowConf: true });
+                }
+              } else {
+                newRows.push({ is_custom: true, custom_name: item.name || item.book_name || '', qty: item.qty || 1, unit_price: 0, _lowConf: true });
+              }
+            }
+            if (newRows.length) this.rows = newRows;
+          }
+        }
+      },
+      _applyExcelResult(data) {
+        this.rows = this.rows.filter(r => r.book_id || (r.is_custom && r.custom_name));
+        if (data.matched) {
+          for (const m of data.matched) {
+            this.rows.push({ series: m.series || '', book_id: String(m.book_id), qty: m.qty, unit_price: m.unit_price, is_custom: false });
+          }
+        }
+        if (data.unmatched) {
+          for (const u of data.unmatched) {
+            this.rows.push({ is_custom: true, custom_name: u.name, qty: u.qty, unit_price: 0 });
+          }
+        }
+        if (!this.rows.length) this.rows.push({ series: '', book_id: '', qty: 1, unit_price: 0, is_custom: false });
+      },
+      searchSchool() {
+        var q = (this.deliverySchool || '').trim();
+        if (!q) { alert('학교명을 입력해주세요.'); return; }
+        var self = this;
+        if (!window.daum || !window.daum.Postcode) {
+          var s = document.createElement('script');
+          s.src = '//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js';
+          s.onload = function() { self._openPostcode(q); };
+          document.head.appendChild(s);
+        } else {
+          this._openPostcode(q);
+        }
+      },
+      _openPostcode(q) {
+        var self = this;
+        new daum.Postcode({
+          oncomplete: function(data) {
+            if (data.buildingName) self.deliverySchool = data.buildingName;
+            self.deliveryAddr = data.address;
+          }
+        }).open({ q: q });
+      },
+      onAgencyChange() { this.isNewTeacher = false; },
+      filterTeachers() {
+        this.teacherId = ''; this.isNewTeacher = false;
+        const q = this.teacherQuery.toLowerCase();
+        const ba = SP_TEACHERS.filter(t => String(t.agency_id) === String(this.agencyId));
+        this.filteredTeachers = q ? ba.filter(t => t.name.toLowerCase().includes(q) || (t.phone && t.phone.includes(q))) : ba;
+        this.showTeacherList = true; this.acIdx = -1;
+      },
+      selectTeacher(t) {
+        this.teacherId = t.id; this.teacherQuery = t.name; this.showTeacherList = false; this.isNewTeacher = false;
+        this.deliverySchool = t.delivery_name || ''; this.deliveryAddr = t.delivery_address || ''; this.deliveryPhone = t.delivery_phone || '';
+      },
+      acDown() { if (this.acIdx < this.filteredTeachers.length-1) this.acIdx++; },
+      acUp() { if (this.acIdx > 0) this.acIdx--; },
+      acSelect() { if (this.acIdx >= 0 && this.acIdx < this.filteredTeachers.length) this.selectTeacher(this.filteredTeachers[this.acIdx]); },
+      getBooks(series) { return series ? SP_BOOKS.filter(b => b.series === series) : SP_BOOKS; },
+      updatePrice(row) { const b = SP_BOOKS.find(b => b.id == row.book_id); row.unit_price = b ? b.unit_price : 0; },
+      rowAmount(row) { return ((row.book_id || row.is_custom) && row.qty) ? row.unit_price * row.qty : 0; },
+      total() { return this.rows.reduce((s, r) => s + this.rowAmount(r), 0); },
+      addRow() { this.rows.push({ series:'', book_id:'', qty:1, unit_price:0, is_custom:false }); },
+      addCustomRow() { this.rows.push({ is_custom:true, custom_name:'', qty:1, unit_price:0 }); },
+      async uploadExcel(e) {
+        const file = e.target.files[0]; if (!file) return;
+        this.excelLoading = true;
+        const fd = new FormData();
+        fd.append('file', file);
+        fd.append('csrfmiddlewaretoken', document.querySelector('#spCallOrderFormEl [name=csrfmiddlewaretoken]').value);
+        try {
+          const res = await fetch('/orders/parse-excel/', { method:'POST', body:fd });
+          const data = await res.json();
+          if (data.error) { alert(data.error); return; }
+          if (data.meta) {
+            const m = data.meta;
+            if (m.agency && !this.agencyId) { const f = SP_AGENCIES.find(a => a.name.includes(m.agency)); if (f) this.agencyId = String(f.id); }
+            if (m.teacher && !this.teacherId) {
+              let c = SP_TEACHERS.filter(t => t.name === m.teacher);
+              if (this.agencyId && c.length) { const ba = c.filter(t => String(t.agency_id)===this.agencyId); if (ba.length) c=ba; }
+              if (c.length>=1) { if (!this.agencyId) this.agencyId=String(c[0].agency_id); this.selectTeacher(c[0]); }
+              else this.teacherQuery = m.teacher;
+            }
+            if (m.school && !this.deliverySchool) this.deliverySchool = m.school;
+            if (m.address && !this.deliveryAddr) this.deliveryAddr = m.address;
+            if (m.phone && !this.deliveryPhone) this.deliveryPhone = m.phone;
+          }
+          this._applyExcelResult(data);
+        } catch(err) { alert('업로드 실패: '+err.message); }
+        finally { this.excelLoading=false; e.target.value=''; }
+      },
+      submitOrder() {
+        if (!this.agencyId) { alert('업체를 선택하세요.'); return; }
+        if (!this.teacherId && !this.newTeacherName) { alert('선생님을 선택하거나 신규 등록하세요.'); return; }
+        if (!this.deliverySchool) { alert('학교명을 입력하세요.'); return; }
+        if (!this.rows.some(r => (r.book_id || (r.is_custom && r.custom_name)) && r.qty > 0)) { alert('교재를 선택하세요.'); return; }
+
+        const form = document.getElementById('spCallOrderFormEl');
+        const fd = new FormData(form);
+        fetch(form.action, {
+          method: 'POST', body: fd,
+          headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        }).then(r => r.json()).then(data => {
+          if (data.ok) {
+            const rd = document.getElementById('spCallOrderResult');
+            rd.style.display = 'block';
+            rd.style.background = '#ecfdf5';
+            rd.style.color = '#065f46';
+            rd.innerHTML = '<strong>주문 등록 완료!</strong><br>주문번호: ' + data.order_no;
+            if (window._onCallOrderCreated) window._onCallOrderCreated(data);
+          } else {
+            alert(data.error || '주문 등록 실패');
+          }
+        }).catch(err => alert('오류: ' + err.message));
+      },
+      markSkipped() {
+        if (!confirm('이 통화를 건너뛰시겠습니까?')) return;
+        const form = document.getElementById('spCallOrderFormEl');
+        const fd = new FormData(form);
+        fd.append('skip', '1');
+        fetch(form.action, {
+          method: 'POST', body: fd,
+          headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        }).then(r => r.json()).then(data => {
+          if (data.ok) {
+            if (window._onCallSkipped) window._onCallSkipped(data);
+          }
+        }).catch(err => alert('오류: ' + err.message));
+      },
+    };
+  };
+})();
+</script>

@@ -347,11 +347,15 @@ def call_recording_process(request, pk):
                 rec.status = CallRecording.Status.PARSED
                 rec.save(update_fields=['parsed_data', 'status'])
 
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+
     # POST: 주문 생성
     if request.method == 'POST':
         if 'skip' in request.POST:
             rec.status = CallRecording.Status.SKIPPED
             rec.save(update_fields=['status'])
+            if is_ajax:
+                return JsonResponse({'ok': True, 'skipped': True, 'call_pk': rec.pk})
             messages.success(request, '건너뛰었습니다.')
             return redirect('/inbox/?tab=call')
 
@@ -366,6 +370,8 @@ def call_recording_process(request, pk):
         try:
             agency = User.objects.get(pk=agency_id, role='agency', is_active=True)
         except (User.DoesNotExist, ValueError):
+            if is_ajax:
+                return JsonResponse({'ok': False, 'error': '업체를 선택해 주세요.'})
             messages.error(request, '업체를 선택해 주세요.')
             return redirect('call_recording_process', pk=pk)
 
@@ -375,6 +381,8 @@ def call_recording_process(request, pk):
                     pk=teacher_id, role='teacher', is_active=True
                 )
             except (User.DoesNotExist, ValueError):
+                if is_ajax:
+                    return JsonResponse({'ok': False, 'error': '선생님을 선택해 주세요.'})
                 messages.error(request, '선생님을 선택해 주세요.')
                 return redirect('call_recording_process', pk=pk)
         elif new_teacher_name:
@@ -390,6 +398,8 @@ def call_recording_process(request, pk):
                 teacher.set_unusable_password()
                 teacher.save()
         else:
+            if is_ajax:
+                return JsonResponse({'ok': False, 'error': '선생님을 선택하거나 새로 입력해 주세요.'})
             messages.error(request, '선생님을 선택하거나 새로 입력해 주세요.')
             return redirect('call_recording_process', pk=pk)
 
@@ -405,6 +415,8 @@ def call_recording_process(request, pk):
             teacher.delivery_address = delivery
             teacher.save(update_fields=['delivery_address'])
         elif not teacher.delivery_address:
+            if is_ajax:
+                return JsonResponse({'ok': False, 'error': '배송지를 입력해 주세요.'})
             messages.error(request, '배송지를 입력해 주세요.')
             return redirect('call_recording_process', pk=pk)
 
@@ -433,6 +445,8 @@ def call_recording_process(request, pk):
             i += 1
 
         if not items:
+            if is_ajax:
+                return JsonResponse({'ok': False, 'error': '주문할 교재를 1권 이상 선택하세요.'})
             messages.error(request, '주문할 교재를 1권 이상 선택하세요.')
             return redirect('call_recording_process', pk=pk)
 
@@ -465,6 +479,8 @@ def call_recording_process(request, pk):
         rec.status = CallRecording.Status.ORDERED
         rec.save(update_fields=['order', 'status'])
 
+        if is_ajax:
+            return JsonResponse({'ok': True, 'order_no': order.order_no, 'call_pk': rec.pk})
         messages.success(request, f'통화 주문 등록 완료! 주문번호: {order.order_no}')
         return redirect('order_detail', pk=order.pk)
 

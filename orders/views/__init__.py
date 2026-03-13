@@ -25,7 +25,7 @@ from .report import (
 from .inbox import (
     inbox_list, inbox_single_skip, inbox_delete, inbox_bulk_delete,
     inbox_bulk_skip, fetch_emails, fetch_emails_status, inbox_process, inbox_reply,
-    inbox_detail_api, inbox_order_form_partial, inbox_next_api, inbox_call_detail_api,
+    inbox_detail_api, inbox_order_form_partial, call_order_form_partial, inbox_next_api, inbox_call_detail_api,
     attachment_download, attachment_preview,
     sms_webhook, sms_desk, send_sms_ajax, parse_order_excel, sms_import_xml,
 )

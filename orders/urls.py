@@ -87,6 +87,7 @@ urlpatterns = [
     path('inbox/<int:pk>/form/', views.inbox_order_form_partial, name='inbox_order_form_partial'),
     path('inbox/api/next/', views.inbox_next_api, name='inbox_next_api'),
     path('inbox/call/<int:pk>/detail/', views.inbox_call_detail_api, name='inbox_call_detail_api'),
+    path('inbox/call/<int:pk>/form/', views.call_order_form_partial, name='call_order_form_partial'),
     path('inbox/<int:pk>/reply/', views.inbox_reply, name='inbox_reply'),
     path('inbox/attachment/<int:pk>/download/', views.attachment_download, name='attachment_download'),
     path('inbox/attachment/<int:pk>/preview/', views.attachment_preview, name='attachment_preview'),
