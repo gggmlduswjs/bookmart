@@ -4,6 +4,7 @@ from datetime import timedelta
 from django.contrib import messages
 from django.http import JsonResponse
 from django.shortcuts import render, redirect
+from django.urls import reverse
 from django.utils import timezone
 from django.db.models import Count, Max, Q, Sum
 
@@ -75,6 +76,44 @@ def dashboard(request):
     # 최근 활동 로그
     recent_activity = AuditLog.objects.select_related('user').order_by('-created_at')[:5]
 
+    # 오늘의 할 일
+    todo_items = []
+    inbox_total = unprocessed_inbox + call_pending
+    if inbox_total > 0:
+        parts = []
+        if inbox_email: parts.append(f'이메일 {inbox_email}')
+        if inbox_sms: parts.append(f'SMS {inbox_sms}')
+        if call_pending: parts.append(f'통화 {call_pending}')
+        todo_items.append({
+            'label': f'미처리 수신함 {inbox_total}건',
+            'sub': ' / '.join(parts),
+            'url': reverse('inbox_list') + '?tab=email&hide_done=1',
+            'btn': '처리하기',
+            'color': '#f59e0b',
+            'urgent': inbox_total >= 10,
+        })
+    if pending_orders > 0:
+        sub = ''
+        if pending_overdue: sub = f'초과 {pending_overdue}건'
+        elif pending_imminent: sub = f'임박 {pending_imminent}건'
+        todo_items.append({
+            'label': f'발송 대기 {pending_orders}건',
+            'sub': sub,
+            'url': reverse('delivery_manage') + '?tab=pending',
+            'btn': '운송장 입력',
+            'color': '#3b82f6',
+            'urgent': pending_overdue > 0,
+        })
+    if pending_returns_count > 0:
+        todo_items.append({
+            'label': f'반품 대기 {pending_returns_count}건',
+            'sub': '',
+            'url': reverse('return_list') + '?status=requested',
+            'btn': '확인하기',
+            'color': '#ef4444',
+            'urgent': False,
+        })
+
     return render(request, 'orders/dashboard.html', {
         'unprocessed_inbox': unprocessed_inbox,
         'inbox_email': inbox_email,
@@ -96,6 +135,7 @@ def dashboard(request):
         'today_revenue': today_revenue,
         'overdue_delivery_count': overdue_delivery_count,
         'recent_activity': recent_activity,
+        'todo_items': todo_items,
     })
 
 

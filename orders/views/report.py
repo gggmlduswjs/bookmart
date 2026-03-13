@@ -33,10 +33,47 @@ def ledger(request):
         if category_filter:
             agencies = agencies.filter(agency_category=category_filter)
         agency_id = request.GET.get('agency', '')
-        if agency_id:
-            selected_agency = get_object_or_404(User, pk=agency_id, role='agency')
-        else:
-            selected_agency = agencies.first()
+
+        # 업체 미선택 시 → 전체 업체 잔액 요약 모드
+        if not agency_id:
+            from django.db.models import Sum as DSum
+            agency_summaries = []
+            for agency in agencies:
+                sales = OrderItem.objects.filter(
+                    order__agency=agency,
+                    order__status__in=['shipping', 'delivered'],
+                ).aggregate(total=DSum('amount'))['total'] or 0
+                returns = ReturnItem.objects.filter(
+                    ret__agency=agency,
+                    ret__status='confirmed',
+                ).aggregate(total=DSum('confirmed_amount'))['total'] or 0
+                paid = Payment.objects.filter(agency=agency).aggregate(
+                    total=DSum('amount'))['total'] or 0
+                bal = sales - returns - paid
+                if sales > 0 or bal != 0:
+                    agency_summaries.append({
+                        'pk': agency.pk, 'name': agency.name,
+                        'category': agency.agency_category,
+                        'sales': sales, 'returns': returns,
+                        'paid': paid, 'balance': bal,
+                    })
+            agency_summaries.sort(key=lambda x: -x['balance'])
+            year = int(request.GET.get('year', today.year))
+            month = int(request.GET.get('month', today.month))
+            return render(request, 'orders/ledger.html', {
+                'mode': 'summary',
+                'agency_summaries': agency_summaries,
+                'total_balance': sum(a['balance'] for a in agency_summaries),
+                'agencies': agencies,
+                'agency_categories': agency_categories,
+                'category_filter': category_filter,
+                'agency_id': '',
+                'year': year, 'month': month,
+                'years': range(today.year - 2, today.year + 1),
+                'months': range(1, 13),
+            })
+
+        selected_agency = get_object_or_404(User, pk=agency_id, role='agency')
     else:
         agencies = None
         agency_categories = []
@@ -110,11 +147,24 @@ def ledger(request):
         for p in payments:
             total_paid += p.amount
 
-        rows.sort(key=lambda r: r['date'])
+        rows.sort(key=lambda r: (r['delivery'], r['date']))
 
     balance = total_sales - total_returns - total_paid
 
+    # 학교별 그룹핑
+    from itertools import groupby
+    grouped_rows = []
+    for delivery_name, items in groupby(rows, key=lambda r: r['delivery']):
+        items_list = list(items)
+        subtotal = sum(r['amount'] for r in items_list)
+        grouped_rows.append({
+            'delivery': delivery_name,
+            'items': items_list,
+            'subtotal': subtotal,
+        })
+
     return render(request, 'orders/ledger.html', {
+        'mode': 'detail',
         'agencies': agencies,
         'selected_agency': selected_agency,
         'agency_id': agency_id,
@@ -123,6 +173,7 @@ def ledger(request):
         'years': range(today.year - 2, today.year + 1),
         'months': range(1, 13),
         'rows': rows,
+        'grouped_rows': grouped_rows,
         'total_sales': total_sales,
         'total_returns': total_returns,
         'total_paid': total_paid,

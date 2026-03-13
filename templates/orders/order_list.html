@@ -169,6 +169,7 @@
     <button class="btn btn-dark btn-sm" onclick="bulkPrint()">거래명세서</button>
     <button class="btn btn-outline btn-sm" onclick="bulkQuote()">견적서</button>
     {% if request.user.is_admin %}
+    <button class="btn btn-outline btn-sm" onclick="openTrackingModal()">운송장 일괄입력</button>
     <button class="btn btn-blue btn-sm" onclick="bulkShipDirect()">직접배송 발송</button>
     <button class="btn btn-red btn-sm" onclick="bulkDelete()">선택 삭제</button>
     {% endif %}
@@ -369,10 +370,58 @@
 <form id="bulkDeleteForm" method="post" action="{% url 'order_bulk_delete' %}" style="display:none">
   {% csrf_token %}
 </form>
+
+<!-- 운송장 일괄입력 모달 -->
+<div id="tracking-modal" class="tracking-modal-overlay" style="display:none" onclick="if(event.target===this)closeTrackingModal()">
+  <div class="tracking-modal-box">
+    <div class="tracking-modal-header">
+      <strong>운송장 일괄 입력</strong>
+      <button onclick="closeTrackingModal()" style="background:none;border:none;font-size:20px;color:#94a3b8;cursor:pointer;line-height:1">&times;</button>
+    </div>
+    <div class="tracking-modal-body">
+      <p style="font-size:12px;color:#64748b;margin-bottom:8px">
+        주문번호와 운송장번호를 붙여넣으세요 (탭/쉼표/스페이스 구분)
+      </p>
+      <textarea id="tracking-input" rows="8" placeholder="20260312001  1234567890&#10;20260312002  9876543210"
+        style="width:100%;border:1px solid #cbd5e1;border-radius:6px;padding:10px;font-size:12px;font-family:monospace;resize:vertical"></textarea>
+      <div id="tracking-preview" style="margin-top:8px;font-size:12px;color:#475569"></div>
+    </div>
+    <div class="tracking-modal-footer">
+      <span id="tracking-count" style="font-size:12px;color:#64748b"></span>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-outline btn-sm" onclick="closeTrackingModal()">취소</button>
+        <button class="btn btn-blue btn-sm" id="tracking-submit-btn" onclick="submitBulkTracking()">발송 처리</button>
+      </div>
+    </div>
+  </div>
+</div>
 {% endif %}
 
 <style>
   [x-cloak] { display: none !important; }
+
+  /* ── 운송장 모달 ── */
+  .tracking-modal-overlay {
+    position: fixed; inset: 0; z-index: 10000;
+    background: rgba(15,23,42,0.5);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .tracking-modal-box {
+    background: #fff; border-radius: 12px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+    width: 520px; max-width: calc(100vw - 32px);
+    display: flex; flex-direction: column;
+  }
+  .tracking-modal-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 20px; border-bottom: 1px solid #e5e7eb;
+    font-size: 15px;
+  }
+  .tracking-modal-body { padding: 16px 20px; }
+  .tracking-modal-footer {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 20px; border-top: 1px solid #e5e7eb;
+  }
 
   /* ── 상태 요약 칩 ── */
   .status-summary {
@@ -1035,6 +1084,66 @@ function deleteOrder(pk, orderNo) {
       form.appendChild(input);
       form.submit();
     }
+  });
+}
+
+/* ── 운송장 일괄입력 모달 ── */
+function openTrackingModal() {
+  document.getElementById('tracking-modal').style.display = 'flex';
+  var ta = document.getElementById('tracking-input');
+  ta.value = '';
+  ta.focus();
+  document.getElementById('tracking-preview').innerHTML = '';
+  document.getElementById('tracking-count').textContent = '';
+}
+function closeTrackingModal() {
+  document.getElementById('tracking-modal').style.display = 'none';
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  var ta = document.getElementById('tracking-input');
+  if (ta) {
+    ta.addEventListener('input', function() {
+      var lines = ta.value.trim().split('\n').filter(function(l) { return l.trim(); });
+      var parsed = lines.map(function(line) {
+        var parts = line.trim().split(/[\t,\s]+/);
+        return { order_no: parts[0] || '', tracking_no: parts[1] || '' };
+      }).filter(function(i) { return i.order_no && i.tracking_no; });
+      var countEl = document.getElementById('tracking-count');
+      countEl.textContent = parsed.length > 0 ? parsed.length + '건 인식됨' : '';
+    });
+  }
+});
+
+function submitBulkTracking() {
+  var text = document.getElementById('tracking-input').value.trim();
+  var lines = text.split('\n').filter(function(l) { return l.trim(); });
+  var items = lines.map(function(line) {
+    var parts = line.trim().split(/[\t,\s]+/);
+    return { order_no: parts[0] || '', tracking_no: parts[1] || '' };
+  }).filter(function(i) { return i.order_no && i.tracking_no; });
+
+  if (items.length === 0) { alert('주문번호와 운송장번호를 입력해주세요.'); return; }
+
+  var btn = document.getElementById('tracking-submit-btn');
+  btn.disabled = true;
+  btn.textContent = '처리중...';
+
+  fetch('/orders/api/bulk-tracking/', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+    body: JSON.stringify({ items: items })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    closeTrackingModal();
+    showToast(data.count + '건 발송 처리 완료', 'success');
+    setTimeout(function() { location.reload(); }, 1500);
+  })
+  .catch(function() {
+    showToast('처리 중 오류 발생', 'error');
+    btn.disabled = false;
+    btn.textContent = '발송 처리';
   });
 }
 
