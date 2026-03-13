@@ -860,6 +860,19 @@ def inbox_reply(request, pk):
     is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
 
     if ok:
+        # 발신 이메일을 InboxMessage에 저장 (스레드 표시용)
+        from django.utils import timezone
+        InboxMessage.objects.create(
+            source='email',
+            account_label=inbox_msg.account_label,
+            sender=creds[0],  # 발신 계정
+            subject='[발신] ' + reply_subject,
+            content=reply_body,
+            received_at=timezone.now(),
+            is_processed=True,
+            is_read=True,
+            phone=to_email,  # phone 필드를 이메일 그룹핑에 재사용
+        )
         if is_ajax:
             return JsonResponse({'ok': True, 'message': f'{to_email}에 답장을 발송했습니다.'})
         messages.success(request, f'{to_email}에 답장을 발송했습니다.')
@@ -1669,6 +1682,32 @@ def inbox_detail_api(request, pk):
                 })
         data['sms_thread'] = thread_msgs
         data['sms_reply_phone'] = _extract_reply_phone(msg)
+
+    # Email: include conversation thread (same sender email address)
+    if msg.source == 'email':
+        sender_str = msg.sender or ''
+        email_match = _re.search(r'[\w.\-+]+@[\w.\-]+\.\w+', sender_str)
+        sender_email = email_match.group(0) if email_match else ''
+        email_thread = []
+        if sender_email:
+            # 수신: sender에 해당 이메일 포함 / 발신: phone 필드에 해당 이메일 저장
+            thread_qs = InboxMessage.objects.filter(
+                source='email',
+            ).filter(
+                Q(sender__icontains=sender_email) | Q(phone=sender_email)
+            ).order_by('received_at')[:50]
+            for m in thread_qs:
+                is_sent = (m.subject or '').startswith('[발신]')
+                email_thread.append({
+                    'pk': m.pk,
+                    'subject': m.subject or '',
+                    'content': (m.content or '')[:300],
+                    'time': m.received_at.strftime('%H:%M') if m.received_at else '',
+                    'date': m.received_at.strftime('%Y-%m-%d') if m.received_at else '',
+                    'is_sent': is_sent,
+                    'is_current': m.pk == msg.pk,
+                })
+        data['email_thread'] = email_thread
 
     return JsonResponse(data)
 

@@ -188,6 +188,17 @@
   .sp-chat-time { font-size:9px; color:#6b8299; flex-shrink:0; padding-bottom:1px; }
   .sp-chat-date { text-align:center; padding:6px 0 3px; }
   .sp-chat-date span { background:rgba(0,0,0,.18); color:#fff; padding:2px 10px; border-radius:10px; font-size:10px; }
+  /* Email thread */
+  .sp-email-msg {
+    border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 12px;
+    font-size: 12px; line-height: 1.6; max-width: 85%;
+  }
+  .sp-email-msg.recv { background: #fff; align-self: flex-start; border-left: 3px solid #3b82f6; }
+  .sp-email-msg.sent { background: #fffbeb; align-self: flex-end; border-right: 3px solid #f59e0b; }
+  .sp-email-msg.current { outline: 2px solid #3b82f6; outline-offset: 2px; }
+  .sp-email-msg .email-subj { font-weight: 600; color: #1e293b; margin-bottom: 4px; }
+  .sp-email-msg .email-body { color: #475569; white-space: pre-wrap; word-break: break-all; }
+  .sp-email-msg .email-meta { font-size: 10px; color: #94a3b8; margin-top: 4px; }
   /* Call detail in panel */
   .sp-call-info { padding:16px 20px; }
   .sp-call-info .field { margin-bottom:8px; }
@@ -723,6 +734,10 @@
           <div id="spSmsSection" style="display:none">
             <div class="sp-chat-thread" id="spSmsThread"></div>
           </div>
+          <!-- Email thread (shown for email with history) -->
+          <div id="spEmailThreadSection" style="display:none">
+            <div id="spEmailThread" style="display:flex;flex-direction:column;gap:8px"></div>
+          </div>
           <!-- Call detail (shown for calls) -->
           <div id="spCallSection" style="display:none"></div>
           <!-- Reply section -->
@@ -941,6 +956,7 @@ function openSlidePanel(pk, source) {
   document.getElementById('spContent').innerHTML = '<div style="text-align:center;padding:40px;color:#94a3b8">로딩 중...</div>';
   document.getElementById('spAttachments').style.display = 'none';
   document.getElementById('spSmsSection').style.display = 'none';
+  document.getElementById('spEmailThreadSection').style.display = 'none';
   document.getElementById('spCallSection').style.display = 'none';
   document.getElementById('spReplySection').style.display = 'none';
   // Reset attachment column & tab
@@ -990,8 +1006,16 @@ function _loadMessageDetail(pk, source) {
         document.getElementById('spContent').style.display = 'none';
         document.getElementById('spSmsSection').style.display = '';
         _renderSmsThread(data.sms_thread);
+      } else if (data.source === 'email' && data.email_thread && data.email_thread.length > 1) {
+        // Email with thread: show conversation view
+        document.getElementById('spSender').textContent = data.sender || '';
+        document.getElementById('spSubject').textContent = data.subject || '(제목 없음)';
+        document.getElementById('spTime').textContent = data.received_at || '';
+        document.getElementById('spContent').style.display = 'none';
+        document.getElementById('spEmailThreadSection').style.display = '';
+        _renderEmailThread(data.email_thread);
       } else {
-        // Email: show content
+        // Email (single) or fallback: show content
         document.getElementById('spSender').textContent = data.sender || '';
         document.getElementById('spSubject').textContent = data.subject || '(제목 없음)';
         document.getElementById('spTime').textContent = data.received_at || '';
@@ -1114,6 +1138,40 @@ function _renderSmsThread(thread) {
     container.appendChild(row);
   });
   // Scroll to current message
+  var current = container.querySelector('.current');
+  if (current) {
+    setTimeout(function() { current.scrollIntoView({ block: 'center' }); }, 100);
+  } else {
+    container.scrollTop = container.scrollHeight;
+  }
+}
+
+function _renderEmailThread(thread) {
+  var container = document.getElementById('spEmailThread');
+  container.innerHTML = '';
+  var lastDate = '';
+  thread.forEach(function(m) {
+    if (m.date !== lastDate) {
+      lastDate = m.date;
+      var sep = document.createElement('div');
+      sep.className = 'sp-chat-date';
+      sep.style.textAlign = 'center';
+      sep.style.padding = '6px 0';
+      sep.innerHTML = '<span style="background:#e2e8f0;color:#64748b;padding:2px 10px;border-radius:10px;font-size:10px">' + m.date + '</span>';
+      container.appendChild(sep);
+    }
+    var div = document.createElement('div');
+    div.className = 'sp-email-msg ' + (m.is_sent ? 'sent' : 'recv') + (m.is_current ? ' current' : '');
+    var subj = m.subject || '';
+    if (subj.startsWith('[발신] ')) subj = subj.substring(5);
+    var html = '';
+    if (subj) html += '<div class="email-subj">' + (m.is_sent ? '↩ ' : '') + _escapeHtml(subj) + '</div>';
+    html += '<div class="email-body">' + _escapeHtml(m.content) + '</div>';
+    html += '<div class="email-meta">' + m.date + ' ' + m.time + (m.is_sent ? ' · 발신' : ' · 수신') + '</div>';
+    div.innerHTML = html;
+    container.appendChild(div);
+  });
+  // Scroll to current
   var current = container.querySelector('.current');
   if (current) {
     setTimeout(function() { current.scrollIntoView({ block: 'center' }); }, 100);
