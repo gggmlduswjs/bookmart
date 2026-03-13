@@ -72,6 +72,7 @@ urlpatterns = [
     path('sales/', views.sales_report, name='sales_report'),
     path('purchase/', views.purchase_order, name='purchase_order'),
     path('payments/new/', views.payment_create, name='payment_create'),
+    path('api/payment-inline/', views.payment_create_inline, name='payment_create_inline'),
 
     # ── 수신함 ────────────────────────────────────────────────────────────────
     path('inbox/', views.inbox_list, name='inbox_list'),

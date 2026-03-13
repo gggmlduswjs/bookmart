@@ -276,6 +276,15 @@
         <span style="color:#6b7280">confidence가 낮은 항목은 노란색으로 표시됩니다.</span>
       </div>
     </div>
+    {% if parse_error %}
+    <div style="margin-bottom:10px;padding:10px 14px;background:#fef2f2;border:1px solid #fca5a5;border-radius:6px;display:flex;align-items:center;gap:8px">
+      <span style="font-size:18px">⚠️</span>
+      <div style="font-size:12px;color:#991b1b">
+        <strong>AI 파싱 실패</strong> — 수동으로 입력해주세요.
+        <div style="color:#b91c1c;margin-top:2px">{{ parse_error }}</div>
+      </div>
+    </div>
+    {% endif %}
     <form method="post" x-data="inboxOrderForm()">
       {% csrf_token %}
       <input type="hidden" name="agency_id" :value="agencyId">

@@ -188,14 +188,14 @@
   <div class="dl-card" id="dl-city-card">
     <div>
       <div class="dl-name">시내 마감</div>
-      <div class="dl-cutoff">{{ deadline_city|date:"H:i" }}</div>
+      <div class="dl-cutoff">{{ deadline_city|date:"H:i" }}{% if pending_city %} &middot; 대기 {{ pending_city }}건{% endif %}</div>
     </div>
     <div><span class="dl-remain ok" id="dl-city-remain">-</span><span class="dl-unit" id="dl-city-unit"></span></div>
   </div>
   <div class="dl-card" id="dl-region-card">
     <div>
       <div class="dl-name">지방 마감</div>
-      <div class="dl-cutoff">{{ deadline_region|date:"H:i" }}</div>
+      <div class="dl-cutoff">{{ deadline_region|date:"H:i" }}{% if pending_region %} &middot; 대기 {{ pending_region }}건{% endif %}</div>
     </div>
     <div><span class="dl-remain ok" id="dl-region-remain">-</span><span class="dl-unit" id="dl-region-unit"></span></div>
   </div>

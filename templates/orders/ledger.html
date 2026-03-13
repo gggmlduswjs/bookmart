@@ -89,7 +89,9 @@
   {% if request.user.is_admin and mode == 'detail' %}
   <a href="{% url 'export_ledger' %}?agency={{ agency_id }}&year={{ year }}&month={{ month }}"
      class="btn btn-outline btn-sm">엑셀 저장</a>
-  <a href="{% url 'payment_create' %}" class="btn btn-orange btn-sm">+ 입금 등록</a>
+  {% endif %}
+  {% if request.user.is_admin %}
+  <button type="button" class="btn btn-orange btn-sm" onclick="openPaymentModal()">+ 입금 등록</button>
   {% endif %}
 </form>
 
@@ -173,7 +175,7 @@
       </thead>
       <tbody>
         {% for row in group.items %}
-        <tr {% if row.type == '반품' %}style="color:#dc2626"{% endif %}>
+        <tr {% if row.type == '반품' %}style="color:#dc2626;cursor:pointer" onclick="location.href='/orders/returns/{{ row.return_pk }}/'"{% endif %}>
           <td>{{ row.date }}</td>
           <td class="center">
             {% if row.type == '매출' %}<span class="badge badge-blue">매출</span>
@@ -196,5 +198,86 @@
   <p style="color:#94a3b8;font-size:14px">{{ year }}년 {{ month }}월 거래 내역이 없습니다</p>
 </div>
 {% endfor %}
+{% endif %}
+
+{% if request.user.is_admin %}
+<!-- 인라인 입금 등록 모달 -->
+<div id="payment-modal" style="display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,0.4);display:none;align-items:center;justify-content:center"
+     onclick="if(event.target===this)closePaymentModal()">
+  <div style="background:#fff;border-radius:12px;width:420px;max-width:90vw;box-shadow:0 20px 60px rgba(0,0,0,0.15)" onclick="event.stopPropagation()">
+    <div style="padding:16px 20px;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center">
+      <h3 style="margin:0;font-size:15px;font-weight:700">입금 등록</h3>
+      <button onclick="closePaymentModal()" style="background:none;border:none;font-size:18px;cursor:pointer;color:#94a3b8">&times;</button>
+    </div>
+    <div style="padding:20px">
+      <div style="margin-bottom:12px">
+        <label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px">업체</label>
+        <select id="pm-agency" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px">
+          {% for a in agencies %}
+          <option value="{{ a.pk }}" {% if a.pk|stringformat:"s" == agency_id %}selected{% endif %}>{{ a.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div style="margin-bottom:12px">
+        <label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px">금액</label>
+        <input type="text" id="pm-amount" placeholder="0" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;text-align:right"
+               oninput="this.value=this.value.replace(/[^0-9]/g,'')">
+      </div>
+      <div style="margin-bottom:12px">
+        <label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px">입금일</label>
+        <input type="date" id="pm-date" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px">
+      </div>
+      <div style="margin-bottom:16px">
+        <label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px">메모</label>
+        <input type="text" id="pm-memo" placeholder="선택사항" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px">
+      </div>
+      <button onclick="submitPayment()" class="btn btn-orange" style="width:100%;padding:10px;font-size:14px;font-weight:600">입금 등록</button>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+{% if request.user.is_admin %}
+<script>
+function openPaymentModal(){
+  var m = document.getElementById('payment-modal');
+  m.style.display = 'flex';
+  var today = new Date().toISOString().split('T')[0];
+  document.getElementById('pm-date').value = today;
+  document.getElementById('pm-amount').value = '';
+  document.getElementById('pm-memo').value = '';
+  document.getElementById('pm-amount').focus();
+}
+function closePaymentModal(){
+  document.getElementById('payment-modal').style.display = 'none';
+}
+function submitPayment(){
+  var amount = document.getElementById('pm-amount').value;
+  if(!amount || parseInt(amount) <= 0){ alert('금액을 입력해주세요.'); return; }
+  fetch('{% url "payment_create_inline" %}', {
+    method:'POST',
+    headers:{'Content-Type':'application/json','X-CSRFToken':'{{ csrf_token }}'},
+    body: JSON.stringify({
+      agency_id: document.getElementById('pm-agency').value,
+      amount: amount,
+      paid_at: document.getElementById('pm-date').value,
+      memo: document.getElementById('pm-memo').value,
+    })
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(data){
+    if(data.ok){
+      closePaymentModal();
+      if(typeof showToast === 'function') showToast(data.message, 'success');
+      setTimeout(function(){ location.reload(); }, 1000);
+    } else {
+      alert(data.error || '등록 실패');
+    }
+  })
+  .catch(function(){ alert('오류가 발생했습니다.'); });
+}
+</script>
 {% endif %}
 {% endblock %}

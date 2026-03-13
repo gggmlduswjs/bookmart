@@ -287,10 +287,28 @@ def return_create_inline(request, pk):
 def return_reject(request, pk):
     ret = get_object_or_404(Return, pk=pk, status=Return.Status.REQUESTED)
     if request.method == 'POST':
+        reject_reason = request.POST.get('memo', ret.memo)
         ret.status = Return.Status.REJECTED
-        ret.memo = request.POST.get('memo', ret.memo)
+        ret.memo = reject_reason
         ret.save(update_fields=['status', 'memo'])
         _audit(request, AuditLog.Action.RETURN_REJECT, ret, f'반품 {ret.return_no} 거절')
+
+        # 선생님에게 거절 SMS 발송
+        if ret.teacher and ret.teacher.phone:
+            from orders.sms import send_sms
+            items_summary = ', '.join(
+                f'{ri.book.name}({ri.requested_qty}권)' for ri in ret.items.select_related('book') if ri.book
+            )
+            sms_msg = (
+                f'[북마트] 반품 거절 안내\n'
+                f'반품번호: {ret.return_no}\n'
+                f'교재: {items_summary}\n'
+            )
+            if reject_reason:
+                sms_msg += f'사유: {reject_reason}\n'
+            sms_msg += '문의: 02-XXX-XXXX'
+            send_sms(ret.teacher.phone, sms_msg)
+
         messages.success(request, f'반품 {ret.return_no} 거절 처리되었습니다.')
         return redirect('return_detail', pk=pk)
     return render(request, 'orders/return_reject.html', {'ret': ret})

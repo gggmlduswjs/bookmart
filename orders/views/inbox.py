@@ -735,6 +735,7 @@ def inbox_process(request, pk):
 
     # AI 이메일 파싱
     parsed_json = 'null'
+    parse_error = ''
     if inbox_msg.content and not inbox_msg.is_processed:
         try:
             from orders.call_order import parse_order_from_email
@@ -760,8 +761,10 @@ def inbox_process(request, pk):
             if parsed and not err:
                 parsed_json = json.dumps(parsed, ensure_ascii=False)
             elif err:
+                parse_error = err
                 logger.warning('이메일 AI 파싱 실패: %s', err)
-        except Exception:
+        except Exception as e:
+            parse_error = f'AI 파싱 중 오류 발생: {e}'
             logger.exception('이메일 AI 파싱 오류')
 
     # SMS 답장용 전화번호 추출 (sender, subject, content 순서로 탐색)
@@ -812,6 +815,7 @@ def inbox_process(request, pk):
         'attachments': attachments,
         'next_unprocessed': next_unprocessed,
         'parsed_json': parsed_json,
+        'parse_error': parse_error,
         'sms_reply_phone': sms_reply_phone,
         'sms_conversation': sms_conversation,
     })

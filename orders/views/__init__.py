@@ -18,7 +18,7 @@ from .return_ import (
     return_detail, return_confirm, return_reject,
 )
 from .report import (
-    ledger, sales_report, purchase_order, payment_create,
+    ledger, sales_report, purchase_order, payment_create, payment_create_inline,
     export_ledger, export_sales, export_orders, export_purchase,
     import_legacy, import_legacy_delete,
 )

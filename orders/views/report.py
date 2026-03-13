@@ -136,6 +136,7 @@ def ledger(request):
                 'list_price': ri.list_price,
                 'supply_rate': ri.supply_rate,
                 'amount': -confirmed_amount,
+                'return_pk': ri.ret.pk,
             })
             total_returns += confirmed_amount
 
@@ -300,6 +301,34 @@ def payment_create(request):
         except (User.DoesNotExist, ValueError) as e:
             messages.error(request, '입력값을 확인해주세요.')
     return render(request, 'orders/payment_form.html', {'agencies': agencies})
+
+
+@role_required('admin')
+def payment_create_inline(request):
+    """거래원장에서 인라인 입금 등록 (AJAX)"""
+    if request.method != 'POST':
+        return JsonResponse({'ok': False, 'error': 'POST only'}, status=405)
+    try:
+        data = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({'ok': False, 'error': '잘못된 요청'}, status=400)
+
+    agency_id = data.get('agency_id')
+    amount_str = str(data.get('amount', '0')).replace(',', '')
+    paid_at = data.get('paid_at', '')
+    memo = data.get('memo', '')
+
+    try:
+        agency = User.objects.get(pk=agency_id, role='agency')
+        amount = int(amount_str)
+        if amount <= 0:
+            return JsonResponse({'ok': False, 'error': '금액을 입력해주세요.'})
+        Payment.objects.create(agency=agency, amount=amount, paid_at=paid_at, memo=memo)
+        return JsonResponse({'ok': True, 'message': f'{agency.name} 입금 {amount:,}원 등록 완료'})
+    except User.DoesNotExist:
+        return JsonResponse({'ok': False, 'error': '업체를 찾을 수 없습니다.'}, status=400)
+    except (ValueError, TypeError):
+        return JsonResponse({'ok': False, 'error': '금액을 확인해주세요.'}, status=400)
 
 
 # ── 엑셀 Export ────────────────────────────────────────────────────────────────

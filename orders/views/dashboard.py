@@ -58,6 +58,13 @@ def dashboard(request):
     # 마감시간
     deadline_city, deadline_region, _, _ = get_deadlines(now)
 
+    # 마감 임박 건수 (시내/지방)
+    city_delivery_ids = DeliveryAddress.objects.filter(
+        region__in=['seoul', 'gyeonggi']
+    ).values_list('pk', flat=True)
+    pending_city = Order.objects.filter(status='pending', delivery_id__in=city_delivery_ids).count()
+    pending_region = Order.objects.filter(status='pending').exclude(delivery_id__in=city_delivery_ids).count()
+
     # 오늘 요약
     delivered_today = Order.objects.filter(status='delivered', ordered_at__date=today).count()
     pending_returns_count = Return.objects.filter(status='requested').count()
@@ -129,6 +136,8 @@ def dashboard(request):
         'today_vs_yesterday': today_vs_yesterday,
         'deadline_city': deadline_city,
         'deadline_region': deadline_region,
+        'pending_city': pending_city,
+        'pending_region': pending_region,
         'now': now,
         'delivered_today': delivered_today,
         'pending_returns_count': pending_returns_count,
