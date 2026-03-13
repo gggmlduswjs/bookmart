@@ -32,6 +32,8 @@ def get_books_json(books=None, price_mode='supply'):
             'series': b.series or '기타',
             'name': b.name,
             'publisher': b.publisher.name,
+            'month': b.month,
+            'grade': b.grade,
         }
         if price_mode == 'supply':
             item['unit_price'] = math.floor(b.list_price * float(b.publisher.supply_rate) / 100)

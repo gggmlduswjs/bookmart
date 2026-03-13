@@ -2,103 +2,297 @@
 {% block title %}교재 관리{% endblock %}
 
 {% block content %}
-<div class="page-title">
+<style>
+.book-tabs { display:flex; gap:0; border-bottom:2px solid #e2e8f0; margin-bottom:12px; }
+.book-tab {
+  padding:8px 16px; font-size:13px; cursor:pointer; border-bottom:2px solid transparent;
+  margin-bottom:-2px; color:#64748b; font-weight:500; transition: all .15s;
+}
+.book-tab:hover { color:#1e40af; }
+.book-tab.active { color:#1e40af; border-bottom-color:#2563eb; font-weight:600; }
+.book-tab .cnt { font-size:11px; color:#94a3b8; margin-left:4px; }
+.book-tab.active .cnt { color:#2563eb; }
+
+.month-bar { display:flex; gap:4px; margin-bottom:10px; flex-wrap:wrap; }
+.month-chip {
+  padding:4px 10px; font-size:12px; border-radius:12px; cursor:pointer;
+  background:#f1f5f9; color:#475569; border:1px solid #e2e8f0; transition: all .15s;
+}
+.month-chip:hover { background:#e2e8f0; }
+.month-chip.active { background:#2563eb; color:#fff; border-color:#2563eb; }
+
+.book-card {
+  display:grid; grid-template-columns: 1fr auto; align-items:center;
+  padding:8px 12px; border-bottom:1px solid #f1f5f9; font-size:13px;
+  transition: background .1s;
+}
+.book-card:hover { background:#f8fafc; }
+.book-card.inactive { opacity:.45; }
+
+.book-info { display:flex; align-items:center; gap:8px; min-width:0; }
+.book-series-tag {
+  font-size:10px; padding:2px 6px; border-radius:3px; font-weight:600; white-space:nowrap;
+}
+.series-마음이야기 { background:#fce7f3; color:#be185d; }
+.series-별빛동화 { background:#ede9fe; color:#6d28d9; }
+.series-꼼지락미술 { background:#fef3c7; color:#b45309; }
+.series-과학탐험 { background:#d1fae5; color:#047857; }
+.series-연산수학 { background:#dbeafe; color:#1e40af; }
+
+.book-name { font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.book-meta { font-size:11px; color:#94a3b8; display:flex; gap:6px; align-items:center; }
+.book-price { font-size:12px; color:#334155; font-weight:500; }
+
+.agency-dot {
+  display:inline-block; width:7px; height:7px; border-radius:50%;
+  background:#2563eb; margin-right:2px; vertical-align:middle;
+}
+.agency-dot.empty { background:#e2e8f0; }
+
+.book-actions { display:flex; gap:4px; align-items:center; flex-shrink:0; }
+
+.bulk-bar {
+  position:sticky; bottom:0; background:#1e293b; color:#fff; padding:8px 16px;
+  display:flex; align-items:center; gap:12px; font-size:13px; border-radius:8px 8px 0 0;
+  box-shadow:0 -2px 8px rgba(0,0,0,.15); z-index:10;
+}
+.bulk-bar button { padding:4px 12px; font-size:12px; border-radius:4px; cursor:pointer; border:none; }
+
+.filter-row {
+  display:flex; gap:8px; align-items:center; margin-bottom:8px; flex-wrap:wrap;
+}
+.filter-row input, .filter-row select {
+  padding:5px 8px; font-size:12px; border:1px solid #d1d5db; border-radius:4px;
+}
+.filter-row input { width:180px; }
+
+.agency-manage-panel {
+  background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:12px;
+  margin-bottom:12px;
+}
+</style>
+
+<div class="page-title" style="display:flex;align-items:center;gap:8px">
   교재 목록
-  <a href="{% url 'book_create' %}" class="btn btn-orange btn-sm">+ 교재 등록</a>
-  <a href="{% url 'book_import' %}" class="btn btn-orange btn-sm">엑셀 일괄등록</a>
-  <a href="{% url 'publisher_list' %}" class="btn btn-gray btn-sm">출판사 관리</a>
-</div>
-
-<div style="margin-bottom:8px;display:flex;align-items:center;gap:8px">
-  <input type="text" id="book-search" placeholder="교재명/시리즈 검색" oninput="filterBooks(this.value)"
-         style="width:200px;padding:4px 8px;border:1px solid #bbb;font-size:12px">
-  <label style="font-size:13px;color:#64748b;cursor:pointer">
-    <input type="checkbox" id="check-all" onchange="toggleAll(this)"> 전체 선택
-  </label>
-  <button class="btn btn-outline btn-sm" style="color:#c00;border-color:#c00" onclick="bulkDelete()">선택 삭제</button>
-</div>
-
-{% for publisher in publishers %}
-<div style="margin-bottom:14px">
-  <div style="background:#555;color:#fff;padding:6px 12px;font-size:12px;font-weight:bold;display:flex;align-items:center;gap:12px">
-    {{ publisher.name }}
-    <span style="font-weight:normal;opacity:0.75;font-size:11px">(공급률 {{ publisher.supply_rate }}%)</span>
-    <a href="{% url 'publisher_edit' publisher.pk %}" class="btn btn-sm btn-outline" style="margin-left:auto;padding:1px 8px;font-size:11px">수정</a>
+  <span style="font-size:13px;color:#64748b;font-weight:normal" x-data x-text="'(' + document.querySelectorAll('.book-card:not([style*=display])').length + '/' + {{ total_count }} + '종)'"></span>
+  <div style="margin-left:auto;display:flex;gap:6px">
+    <a href="{% url 'book_create' %}" class="btn btn-orange btn-sm">+ 교재 등록</a>
+    <a href="{% url 'book_import' %}" class="btn btn-outline btn-sm">엑셀 일괄등록</a>
+    <a href="{% url 'publisher_list' %}" class="btn btn-gray btn-sm">출판사 관리</a>
   </div>
-  <div class="content-box" style="margin-bottom:0">
-    <table class="data-table">
-      <thead>
-        <tr>
-          <th style="width:30px"></th>
-          <th>시리즈</th><th>교재명</th>
-          <th class="right" style="width:80px">정가</th>
-          <th class="right" style="width:80px">공급가</th>
-          <th class="center" style="width:50px">반품</th>
-          <th class="center" style="width:60px">상태</th>
-          <th style="width:80px"></th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for book in publisher.books.all %}
-        <tr {% if not book.is_active %}style="color:#aaa"{% endif %}>
-          <td class="center"><input type="checkbox" class="book-chk" value="{{ book.pk }}"></td>
-          <td>{{ book.series }}</td>
-          <td>{{ book.name }}</td>
-          <td class="right">{{ book.list_price|floatformat:0 }}원</td>
-          <td class="right">{{ book.unit_price|floatformat:0 }}원</td>
-          <td class="center">{% if book.is_returnable %}✓{% else %}✕{% endif %}</td>
-          <td class="center">
-            {% if book.is_active %}<span class="badge badge-green">활성</span>
-            {% else %}<span class="badge badge-gray">비활성</span>{% endif %}
-          </td>
-          <td class="center" style="white-space:nowrap">
-            <a href="{% url 'book_edit' book.pk %}" class="btn btn-sm btn-outline">수정</a>
-            <a href="{% url 'book_toggle' book.pk %}"
-               class="btn btn-sm {% if book.is_active %}btn-red{% else %}btn-gray{% endif %}"
-               onclick="return confirm('상태를 변경하시겠습니까?')">
-              {% if book.is_active %}비활성{% else %}활성{% endif %}
-            </a>
-          </td>
-        </tr>
-        {% empty %}
-        <tr><td colspan="8" class="center" style="padding:10px;color:#888">등록된 교재가 없습니다.</td></tr>
+</div>
+
+<div x-data="bookManager()">
+
+  <!-- 시리즈 탭 -->
+  <div class="book-tabs">
+    <div class="book-tab" :class="{ active: tab === '' }" @click="setTab('')">
+      전체 <span class="cnt">{{ total_count }}</span>
+    </div>
+    {% for s in series_list %}
+    <div class="book-tab" :class="{ active: tab === '{{ s }}' }" @click="setTab('{{ s }}')">
+      {{ s }} <span class="cnt" x-text="countSeries('{{ s }}')"></span>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- 월 칩 -->
+  <div class="month-bar">
+    <div class="month-chip" :class="{ active: month === '' }" @click="setMonth('')">전체</div>
+    {% for m in months %}
+    <div class="month-chip" :class="{ active: month === '{{ m }}' }" @click="setMonth('{{ m }}')">{{ m }}월</div>
+    {% endfor %}
+  </div>
+
+  <!-- 필터 행 -->
+  <div class="filter-row">
+    <input type="text" placeholder="교재명 검색..." x-model="search" @input="applyFilter()">
+    <select x-model="filterAgency" @change="applyFilter()">
+      <option value="">전체 업체</option>
+      {% for a in agency_list %}
+      <option value="{{ a.pk }}">{{ a.name }}</option>
+      {% endfor %}
+    </select>
+    <select x-model="filterPublisher" @change="applyFilter()">
+      <option value="">전체 출판사</option>
+      {% for p in publishers %}
+      <option value="{{ p.name }}">{{ p.name }} ({{ p.supply_rate }}%)</option>
+      {% endfor %}
+    </select>
+    <template x-if="hasActiveFilter">
+      <button class="btn btn-outline btn-sm" @click="resetFilter()" style="font-size:11px">필터 초기화</button>
+    </template>
+    <span style="margin-left:auto;font-size:12px;color:#64748b" x-text="visibleCount + '건 표시'"></span>
+  </div>
+
+  <!-- 벌크 업체 지정 패널 -->
+  <template x-if="selectedIds.length > 0">
+    <div class="agency-manage-panel">
+      <div style="font-size:13px;font-weight:600;margin-bottom:8px">
+        <span x-text="selectedIds.length"></span>건 선택됨 — 취급 업체 일괄 지정:
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        {% for a in agency_list %}
+        <label style="font-size:12px;cursor:pointer;display:flex;align-items:center;gap:3px;padding:4px 8px;border:1px solid #d1d5db;border-radius:4px;background:#fff">
+          <input type="checkbox" value="{{ a.pk }}" class="bulk-agency-chk"> {{ a.name }}
+        </label>
         {% endfor %}
-      </tbody>
-    </table>
+        <button class="btn btn-orange btn-sm" @click="bulkSetAgencies()" style="margin-left:8px">적용</button>
+        <button class="btn btn-outline btn-sm" style="color:#c00;border-color:#c00" @click="bulkDelete()">선택 삭제</button>
+      </div>
+    </div>
+  </template>
+
+  <!-- 테이블 헤더 -->
+  <div style="display:grid;grid-template-columns:28px 1fr auto;padding:4px 12px;font-size:11px;color:#64748b;border-bottom:1px solid #e2e8f0">
+    <div><input type="checkbox" @change="toggleAll($event)" :checked="allChecked"></div>
+    <div>교재 정보</div>
+    <div style="display:flex;gap:30px;padding-right:4px">
+      <span style="width:50px;text-align:right">정가</span>
+      <span style="width:50px;text-align:right">공급가</span>
+      <span style="width:80px">취급</span>
+      <span style="width:70px"></span>
+    </div>
   </div>
+
+  <!-- 교재 목록 -->
+  <div style="border:1px solid #e2e8f0;border-radius:0 0 6px 6px;max-height:calc(100vh - 320px);overflow-y:auto">
+    {% for book in all_books %}
+    <div class="book-card {% if not book.is_active %}inactive{% endif %}"
+         data-id="{{ book.pk }}"
+         data-series="{{ book.series }}"
+         data-month="{{ book.month|default:'' }}"
+         data-agencies="{{ book.agency_ids_str }}"
+         data-publisher="{{ book.publisher.name }}"
+         style="grid-template-columns:28px 1fr auto">
+      <div style="display:flex;align-items:center">
+        <input type="checkbox" class="book-chk" value="{{ book.pk }}"
+               @change="toggleCheck({{ book.pk }}, $event)">
+      </div>
+      <div class="book-info">
+        <span class="book-series-tag series-{{ book.series }}">{{ book.series }}</span>
+        {% if book.month %}<span style="font-size:11px;color:#64748b;font-weight:600">{{ book.month }}월</span>{% endif %}
+        {% if book.grade %}<span style="font-size:10px;color:#94a3b8">({{ book.get_grade_display }})</span>{% endif %}
+        <span class="book-name">{{ book.name }}</span>
+        <span class="book-meta">
+          <span>{{ book.publisher.name }}</span>
+        </span>
+      </div>
+      <div style="display:flex;gap:30px;align-items:center">
+        <span class="book-price" style="width:50px;text-align:right">{{ book.list_price|floatformat:0 }}</span>
+        <span style="width:50px;text-align:right;font-size:12px;color:#64748b">{{ book.unit_price|floatformat:0 }}</span>
+        <span style="width:80px;font-size:11px">
+          {% for a in book.agencies.all %}
+            <span class="agency-dot" title="{{ a.name }}"></span>
+          {% empty %}
+            <span class="agency-dot empty" title="미지정"></span>
+          {% endfor %}
+          <span style="color:#94a3b8">{% if book.agencies.all %}{{ book.agencies.count }}개{% else %}미지정{% endif %}</span>
+        </span>
+        <div class="book-actions" style="width:70px">
+          <a href="{% url 'book_edit' book.pk %}" class="btn btn-sm btn-outline" style="padding:2px 6px;font-size:11px">수정</a>
+          <a href="{% url 'book_toggle' book.pk %}" onclick="return confirm('상태 변경?')"
+             class="btn btn-sm {% if book.is_active %}btn-red{% else %}btn-gray{% endif %}"
+             style="padding:2px 6px;font-size:11px">
+            {% if book.is_active %}OFF{% else %}ON{% endif %}
+          </a>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
 </div>
-{% empty %}
-<div class="msg-box msg-info">등록된 출판사가 없습니다. 먼저 출판사를 등록하세요.</div>
-{% endfor %}
 
 <form id="bulkDeleteForm" method="post" action="{% url 'book_bulk_delete' %}" style="display:none">
   {% csrf_token %}
 </form>
 
 <script>
-function filterBooks(q) {
-  q = q.toLowerCase();
-  document.querySelectorAll('.data-table tbody tr').forEach(function(tr) {
-    var text = tr.textContent.toLowerCase();
-    tr.style.display = (!q || text.includes(q)) ? '' : 'none';
-  });
-}
-function toggleAll(el) {
-  document.querySelectorAll('.book-chk').forEach(function(cb) { cb.checked = el.checked; });
-}
-function bulkDelete() {
-  var ids = [];
-  document.querySelectorAll('.book-chk:checked').forEach(function(cb) { ids.push(cb.value); });
-  if (ids.length === 0) { alert('삭제할 교재를 선택해주세요.'); return; }
-  if (!confirm(ids.length + '건의 교재를 삭제하시겠습니까? 주문에 사용된 교재는 삭제되지 않습니다.')) return;
-  var form = document.getElementById('bulkDeleteForm');
-  form.querySelectorAll('input[name=ids]').forEach(function(el) { el.remove(); });
-  ids.forEach(function(id) {
-    var input = document.createElement('input');
-    input.type = 'hidden'; input.name = 'ids'; input.value = id;
-    form.appendChild(input);
-  });
-  form.submit();
+function bookManager() {
+  return {
+    tab: '', month: '', search: '', filterAgency: '', filterPublisher: '',
+    selectedIds: [], allChecked: false, visibleCount: {{ total_count }},
+
+    get hasActiveFilter() {
+      return this.tab || this.month || this.search || this.filterAgency || this.filterPublisher;
+    },
+
+    setTab(s) { this.tab = s; this.applyFilter(); },
+    setMonth(m) { this.month = m; this.applyFilter(); },
+    resetFilter() {
+      this.tab = ''; this.month = ''; this.search = '';
+      this.filterAgency = ''; this.filterPublisher = '';
+      this.applyFilter();
+    },
+
+    countSeries(s) {
+      return document.querySelectorAll('.book-card[data-series="' + s + '"]').length;
+    },
+
+    applyFilter() {
+      const q = this.search.toLowerCase();
+      let count = 0;
+      document.querySelectorAll('.book-card').forEach(el => {
+        let show = true;
+        if (this.tab && el.dataset.series !== this.tab) show = false;
+        if (this.month && el.dataset.month !== this.month) show = false;
+        if (q && !el.textContent.toLowerCase().includes(q)) show = false;
+        if (this.filterAgency && !(',' + el.dataset.agencies + ',').includes(',' + this.filterAgency + ',')) show = false;
+        if (this.filterPublisher && el.dataset.publisher !== this.filterPublisher) show = false;
+        el.style.display = show ? '' : 'none';
+        if (show) count++;
+      });
+      this.visibleCount = count;
+    },
+
+    toggleAll(e) {
+      const checked = e.target.checked;
+      this.selectedIds = [];
+      document.querySelectorAll('.book-card:not([style*="display: none"]) .book-chk').forEach(cb => {
+        cb.checked = checked;
+        if (checked) this.selectedIds.push(parseInt(cb.value));
+      });
+      this.allChecked = checked;
+    },
+
+    toggleCheck(id, e) {
+      if (e.target.checked) {
+        this.selectedIds.push(id);
+      } else {
+        this.selectedIds = this.selectedIds.filter(x => x !== id);
+      }
+    },
+
+    bulkSetAgencies() {
+      const agencyIds = [];
+      document.querySelectorAll('.bulk-agency-chk:checked').forEach(cb => agencyIds.push(cb.value));
+      if (agencyIds.length === 0) { alert('업체를 선택해주세요.'); return; }
+      if (!confirm(this.selectedIds.length + '건 교재에 업체를 지정하시겠습니까?')) return;
+
+      fetch('{% url "book_bulk_agencies" %}', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}'},
+        body: JSON.stringify({ book_ids: this.selectedIds, agency_ids: agencyIds })
+      }).then(r => r.json()).then(data => {
+        if (data.ok) location.reload();
+        else alert(data.error || '오류가 발생했습니다.');
+      });
+    },
+
+    bulkDelete() {
+      if (this.selectedIds.length === 0) { alert('삭제할 교재를 선택해주세요.'); return; }
+      if (!confirm(this.selectedIds.length + '건의 교재를 삭제하시겠습니까?')) return;
+      const form = document.getElementById('bulkDeleteForm');
+      form.querySelectorAll('input[name=ids]').forEach(el => el.remove());
+      this.selectedIds.forEach(id => {
+        const input = document.createElement('input');
+        input.type = 'hidden'; input.name = 'ids'; input.value = id;
+        form.appendChild(input);
+      });
+      form.submit();
+    }
+  };
 }
 </script>
 {% endblock %}

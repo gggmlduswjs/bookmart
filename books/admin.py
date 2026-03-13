@@ -11,13 +11,14 @@ class PublisherAdmin(admin.ModelAdmin):
 class BookInline(admin.TabularInline):
     model = Book
     extra = 0
-    fields = ('series', 'name', 'list_price', 'is_returnable', 'is_active', 'sort_order')
+    fields = ('series', 'month', 'grade', 'name', 'list_price', 'is_returnable', 'is_active', 'sort_order')
 
 
 @admin.register(Book)
 class BookAdmin(admin.ModelAdmin):
-    list_display = ('publisher', 'series', 'name', 'list_price', 'is_returnable', 'is_active')
-    list_filter = ('publisher', 'is_active', 'is_returnable')
+    list_display = ('publisher', 'series', 'month', 'grade', 'name', 'list_price', 'is_returnable', 'is_active')
+    list_filter = ('publisher', 'series', 'month', 'grade', 'is_active', 'is_returnable')
     search_fields = ('name', 'series')
     list_editable = ('is_active',)
-    ordering = ('publisher', 'series', 'sort_order', 'name')
+    filter_horizontal = ('agencies',)
+    ordering = ('publisher', 'series', 'month', 'sort_order', 'name')

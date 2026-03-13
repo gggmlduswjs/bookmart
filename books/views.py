@@ -17,8 +17,25 @@ from .models import Publisher, Book
 
 @role_required('admin')
 def book_list(request):
-    publishers = Publisher.objects.prefetch_related('books').all()
-    return render(request, 'books/book_list.html', {'publishers': publishers})
+    from accounts.models import User
+    publishers = Publisher.objects.filter(is_active=True).order_by('name')
+    all_books = (Book.objects.select_related('publisher')
+                 .prefetch_related('agencies')
+                 .order_by('series', 'month', 'grade', 'sort_order', 'name'))
+    series_list = sorted(set(b.series for b in all_books if b.series))
+    agency_list = User.objects.filter(role='agency', is_active=True).order_by('name')
+
+    for book in all_books:
+        book.agency_ids_str = ','.join(str(a.pk) for a in book.agencies.all())
+
+    return render(request, 'books/book_list.html', {
+        'publishers': publishers,
+        'all_books': all_books,
+        'series_list': series_list,
+        'months': range(1, 13),
+        'agency_list': agency_list,
+        'total_count': all_books.count(),
+    })
 
 
 # ── 출판사 CRUD ────────────────────────────────────────────────────────────────
@@ -109,6 +126,25 @@ def book_delete(request, pk):
 
 
 @role_required('admin')
+def book_bulk_agencies(request):
+    """벌크 취급 업체 지정 API"""
+    import json as _json
+    from django.http import JsonResponse
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST only'}, status=405)
+    try:
+        data = _json.loads(request.body)
+        book_ids = data.get('book_ids', [])
+        agency_ids = data.get('agency_ids', [])
+        books = Book.objects.filter(pk__in=book_ids)
+        for book in books:
+            book.agencies.set(agency_ids)
+        return JsonResponse({'ok': True, 'count': books.count()})
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)
+
+
+@role_required('admin')
 def book_bulk_delete(request):
     if request.method != 'POST':
         return redirect('book_list')
@@ -161,7 +197,7 @@ def book_import(request):
             col_map = {}  # 컬럼 매핑
             for i, row in enumerate(ws.iter_rows(values_only=True)):
                 cells = [str(c or '').strip() for c in row]
-                # 표준 형식: 출판사 | 시리즈 | 교재명 | 정가 | 반품가능
+                # 표준 형식: 출판사 | 시리즈 | 교재명 | 정가 | 반품가능 | 월 | 학년
                 if '출판사' in cells and '교재명' in cells:
                     col_map = {
                         'publisher': cells.index('출판사'),
@@ -169,6 +205,8 @@ def book_import(request):
                         'name': cells.index('교재명'),
                         'price': cells.index('정가'),
                         'returnable': cells.index('반품가능(O/X)') if '반품가능(O/X)' in cells else None,
+                        'month': cells.index('월') if '월' in cells else None,
+                        'grade': cells.index('학년') if '학년' in cells else None,
                     }
                     header_row = i + 1
                     break
@@ -182,6 +220,8 @@ def book_import(request):
                         'name': cells.index(name_label),
                         'price': cells.index('정가'),
                         'returnable': None,
+                        'month': None,
+                        'grade': None,
                     }
                     header_row = i + 1
                     break
@@ -219,6 +259,23 @@ def book_import(request):
                     defaults={'supply_rate': Decimal('40.00')},
                 )
 
+                # 월, 학년 파싱
+                month_val = None
+                if col_map.get('month') is not None and col_map['month'] < len(cells):
+                    try:
+                        month_val = int(cells[col_map['month']])
+                        if month_val < 1 or month_val > 12:
+                            month_val = None
+                    except (TypeError, ValueError):
+                        month_val = None
+                grade_val = ''
+                if col_map.get('grade') is not None and col_map['grade'] < len(cells):
+                    grade_raw = str(cells[col_map['grade']] or '').strip()
+                    if grade_raw in ('1', '1학년'):
+                        grade_val = '1'
+                    elif grade_raw in ('2', '2학년'):
+                        grade_val = '2'
+
                 book, is_new = Book.objects.get_or_create(
                     publisher=publisher,
                     name=book_name,
@@ -226,6 +283,8 @@ def book_import(request):
                         'series': series,
                         'list_price': list_price,
                         'is_returnable': is_returnable,
+                        'month': month_val,
+                        'grade': grade_val,
                     },
                 )
 
@@ -235,7 +294,11 @@ def book_import(request):
                     book.series = series
                     book.list_price = list_price
                     book.is_returnable = is_returnable
-                    book.save(update_fields=['series', 'list_price', 'is_returnable'])
+                    if month_val is not None:
+                        book.month = month_val
+                    if grade_val:
+                        book.grade = grade_val
+                    book.save(update_fields=['series', 'list_price', 'is_returnable', 'month', 'grade'])
                     updated += 1
 
             wb.close()
@@ -258,13 +321,14 @@ def book_import_sample(request):
     ws = wb.active
     ws.title = '교재 일괄등록'
 
-    headers = ['출판사', '시리즈', '교재명', '정가', '반품가능(O/X)']
+    headers = ['출판사', '시리즈', '교재명', '정가', '반품가능(O/X)', '월', '학년']
     ws.append(headers)
 
-    ws.append(['비상교육', '중등수학', '중1 수학(상)', 15000, 'O'])
-    ws.append(['천재교육', '고등영어', '고1 영어 리딩', 13000, 'X'])
+    ws.append(['오은라이프사이언스', '마음이야기', '마음이 뭘까, 사회성이 뭘까', 8000, 'O', 3, '통합'])
+    ws.append(['오은라이프사이언스', '연산수학', '더하기 6, 7', 6000, 'O', 3, '1학년'])
+    ws.append(['오은라이프사이언스', '연산수학', '두 자리 수의 덧셈', 6000, 'O', 3, '2학년'])
 
-    for col in range(1, 6):
+    for col in range(1, 8):
         ws.column_dimensions[ws.cell(row=1, column=col).column_letter].width = 18
 
     response = HttpResponse(
