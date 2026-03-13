@@ -194,9 +194,16 @@
   .sp-chat-date { text-align:center; padding:6px 0 3px; }
   .sp-chat-date span { background:rgba(0,0,0,.18); color:#fff; padding:2px 10px; border-radius:10px; font-size:10px; }
   /* Email thread (previous emails — same style as current mail) */
-  .sp-thread-item { margin-bottom: 16px; }
+  .sp-thread-item { margin-bottom: 16px; border-left: 3px solid #3b82f6; padding-left: 12px; }
+  .sp-thread-item.sent { border-left-color: #f59e0b; }
   .sp-thread-item .sp-meta { margin-bottom: 8px; }
   .sp-thread-item .sp-content { max-height: 200px; }
+  .sp-thread-badge {
+    display: inline-block; font-size: 10px; font-weight: 600; padding: 1px 6px;
+    border-radius: 3px; margin-left: 6px; vertical-align: middle;
+  }
+  .sp-thread-badge.recv { background: #dbeafe; color: #1d4ed8; }
+  .sp-thread-badge.sent { background: #fef3c7; color: #b45309; }
   /* Call detail in panel */
   .sp-call-info { padding:16px 20px; }
   .sp-call-info .field { margin-bottom:8px; }
@@ -1167,12 +1174,14 @@ function _renderEmailThread(prevMails, count) {
 
   prevMails.forEach(function(m) {
     var div = document.createElement('div');
-    div.className = 'sp-thread-item';
+    div.className = 'sp-thread-item' + (m.is_sent ? ' sent' : '');
     var subj = m.subject || '(제목 없음)';
     if (subj.startsWith('[발신] ')) subj = subj.substring(5);
-    var sender = m.is_sent ? '나 (발신)' : (m.sender || '');
+    var badge = m.is_sent
+      ? '<span class="sp-thread-badge sent">발신</span>'
+      : '<span class="sp-thread-badge recv">수신</span>';
     var html = '<div class="sp-meta">';
-    html += '<div><strong>발신:</strong> ' + _escapeHtml(sender) + '</div>';
+    html += '<div>' + badge + ' ' + _escapeHtml(m.sender || '') + '</div>';
     html += '<div><strong>제목:</strong> ' + _escapeHtml(subj) + '</div>';
     html += '<div><strong>일시:</strong> ' + m.date + ' ' + m.time + '</div>';
     html += '</div>';
