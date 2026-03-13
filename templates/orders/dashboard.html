@@ -201,6 +201,37 @@
   </div>
 </div>
 
+<div class="section-label">교재 현황</div>
+<div class="card" style="margin-bottom:32px">
+  <div style="display:flex;align-items:center;gap:16px;margin-bottom:14px">
+    <div style="font-size:13px;color:#6b7280">전체 교재 <b style="color:#1e293b;font-size:18px">{{ total_books }}</b>종</div>
+    <div style="font-size:12px;color:#94a3b8">업체 지정 {{ assigned_agencies }}/{{ assigned_agencies|add:unassigned_agencies }}개</div>
+    <a href="{% url 'book_list' %}" style="margin-left:auto;font-size:12px" class="btn btn-outline btn-sm">교재 관리</a>
+  </div>
+  <table class="s-table">
+    <thead>
+      <tr>
+        <td class="lbl" style="font-weight:600;border-bottom:2px solid #e5e7eb;padding-bottom:6px">업체명</td>
+        <td class="val" style="font-weight:600;border-bottom:2px solid #e5e7eb;padding-bottom:6px">취급 교재</td>
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in agency_book_stats %}
+      <tr>
+        <td class="lbl">{{ s.name }}</td>
+        <td class="val">
+          {% if s.count > 0 %}
+            {{ s.count }}종
+          {% else %}
+            <span style="color:#dc2626">미지정</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
 <div class="bottom-row">
   <div class="card">
     <div class="card-title">오늘 요약</div>

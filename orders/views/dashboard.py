@@ -83,6 +83,17 @@ def dashboard(request):
     # 최근 활동 로그
     recent_activity = AuditLog.objects.select_related('user').order_by('-created_at')[:5]
 
+    # 교재 현황: 업체별 취급 교재 수
+    from books.models import Book
+    total_books = Book.objects.filter(is_active=True).count()
+    agencies_all = User.objects.filter(role='agency', is_active=True).order_by('name')
+    agency_book_stats = []
+    for a in agencies_all:
+        cnt = a.available_books.filter(is_active=True).count()
+        agency_book_stats.append({'name': a.name, 'count': cnt, 'id': a.pk})
+    assigned_agencies = sum(1 for s in agency_book_stats if s['count'] > 0)
+    unassigned_agencies = sum(1 for s in agency_book_stats if s['count'] == 0)
+
     # 오늘의 할 일
     todo_items = []
     inbox_total = unprocessed_inbox + call_pending
@@ -145,6 +156,10 @@ def dashboard(request):
         'overdue_delivery_count': overdue_delivery_count,
         'recent_activity': recent_activity,
         'todo_items': todo_items,
+        'total_books': total_books,
+        'agency_book_stats': agency_book_stats,
+        'assigned_agencies': assigned_agencies,
+        'unassigned_agencies': unassigned_agencies,
     })
 
 
