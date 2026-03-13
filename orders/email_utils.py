@@ -256,6 +256,69 @@ def fetch_naver_emails(account_id, account_pw, account_label, days=60,
                 'is_seen':       is_seen,
             })
 
+        # ── 보낸메일함 (Sent) 스캔 ──
+        sent_folders = ['&BCcENAQ4BDsENQQ9-', 'Sent', 'INBOX.Sent', '보낸메일함']
+        sent_selected = False
+        for folder in sent_folders:
+            try:
+                st, _ = mail.select(folder, readonly=True)
+                if st == 'OK':
+                    sent_selected = True
+                    break
+            except Exception:
+                continue
+
+        if sent_selected:
+            status, sdata = mail.uid('search', None, f'SINCE {since_date}')
+            if status == 'OK' and sdata[0]:
+                sent_uids = sdata[0].split()
+                sent_new = []
+                for uid_bytes in sent_uids:
+                    uid_str = uid_bytes.decode()
+                    imap_key = f'{account_label}:sent:{uid_str}'
+                    if imap_key not in existing_keys:
+                        sent_new.append((uid_bytes, uid_str, imap_key))
+
+                logger.info('IMAP %s Sent: %d건 중 %d건 새 발신 메일',
+                            account_label, len(sent_uids), len(sent_new))
+
+                for uid_bytes, uid_str, imap_key in sent_new:
+                    try:
+                        status, msg_data = mail.uid('fetch', uid_bytes, '(RFC822)')
+                        if status != 'OK' or not msg_data or msg_data[0] is None:
+                            continue
+                        raw = msg_data[0][1]
+                        msg = email_lib.message_from_bytes(raw)
+                        to_addr = _decode_str(msg.get('To', ''))
+                        subject = _decode_str(msg.get('Subject', '')) or '(제목 없음)'
+                        date_str = msg.get('Date', '')
+                        try:
+                            received_at = parsedate_to_datetime(date_str)
+                            if received_at.tzinfo is None:
+                                received_at = timezone.make_aware(received_at)
+                        except Exception:
+                            received_at = timezone.now()
+                        content = _get_body(msg)
+                        # 수신자 이메일 추출
+                        to_match = re.search(r'[\w.\-+]+@[\w.\-]+\.\w+', to_addr)
+                        to_email = to_match.group(0) if to_match else to_addr
+
+                        results.append({
+                            'imap_key':      imap_key,
+                            'account_label': account_label,
+                            'sender':        account_id,
+                            'subject':       '[발신] ' + subject,
+                            'content':       content,
+                            'received_at':   received_at,
+                            'attachments':   [],
+                            'message_id':    msg.get('Message-ID', '') or '',
+                            'is_seen':       True,
+                            'is_sent':       True,
+                            'to_email':      to_email,
+                        })
+                    except Exception as e:
+                        logger.warning('IMAP %s Sent UID %s 파싱 실패: %s', account_label, uid_str, e)
+
         mail.logout()
     except imaplib.IMAP4.error as e:
         logger.error('IMAP 로그인/접속 오류 (%s): %s', account_label, e)

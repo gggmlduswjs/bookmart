@@ -139,7 +139,9 @@ def inbox_list(request):
         )
 
     if tab == 'email':
-        email_qs = base_qs.filter(source='email').annotate(
+        email_qs = base_qs.filter(source='email').exclude(
+            subject__startswith='[발신]'
+        ).annotate(
             attachment_count=Count('attachments')
         ).prefetch_related('attachments').order_by('-received_at')
         paginator = Paginator(email_qs, 50)
@@ -440,6 +442,7 @@ def _do_fetch_emails(task_id):
                 continue
 
             for e in emails:
+                is_sent = e.get('is_sent', False)
                 msg_obj = InboxMessage.objects.create(
                     source=InboxMessage.Source.EMAIL,
                     account_label=e['account_label'],
@@ -448,19 +451,21 @@ def _do_fetch_emails(task_id):
                     content=e['content'],
                     received_at=e['received_at'],
                     imap_key=e['imap_key'],
-                    is_processed=False,
-                    is_read=e.get('is_seen', False),
+                    is_processed=is_sent,  # 발신 메일은 처리완료 상태
+                    is_read=True if is_sent else e.get('is_seen', False),
                     message_id=e.get('message_id', ''),
+                    phone=e.get('to_email', ''),  # 발신 메일: 수신자 이메일 (스레드 그룹핑용)
                 )
-                for att in e.get('attachments', []):
-                    file_obj = ContentFile(att['data'], name=att['filename'])
-                    InboxAttachment.objects.create(
-                        message=msg_obj,
-                        file=file_obj,
-                        filename=att['filename'],
-                        content_type=att['content_type'],
-                        size=len(att['data']),
-                    )
+                if not is_sent:
+                    for att in e.get('attachments', []):
+                        file_obj = ContentFile(att['data'], name=att['filename'])
+                        InboxAttachment.objects.create(
+                            message=msg_obj,
+                            file=file_obj,
+                            filename=att['filename'],
+                            content_type=att['content_type'],
+                            size=len(att['data']),
+                        )
                 new_count += 1
 
         with _fetch_lock:
