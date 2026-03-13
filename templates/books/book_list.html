@@ -34,6 +34,22 @@
   background:#f0f9ff; border:1px solid #bae6fd; border-radius:6px; padding:10px 14px;
   margin-bottom:10px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; font-size:13px;
 }
+
+.view-tabs { display:flex; gap:0; border-bottom:2px solid #e2e8f0; margin-bottom:12px; }
+.view-tab {
+  padding:8px 16px; font-size:13px; cursor:pointer; border-bottom:2px solid transparent;
+  margin-bottom:-2px; color:#64748b; font-weight:500; transition:all .15s; user-select:none;
+}
+.view-tab:hover { color:#1e40af; }
+.view-tab.active { color:#1e40af; border-bottom-color:#2563eb; font-weight:600; }
+.view-tab .cnt { font-size:11px; color:#94a3b8; margin-left:4px; }
+.view-tab.active .cnt { color:#2563eb; }
+
+.agency-section { margin-bottom:24px; }
+.agency-header {
+  display:flex; align-items:center; gap:8px; padding:8px 0; font-size:14px; font-weight:600; color:#1e293b;
+}
+.agency-header .cnt { font-size:12px; color:#94a3b8; font-weight:normal; }
 </style>
 
 <div class="page-title" style="display:flex;align-items:center;gap:8px">
@@ -47,85 +63,148 @@
 
 <div x-data="bookList()">
 
-  <!-- 검색 -->
-  <div style="margin-bottom:10px;display:flex;align-items:center;gap:8px">
-    <input class="bl-search" type="text" placeholder="검색..." x-model="q" @input="filter()">
-    <span style="font-size:12px;color:#94a3b8" x-show="q" x-text="visibleCount + '건'" x-cloak></span>
-  </div>
-
-  <!-- 벌크 패널 -->
-  <template x-if="sel.length > 0">
-    <div class="bulk-panel">
-      <strong x-text="sel.length + '건 선택'"></strong>
-      <span>—</span>
-      {% for a in agency_list %}
-      <label style="cursor:pointer;display:flex;align-items:center;gap:3px">
-        <input type="checkbox" value="{{ a.pk }}" class="ba-chk"> {{ a.name }}
-      </label>
-      {% endfor %}
-      <button class="btn btn-orange btn-sm" @click="bulkAgency()">업체 지정</button>
-      <button class="btn btn-sm" style="color:#dc2626;background:none;border:1px solid #dc2626;border-radius:4px;padding:3px 10px;cursor:pointer" @click="bulkDel()">삭제</button>
+  <!-- 탭: 전체 / 업체별 -->
+  <div class="view-tabs">
+    <div class="view-tab" :class="{ active: view === 'all' }" @click="view='all'">
+      전체 교재 <span class="cnt">{{ total_count }}</span>
     </div>
-  </template>
-
-  <!-- 테이블 -->
-  <div style="border:1px solid #e2e8f0;border-radius:6px;overflow:auto;max-height:calc(100vh - 240px)">
-    <table class="bl-table">
-      <thead>
-        <tr>
-          <th class="chk"><input type="checkbox" @change="toggleAll($event)"></th>
-          <th>시리즈</th>
-          <th>교재명</th>
-          <th>출판사</th>
-          <th class="price">정가</th>
-          <th class="price">공급가</th>
-          <th>취급업체</th>
-          <th>상태</th>
-          <th class="acts"></th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for book in all_books %}
-        <tr class="brow {% if not book.is_active %}inactive{% endif %}"
-            data-name="{{ book.name }}" data-series="{{ book.series }}"
-            data-pub="{{ book.publisher.name }}" data-agencies="{{ book.agency_ids_str }}">
-          <td class="chk">
-            <input type="checkbox" class="bchk" value="{{ book.pk }}" @change="toggle({{ book.pk }}, $event)">
-          </td>
-          <td>
-            {% if book.series %}<span class="bl-badge bg-{{ book.series }}">{{ book.series }}</span>{% endif %}
-            {% if book.month %}<span style="font-size:11px;color:#64748b;margin-left:3px">{{ book.month }}월</span>{% endif %}
-          </td>
-          <td style="font-weight:500">
-            {{ book.name }}
-            {% if book.grade %}<span style="font-size:11px;color:#94a3b8">({{ book.get_grade_display }})</span>{% endif %}
-          </td>
-          <td style="color:#64748b">{{ book.publisher.name }}</td>
-          <td class="price">{{ book.list_price|floatformat:0 }}</td>
-          <td class="price" style="color:#64748b">{{ book.unit_price|floatformat:0 }}</td>
-          <td style="font-size:12px;color:#64748b">
-            {% for a in book.agencies.all %}{{ a.name }}{% if not forloop.last %}, {% endif %}{% empty %}<span style="color:#cbd5e1">—</span>{% endfor %}
-          </td>
-          <td>
-            {% if book.is_active %}
-            <span style="color:#16a34a;font-size:11px">활성</span>
-            {% else %}
-            <span style="color:#dc2626;font-size:11px">비활성</span>
-            {% endif %}
-          </td>
-          <td class="acts">
-            <a href="{% url 'book_edit' book.pk %}" class="btn btn-sm btn-outline" style="padding:2px 8px;font-size:11px">수정</a>
-            <a href="{% url 'book_toggle' book.pk %}" onclick="return confirm('상태를 변경하시겠습니까?')"
-               class="btn btn-sm {% if book.is_active %}btn-gray{% else %}btn-orange{% endif %}"
-               style="padding:2px 8px;font-size:11px">
-              {% if book.is_active %}OFF{% else %}ON{% endif %}
-            </a>
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+    {% for ab in agency_books %}
+    <div class="view-tab" :class="{ active: view === '{{ ab.agency.pk }}' }" @click="view='{{ ab.agency.pk }}'">
+      {{ ab.agency.name }} <span class="cnt">{{ ab.count }}</span>
+    </div>
+    {% endfor %}
   </div>
+
+  <!-- ===== 전체 교재 탭 ===== -->
+  <div x-show="view === 'all'" x-cloak>
+    <!-- 검색 -->
+    <div style="margin-bottom:10px;display:flex;align-items:center;gap:8px">
+      <input class="bl-search" type="text" placeholder="검색..." x-model="q" @input="filter()">
+      <span style="font-size:12px;color:#94a3b8" x-show="q" x-text="visibleCount + '건'" x-cloak></span>
+    </div>
+
+    <!-- 벌크 패널 -->
+    <template x-if="sel.length > 0">
+      <div class="bulk-panel">
+        <strong x-text="sel.length + '건 선택'"></strong>
+        <span>—</span>
+        {% for a in agency_list %}
+        <label style="cursor:pointer;display:flex;align-items:center;gap:3px">
+          <input type="checkbox" value="{{ a.pk }}" class="ba-chk"> {{ a.name }}
+        </label>
+        {% endfor %}
+        <button class="btn btn-orange btn-sm" @click="bulkAgency()">업체 지정</button>
+        <button class="btn btn-sm" style="color:#dc2626;background:none;border:1px solid #dc2626;border-radius:4px;padding:3px 10px;cursor:pointer" @click="bulkDel()">삭제</button>
+      </div>
+    </template>
+
+    <!-- 테이블 -->
+    <div style="border:1px solid #e2e8f0;border-radius:6px;overflow:auto;max-height:calc(100vh - 300px)">
+      <table class="bl-table">
+        <thead>
+          <tr>
+            <th class="chk"><input type="checkbox" @change="toggleAll($event)"></th>
+            <th>시리즈</th>
+            <th>교재명</th>
+            <th>출판사</th>
+            <th class="price">정가</th>
+            <th class="price">공급가</th>
+            <th>취급업체</th>
+            <th>상태</th>
+            <th class="acts"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for book in all_books %}
+          <tr class="brow {% if not book.is_active %}inactive{% endif %}"
+              data-name="{{ book.name }}" data-series="{{ book.series }}"
+              data-pub="{{ book.publisher.name }}" data-agencies="{{ book.agency_ids_str }}">
+            <td class="chk">
+              <input type="checkbox" class="bchk" value="{{ book.pk }}" @change="toggle({{ book.pk }}, $event)">
+            </td>
+            <td>
+              {% if book.series %}<span class="bl-badge bg-{{ book.series }}">{{ book.series }}</span>{% endif %}
+              {% if book.month %}<span style="font-size:11px;color:#64748b;margin-left:3px">{{ book.month }}월</span>{% endif %}
+            </td>
+            <td style="font-weight:500">
+              {{ book.name }}
+              {% if book.grade %}<span style="font-size:11px;color:#94a3b8">({{ book.get_grade_display }})</span>{% endif %}
+            </td>
+            <td style="color:#64748b">{{ book.publisher.name }}</td>
+            <td class="price">{{ book.list_price|floatformat:0 }}</td>
+            <td class="price" style="color:#64748b">{{ book.unit_price|floatformat:0 }}</td>
+            <td style="font-size:12px;color:#64748b">
+              {% for a in book.agencies.all %}{{ a.name }}{% if not forloop.last %}, {% endif %}{% empty %}<span style="color:#cbd5e1">—</span>{% endfor %}
+            </td>
+            <td>
+              {% if book.is_active %}
+              <span style="color:#16a34a;font-size:11px">활성</span>
+              {% else %}
+              <span style="color:#dc2626;font-size:11px">비활성</span>
+              {% endif %}
+            </td>
+            <td class="acts">
+              <a href="{% url 'book_edit' book.pk %}" class="btn btn-sm btn-outline" style="padding:2px 8px;font-size:11px">수정</a>
+              <a href="{% url 'book_toggle' book.pk %}" onclick="return confirm('상태를 변경하시겠습니까?')"
+                 class="btn btn-sm {% if book.is_active %}btn-gray{% else %}btn-orange{% endif %}"
+                 style="padding:2px 8px;font-size:11px">
+                {% if book.is_active %}OFF{% else %}ON{% endif %}
+              </a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ===== 업체별 교재 탭 ===== -->
+  {% for ab in agency_books %}
+  <div x-show="view === '{{ ab.agency.pk }}'" x-cloak>
+    <div class="agency-header">
+      {{ ab.agency.name }} 취급 교재 <span class="cnt">{{ ab.count }}종</span>
+    </div>
+
+    {% if ab.books %}
+    <div style="border:1px solid #e2e8f0;border-radius:6px;overflow:auto;max-height:calc(100vh - 300px)">
+      <table class="bl-table">
+        <thead>
+          <tr>
+            <th>시리즈</th>
+            <th>교재명</th>
+            <th>출판사</th>
+            <th class="price">정가</th>
+            <th class="price">공급가</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for book in ab.books %}
+          <tr>
+            <td>
+              {% if book.series %}<span class="bl-badge bg-{{ book.series }}">{{ book.series }}</span>{% endif %}
+              {% if book.month %}<span style="font-size:11px;color:#64748b;margin-left:3px">{{ book.month }}월</span>{% endif %}
+            </td>
+            <td style="font-weight:500">
+              {{ book.name }}
+              {% if book.grade %}<span style="font-size:11px;color:#94a3b8">({{ book.get_grade_display }})</span>{% endif %}
+            </td>
+            <td style="color:#64748b">{{ book.publisher.name }}</td>
+            <td class="price">{{ book.list_price|floatformat:0 }}</td>
+            <td class="price" style="color:#64748b">{{ book.unit_price|floatformat:0 }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div style="padding:40px;text-align:center;color:#94a3b8;font-size:14px;background:#fff;border:1px solid #e2e8f0;border-radius:6px">
+      취급 교재가 지정되지 않았습니다.<br>
+      <span style="font-size:12px">전체 교재 탭에서 교재를 선택 후 업체를 지정해주세요.</span>
+    </div>
+    {% endif %}
+  </div>
+  {% endfor %}
+
 </div>
 
 <form id="bulkDelForm" method="post" action="{% url 'book_bulk_delete' %}" style="display:none">
@@ -135,7 +214,7 @@
 <script>
 function bookList() {
   return {
-    q: '', sel: [], visibleCount: {{ total_count }},
+    view: 'all', q: '', sel: [], visibleCount: {{ total_count }},
 
     filter() {
       const s = this.q.toLowerCase();

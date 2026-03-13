@@ -28,6 +28,18 @@ def book_list(request):
     for book in all_books:
         book.agency_ids_str = ','.join(str(a.pk) for a in book.agencies.all())
 
+    # 업체별 취급 교재
+    agency_books = []
+    for agency in agency_list:
+        books = (agency.available_books.filter(is_active=True)
+                 .select_related('publisher')
+                 .order_by('series', 'month', 'grade', 'sort_order', 'name'))
+        agency_books.append({
+            'agency': agency,
+            'books': books,
+            'count': books.count(),
+        })
+
     return render(request, 'books/book_list.html', {
         'publishers': publishers,
         'all_books': all_books,
@@ -35,6 +47,7 @@ def book_list(request):
         'months': range(1, 13),
         'agency_list': agency_list,
         'total_count': all_books.count(),
+        'agency_books': agency_books,
     })
 
 
