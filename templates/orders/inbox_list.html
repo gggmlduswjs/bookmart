@@ -193,16 +193,10 @@
   .sp-chat-time { font-size:9px; color:#6b8299; flex-shrink:0; padding-bottom:1px; }
   .sp-chat-date { text-align:center; padding:6px 0 3px; }
   .sp-chat-date span { background:rgba(0,0,0,.18); color:#fff; padding:2px 10px; border-radius:10px; font-size:10px; }
-  /* Email thread (previous emails) */
-  .sp-email-msg {
-    border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px 12px;
-    font-size: 12px; line-height: 1.6;
-  }
-  .sp-email-msg.recv { background: #f8fafc; border-left: 3px solid #3b82f6; }
-  .sp-email-msg.sent { background: #fffbeb; border-left: 3px solid #f59e0b; }
-  .sp-email-msg .email-subj { font-weight: 600; color: #1e293b; font-size: 11px; }
-  .sp-email-msg .email-body { color: #475569; white-space: pre-wrap; word-break: break-all; max-height: 120px; overflow-y: auto; }
-  .sp-email-msg .email-meta { font-size: 10px; color: #94a3b8; }
+  /* Email thread (previous emails — same style as current mail) */
+  .sp-thread-item { margin-bottom: 16px; }
+  .sp-thread-item .sp-meta { margin-bottom: 8px; }
+  .sp-thread-item .sp-content { max-height: 200px; }
   /* Call detail in panel */
   .sp-call-info { padding:16px 20px; }
   .sp-call-info .field { margin-bottom:8px; }
@@ -1173,14 +1167,16 @@ function _renderEmailThread(prevMails, count) {
 
   prevMails.forEach(function(m) {
     var div = document.createElement('div');
-    div.className = 'sp-email-msg ' + (m.is_sent ? 'sent' : 'recv');
-    var subj = m.subject || '';
+    div.className = 'sp-thread-item';
+    var subj = m.subject || '(제목 없음)';
     if (subj.startsWith('[발신] ')) subj = subj.substring(5);
-    var html = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">';
-    html += '<span class="email-subj" style="margin:0">' + (m.is_sent ? '↩ ' : '') + _escapeHtml(subj) + '</span>';
-    html += '<span class="email-meta" style="margin:0;flex-shrink:0">' + m.date + ' ' + m.time + '</span>';
+    var sender = m.is_sent ? '나 (발신)' : (m.sender || '');
+    var html = '<div class="sp-meta">';
+    html += '<div><strong>발신:</strong> ' + _escapeHtml(sender) + '</div>';
+    html += '<div><strong>제목:</strong> ' + _escapeHtml(subj) + '</div>';
+    html += '<div><strong>일시:</strong> ' + m.date + ' ' + m.time + '</div>';
     html += '</div>';
-    html += '<div class="email-body">' + _escapeHtml(m.content) + '</div>';
+    html += '<div class="sp-content">' + _escapeHtml(m.content) + '</div>';
     div.innerHTML = html;
     container.appendChild(div);
   });

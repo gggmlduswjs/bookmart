@@ -1709,8 +1709,9 @@ def inbox_detail_api(request, pk):
                 is_sent = (m.subject or '').startswith('[발신]')
                 email_thread.append({
                     'pk': m.pk,
+                    'sender': m.sender or '',
                     'subject': m.subject or '',
-                    'content': (m.content or '')[:300],
+                    'content': (m.content or '')[:500],
                     'time': m.received_at.strftime('%H:%M') if m.received_at else '',
                     'date': m.received_at.strftime('%Y-%m-%d') if m.received_at else '',
                     'is_sent': is_sent,
