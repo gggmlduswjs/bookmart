@@ -5,7 +5,7 @@
 <style>
   .dash-cards {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(5, 1fr);
     gap: 12px;
     margin-bottom: 16px;
   }
@@ -24,7 +24,16 @@
   .dash-card .card-value.blue { color: #2563eb; }
   .dash-card .card-value.green { color: #059669; }
   .dash-card .card-value.orange { color: #ea580c; }
+  .dash-card .card-value.purple { color: #7c3aed; }
   .dash-card .card-sub { font-size: 12px; color: #94a3b8; margin-top: 4px; }
+
+  .dash-buttons {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+  .dash-buttons .btn { padding: 10px 20px; font-size: 13px; font-weight: 600; }
 
   .dash-mid {
     display: grid;
@@ -80,23 +89,14 @@
     border-bottom: 1px solid #f0f0f0;
   }
   .school-table tr:last-child td { border-bottom: none; }
+  .school-table .clickable { cursor: pointer; }
+  .school-table .clickable:hover { text-decoration: underline; }
 
-  .dash-full {
-    margin-bottom: 16px;
-  }
-
-  .dash-buttons {
-    display: flex;
-    gap: 10px;
-    margin-bottom: 16px;
-  }
-  .dash-buttons .btn { padding: 12px 28px; font-size: 14px; font-weight: 600; }
+  .dash-full { margin-bottom: 16px; }
 
   @media (max-width: 768px) {
     .dash-cards { grid-template-columns: 1fr 1fr; }
     .dash-mid { grid-template-columns: 1fr; }
-    .dash-buttons { flex-wrap: wrap; }
-    .dash-buttons .btn { flex: 1; text-align: center; min-width: 100px; }
   }
   @media (max-width: 480px) {
     .dash-cards { grid-template-columns: 1fr; }
@@ -110,7 +110,7 @@
   <span class="subtitle">{{ request.user.name }}</span>
 </div>
 
-<!-- 상단: 4개 요약 카드 -->
+<!-- KPI 카드 5개 -->
 <div class="dash-cards">
   <div class="dash-card">
     <div class="card-label">관리 학교</div>
@@ -125,15 +125,27 @@
     <div class="card-value orange">{{ pending_orders }}</div>
   </div>
   <div class="dash-card">
+    <div class="card-label">발송중</div>
+    <div class="card-value purple">{{ shipping_orders }}</div>
+  </div>
+  <div class="dash-card">
     <div class="card-label">이번 달 주문</div>
     <div class="card-value green">{{ month_amount|floatformat:0 }}</div>
     <div class="card-sub">원</div>
   </div>
 </div>
 
-<!-- 중단: 2컬럼 -->
+<!-- 빠른 액션 버튼 (KPI 바로 아래) -->
+<div class="dash-buttons">
+  <a href="{% url 'order_list' %}" class="btn btn-orange">주문현황</a>
+  <a href="{% url 'order_list' %}?status=shipping" class="btn btn-dark">배송현황</a>
+  <a href="{% url 'teacher_list' %}" class="btn btn-outline">선생님관리</a>
+  <a href="{% url 'agency_link' %}" class="btn btn-outline">간편주문링크</a>
+  <a href="{% url 'ledger' %}" class="btn btn-outline">거래내역</a>
+</div>
+
+<!-- 2컬럼: 최근 주문 + 반품 -->
 <div class="dash-mid">
-  <!-- 왼쪽: 최근 주문 -->
   <div class="dash-section">
     <div class="dash-section-title">
       최근 주문
@@ -166,7 +178,6 @@
     </div>
   </div>
 
-  <!-- 오른쪽: 반품 + 발송중 -->
   <div class="dash-section">
     <div class="dash-section-title">
       반품 현황
@@ -218,14 +229,18 @@
             <td class="center">{{ s.teacher_count }}명</td>
             <td class="center">
               {% if s.pending %}
-                <span class="badge badge-blue">{{ s.pending }}</span>
+                <a href="{% url 'order_list' %}?status=pending&school={{ s.school.pk }}" class="clickable">
+                  <span class="badge badge-blue">{{ s.pending }}</span>
+                </a>
               {% else %}
                 <span style="color:#ccc">-</span>
               {% endif %}
             </td>
             <td class="center">
               {% if s.shipping %}
-                <span class="badge badge-orange">{{ s.shipping }}</span>
+                <a href="{% url 'order_list' %}?status=shipping&school={{ s.school.pk }}" class="clickable">
+                  <span class="badge badge-orange">{{ s.shipping }}</span>
+                </a>
               {% else %}
                 <span style="color:#ccc">-</span>
               {% endif %}
@@ -245,13 +260,5 @@
       </table>
     </div>
   </div>
-</div>
-
-<!-- 하단: 빠른 버튼 -->
-<div class="dash-buttons">
-  <a href="{% url 'order_list' %}" class="btn btn-orange">주문현황</a>
-  <a href="{% url 'teacher_list' %}" class="btn btn-dark">선생님관리</a>
-  <a href="{% url 'agency_link' %}" class="btn btn-outline">간편주문링크</a>
-  <a href="{% url 'ledger' %}" class="btn btn-outline">거래내역</a>
 </div>
 {% endblock %}

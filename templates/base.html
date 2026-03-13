@@ -967,6 +967,7 @@
         </div>
         <div class="accordion-items" x-show="open === 'orders'" x-collapse x-cloak>
           <a href="{% url 'order_list' %}" class="{% if cur == 'order_list' or cur == 'order_detail' %}active{% endif %}">주문현황</a>
+          <a href="{% url 'order_list' %}?status=shipping" class="{% if cur == 'agency_shipping' %}active{% endif %}">배송현황</a>
           <a href="{% url 'return_list' %}" class="{% if cur == 'return_list' or cur == 'return_detail' %}active{% endif %}">반품현황</a>
         </div>
       </div>
