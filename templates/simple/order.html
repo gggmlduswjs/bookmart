@@ -110,31 +110,39 @@
   <div class="error-msg">{{ error }}</div>
   {% endif %}
 
-  <!-- 배송요청지 -->
+  <!-- 배송요청지 (접힘) -->
   <div class="delivery-box">
-    <div class="section-title">배송요청지</div>
-    <div class="form-row">
-      <label>학교명</label>
-      <input type="text" x-model="deliverySchool" placeholder="OO초등학교">
-    </div>
-    <div class="form-row">
-      <label>주소</label>
-      <div style="display:flex;gap:6px;flex:1">
-        <input type="text" x-model="deliveryAddr" placeholder="주소" style="flex:1">
-        <button type="button" class="btn btn-outline btn-sm" @click="openPostcode()" style="white-space:nowrap">주소 검색</button>
+    <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer" @click="showDelivery = !showDelivery">
+      <div class="section-title" style="margin-bottom:0">
+        배송요청지
+        <span style="font-size:12px;font-weight:normal;color:#64748b" x-text="deliverySchool + ' · ' + (deliveryAddr || '주소 미입력')"></span>
       </div>
+      <span style="font-size:11px;color:#2563eb;font-weight:600" x-text="showDelivery ? '접기' : '변경'"></span>
     </div>
-    <div class="form-row">
-      <label>상세정보</label>
-      <input type="text" x-model="deliveryDetail" placeholder="예: 4층 컴퓨터실 앞, 관리실 경유 등">
-    </div>
-    <div class="form-row">
-      <label>연락처</label>
-      <input type="text" x-model="deliveryPhone" @input="deliveryPhone = formatPhone(deliveryPhone)" placeholder="010-1234-5678" style="max-width:180px">
-    </div>
-    <div class="form-row">
-      <label>요청 배송일</label>
-      <input type="date" name="requested_delivery_date" style="max-width:180px">
+    <div x-show="showDelivery" x-collapse x-cloak style="margin-top:10px">
+      <div class="form-row">
+        <label>학교명</label>
+        <input type="text" x-model="deliverySchool" placeholder="OO초등학교">
+      </div>
+      <div class="form-row">
+        <label>주소</label>
+        <div style="display:flex;gap:6px;flex:1">
+          <input type="text" x-model="deliveryAddr" placeholder="주소" style="flex:1">
+          <button type="button" class="btn btn-outline btn-sm" @click="openPostcode()" style="white-space:nowrap">주소 검색</button>
+        </div>
+      </div>
+      <div class="form-row">
+        <label>상세정보</label>
+        <input type="text" x-model="deliveryDetail" placeholder="예: 4층 컴퓨터실 앞, 관리실 경유 등">
+      </div>
+      <div class="form-row">
+        <label>연락처</label>
+        <input type="text" x-model="deliveryPhone" @input="deliveryPhone = formatPhone(deliveryPhone)" placeholder="010-1234-5678" style="max-width:180px">
+      </div>
+      <div class="form-row">
+        <label>요청 배송일</label>
+        <input type="date" name="requested_delivery_date" style="max-width:180px">
+      </div>
     </div>
   </div>
 
@@ -301,6 +309,7 @@ const BOOKS = {{ books_json|safe }};
 function orderForm() {
   return {
     orderTab: 'direct',
+    showDelivery: false,
     // 배송지
     deliverySchool: '{{ delivery.name|escapejs }}',
     deliveryAddr: '{{ delivery.address|escapejs }}',

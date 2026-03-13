@@ -207,7 +207,12 @@ def simple_order(request, slug):
     if not delivery:
         return redirect('simple_landing', slug=slug)
 
-    books = Book.objects.filter(is_active=True).select_related('publisher')
+    # 업체 취급 교재만 필터링 (지정 없으면 전체)
+    agency_books = agency.available_books.filter(is_active=True)
+    if agency_books.exists():
+        books = agency_books.select_related('publisher')
+    else:
+        books = Book.objects.filter(is_active=True).select_related('publisher')
     series_list = sorted(set(b.series for b in books if b.series))
     books_json = json.dumps([{
         'id': b.id,
