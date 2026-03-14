@@ -150,18 +150,19 @@ def inbox_list(request):
         email_page = paginator.get_page(request.GET.get('page'))
     elif tab == 'sms':
         # DB-level grouping by phone
-        sms_group_qs = (InboxMessage.objects.filter(source='sms')
-            .exclude(subject='[발신]')
-            .exclude(phone=''))
+        sms_base_qs = InboxMessage.objects.filter(source='sms').exclude(subject='[발신]')
         if hide_done:
-            sms_group_qs = sms_group_qs.filter(is_processed=False)
+            sms_base_qs = sms_base_qs.filter(is_processed=False)
         if search:
-            sms_group_qs = sms_group_qs.filter(
+            sms_base_qs = sms_base_qs.filter(
                 Q(sender__icontains=search) |
                 Q(content__icontains=search) |
                 Q(phone__icontains=search)
             )
-        sms_groups = (sms_group_qs
+
+        # Phone-grouped conversations
+        sms_groups_list = list(
+            sms_base_qs.exclude(phone='')
             .values('phone')
             .annotate(
                 latest_time=Max('received_at'),
@@ -169,13 +170,11 @@ def inbox_list(request):
                 unread_count=Count('id', filter=Q(is_read=False)),
                 has_order=Count('order', distinct=True),
             )
-            .order_by('-latest_time'))
-
-        sms_paginator = Paginator(sms_groups, 50)
-        sms_page = sms_paginator.get_page(request.GET.get('sms_page'))
+            .order_by('-latest_time')
+        )
 
         # Fetch latest message per phone for preview
-        phone_list = [g['phone'] for g in sms_page]
+        phone_list = [g['phone'] for g in sms_groups_list]
         latest_msgs = {}
         if phone_list:
             latest_pks = (InboxMessage.objects.filter(source='sms', phone__in=phone_list)
@@ -186,10 +185,10 @@ def inbox_list(request):
             for msg in InboxMessage.objects.filter(pk__in=latest_pks):
                 latest_msgs[msg.phone] = msg
 
-        sms_conversations = []
-        for g in sms_page:
+        sms_conversations_all = []
+        for g in sms_groups_list:
             msg = latest_msgs.get(g['phone'])
-            sms_conversations.append({
+            sms_conversations_all.append({
                 'phone': g['phone'],
                 'sender_name': msg.sender if msg else '',
                 'latest_time': g['latest_time'],
@@ -199,6 +198,24 @@ def inbox_list(request):
                 'preview': msg.content[:80] if msg and msg.content else '',
                 'has_order': g['has_order'] > 0,
             })
+
+        # phone 없는 메시지 (이름만 있는 발신자) 개별 추가
+        for msg in sms_base_qs.filter(phone='').order_by('-received_at'):
+            sms_conversations_all.append({
+                'phone': '',
+                'sender_name': msg.sender or '',
+                'latest_time': msg.received_at,
+                'total_count': 1,
+                'unread_count': 0 if msg.is_read else 1,
+                'latest_pk': msg.pk,
+                'preview': msg.content[:80] if msg.content else '',
+                'has_order': bool(msg.order_id),
+            })
+
+        sms_conversations_all.sort(key=lambda x: x['latest_time'], reverse=True)
+        sms_paginator = Paginator(sms_conversations_all, 50)
+        sms_page = sms_paginator.get_page(request.GET.get('sms_page'))
+        sms_conversations = list(sms_page)
     elif tab == 'call':
         call_qs = CallRecording.objects.all()
         call_status_filter = request.GET.get('call_status', '')
@@ -1164,12 +1181,14 @@ def sms_webhook(request):
 
 @role_required('admin')
 def sms_import_xml(request):
-    """SMS Backup & Restore 앱의 XML 파일에서 문자 일괄 가져오기"""
+    """SMS Backup & Restore 앱의 XML 파일에서 문자 일괄 가져오기 (SMS + MMS 이미지 지원)"""
     if request.method != 'POST' or not request.FILES.get('xml_file'):
         return render(request, 'orders/sms_import.html', {'result': None})
 
     from django.utils import timezone
+    from django.core.files.base import ContentFile
     import datetime
+    import base64
     import xml.etree.ElementTree as ET
 
     xml_file = request.FILES['xml_file']
@@ -1193,7 +1212,22 @@ def sms_import_xml(request):
     new_count = 0
     skip_count = 0
     total = 0
+    img_count = 0
 
+    def _parse_timestamp(date_ms):
+        try:
+            return timezone.make_aware(
+                datetime.datetime.fromtimestamp(int(date_ms) / 1000)
+            )
+        except (ValueError, TypeError, OSError):
+            return timezone.now()
+
+    def _make_sender(address, contact_name):
+        if contact_name and contact_name != '(Unknown)':
+            return f'{contact_name}({address})'
+        return address
+
+    # ── SMS 처리 ──────────────────────────────────────────────
     for sms in root.iter('sms'):
         total += 1
         address = sms.get('address', '').strip()
@@ -1206,24 +1240,10 @@ def sms_import_xml(request):
             skip_count += 1
             continue
 
-        # timestamp 파싱
-        try:
-            received_at = timezone.make_aware(
-                datetime.datetime.fromtimestamp(int(date_ms) / 1000)
-            )
-        except (ValueError, TypeError, OSError):
-            received_at = timezone.now()
-
-        # 발신자 표시: 연락처명이 있으면 "이름(번호)", 없으면 번호만
-        if contact_name and contact_name != '(Unknown)':
-            sender = f'{contact_name}({address})'
-        else:
-            sender = address
-
-        # 발신 문자는 subject에 표시
+        received_at = _parse_timestamp(date_ms)
+        sender = _make_sender(address, contact_name)
         subject = '[발신]' if sms_type == '2' else ''
 
-        # 중복 체크
         if (sender, received_at) in existing:
             skip_count += 1
             continue
@@ -1233,19 +1253,85 @@ def sms_import_xml(request):
             sender=sender,
             subject=subject,
             content=body,
+            phone=address,
             received_at=received_at,
-            is_processed=True,  # 과거 문자는 처리완료 상태로
+            is_processed=True,
             is_read=True,
         )
         existing.add((sender, received_at))
         new_count += 1
 
+    # ── MMS 처리 (이미지 포함) ───────────────────────────────
+    for mms in root.iter('mms'):
+        total += 1
+        address = mms.get('address', '').strip()
+        date_ms = mms.get('date', '')
+        contact_name = mms.get('contact_name', '').strip()
+        # msg_box: 1=수신, 2=발신 / m_type: 132=수신, 128=발신
+        msg_box = mms.get('msg_box', mms.get('m_type', '1'))
+        is_sent = str(msg_box) in ('2', '128')
+        subject_attr = '[발신]' if is_sent else ''
+
+        received_at = _parse_timestamp(date_ms)
+        sender = _make_sender(address, contact_name)
+
+        # parts에서 텍스트와 이미지 분리
+        text_body = ''
+        image_parts = []
+        for part in mms.iter('part'):
+            ct = part.get('ct', '')
+            if ct == 'text/plain':
+                text_body = part.get('text', '').strip()
+            elif ct.startswith('image/'):
+                data_b64 = part.get('data', '')
+                name = part.get('name', '') or part.get('fn', '') or f'image.{ct.split("/")[-1]}'
+                if data_b64:
+                    image_parts.append({'ct': ct, 'name': name, 'data': data_b64})
+
+        # 텍스트도 이미지도 없으면 건너뜀
+        if not text_body and not image_parts:
+            skip_count += 1
+            continue
+
+        if (sender, received_at) in existing:
+            skip_count += 1
+            continue
+
+        msg = InboxMessage.objects.create(
+            source=InboxMessage.Source.SMS,
+            sender=sender,
+            subject=subject_attr,
+            content=text_body,
+            phone=address,
+            received_at=received_at,
+            is_processed=True,
+            is_read=True,
+        )
+        existing.add((sender, received_at))
+        new_count += 1
+
+        # 이미지 첨부 저장
+        for ip in image_parts:
+            try:
+                img_data = base64.b64decode(ip['data'])
+                att = InboxAttachment(
+                    message=msg,
+                    filename=ip['name'],
+                    content_type=ip['ct'],
+                    size=len(img_data),
+                )
+                att.file.save(ip['name'], ContentFile(img_data), save=True)
+                img_count += 1
+            except Exception:
+                pass
+
     result = {
         'total': total,
         'new_count': new_count,
         'skip_count': skip_count,
+        'img_count': img_count,
     }
-    messages.success(request, f'총 {total}건 중 {new_count}건 가져옴 (중복/빈내용 {skip_count}건 건너뜀)')
+    messages.success(request, f'총 {total}건 중 {new_count}건 가져옴 (이미지 {img_count}장, 중복/빈내용 {skip_count}건 건너뜀)')
     return render(request, 'orders/sms_import.html', {'result': result})
 
 
