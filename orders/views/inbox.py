@@ -1726,7 +1726,7 @@ def inbox_detail_api(request, pk):
 
     # SMS: include conversation thread
     if msg.source == 'sms':
-        phone = msg.phone or _extract_phone_digits(msg.sender)
+        phone = msg.phone or _extract_phone_digits(msg.sender) or (msg.sender or '').strip()
         thread_msgs = []
         if phone:
             sms_qs = InboxMessage.objects.filter(source='sms', phone=phone).order_by('received_at')[:100]
@@ -1739,6 +1739,16 @@ def inbox_detail_api(request, pk):
                     'is_sent': m.subject == '[발신]',
                     'is_current': m.pk == msg.pk,
                 })
+        # 전화번호 추출 실패 시 현재 메시지만이라도 표시
+        if not thread_msgs:
+            thread_msgs = [{
+                'pk': msg.pk,
+                'content': msg.content or '',
+                'time': msg.received_at.strftime('%H:%M') if msg.received_at else '',
+                'date': msg.received_at.strftime('%Y-%m-%d') if msg.received_at else '',
+                'is_sent': msg.subject == '[발신]',
+                'is_current': True,
+            }]
         data['sms_thread'] = thread_msgs
         data['sms_reply_phone'] = _extract_reply_phone(msg)
 
