@@ -460,6 +460,247 @@ def simple_order(request, slug):
     })
 
 
+# ── 주문 수정 (배송 전만) ─────────────────────────────────────────────────────
+
+@simple_session_required
+def simple_order_edit(request, slug, order_id):
+    agency = request.simple_agency
+    teacher = request.simple_teacher
+    order = get_object_or_404(Order, pk=order_id, teacher=teacher, agency=agency)
+
+    if order.status != Order.Status.PENDING:
+        messages.error(request, '배송 시작된 주문은 수정할 수 없습니다.')
+        return redirect('simple_home', slug=slug)
+
+    delivery = order.delivery
+
+    # 업체 취급 교재만 필터링
+    agency_books = agency.available_books.filter(is_active=True)
+    if agency_books.exists():
+        books = agency_books.select_related('publisher')
+    else:
+        books = Book.objects.filter(is_active=True).select_related('publisher')
+    series_list = sorted(set(b.series for b in books if b.series))
+    books_json = json.dumps([{
+        'id': b.id,
+        'series': b.series or '기타',
+        'name': b.name,
+        'publisher': b.publisher.name,
+        'list_price': b.list_price,
+    } for b in books], ensure_ascii=False)
+
+    error = None
+
+    if request.method == 'POST':
+        # 배송지 업데이트
+        new_school = request.POST.get('delivery_school', '').strip()
+        new_addr = request.POST.get('delivery_address', '').strip()
+        new_detail = request.POST.get('delivery_detail', '').strip()
+        new_phone = request.POST.get('delivery_phone', '').strip()
+        if new_detail:
+            new_addr = f'{new_addr} ({new_detail})' if new_addr else new_detail
+        if new_school and new_school != delivery.name:
+            delivery, _ = DeliveryAddress.objects.get_or_create(
+                agency=agency, name=new_school,
+                defaults={'address': new_addr, 'phone': new_phone},
+            )
+            if new_addr:
+                delivery.address = new_addr
+            if new_phone:
+                delivery.phone = new_phone
+            delivery.save()
+            order.delivery = delivery
+        else:
+            if new_addr and new_addr != delivery.address:
+                delivery.address = new_addr
+                delivery.save(update_fields=['address'])
+            if new_phone and new_phone != delivery.phone:
+                delivery.phone = new_phone
+                delivery.save(update_fields=['phone'])
+        if delivery:
+            detail_val = request.POST.get('delivery_detail', '').strip()
+            if detail_val and delivery.location_detail != detail_val:
+                delivery.location_detail = detail_val
+                delivery.save(update_fields=['location_detail'])
+
+        # 일반 교재
+        items = []
+        custom_items = []
+        i = 0
+        while f'book_{i}' in request.POST or f'custom_name_{i}' in request.POST:
+            book_id = request.POST.get(f'book_{i}', '').strip()
+            custom_name = request.POST.get(f'custom_name_{i}', '').strip()
+            qty_str = request.POST.get(f'qty_{i}', '').strip()
+            custom_price_str = request.POST.get(f'custom_price_{i}', '').strip()
+            if book_id and qty_str:
+                try:
+                    qty = int(qty_str)
+                    if qty > 0:
+                        items.append((int(book_id), qty))
+                except (ValueError, TypeError):
+                    pass
+            elif custom_name and qty_str:
+                try:
+                    qty = int(qty_str)
+                    price = int(custom_price_str) if custom_price_str else 0
+                    if qty > 0:
+                        custom_items.append((custom_name, qty, price))
+                except (ValueError, TypeError):
+                    pass
+            i += 1
+
+        # 교사용
+        tc_items = []
+        tc_custom_items = []
+        i = 0
+        while f'tb_book_{i}' in request.POST or f'tb_custom_name_{i}' in request.POST:
+            book_id = request.POST.get(f'tb_book_{i}', '').strip()
+            custom_name = request.POST.get(f'tb_custom_name_{i}', '').strip()
+            qty_str = request.POST.get(f'tb_qty_{i}', '').strip()
+            custom_price_str = request.POST.get(f'tb_custom_price_{i}', '').strip()
+            if book_id and qty_str:
+                try:
+                    qty = int(qty_str)
+                    if qty > 0:
+                        tc_items.append((int(book_id), qty))
+                except (ValueError, TypeError):
+                    pass
+            elif custom_name and qty_str:
+                try:
+                    qty = int(qty_str)
+                    price = int(custom_price_str) if custom_price_str else 0
+                    if qty > 0:
+                        tc_custom_items.append((custom_name, qty, price))
+                except (ValueError, TypeError):
+                    pass
+            i += 1
+
+        if not items and not custom_items and not tc_items and not tc_custom_items:
+            error = '주문할 교재를 1권 이상 선택하세요.'
+        else:
+            # 기존 항목 삭제 후 재생성
+            order.items.all().delete()
+            order.memo = request.POST.get('memo', '')
+            requested_delivery_date = request.POST.get('requested_delivery_date', '').strip() or None
+            order.requested_delivery_date = requested_delivery_date
+            order.save(update_fields=['delivery', 'memo', 'requested_delivery_date', 'updated_at'])
+
+            for book_id, qty in items:
+                try:
+                    book = Book.objects.get(id=book_id, is_active=True)
+                    OrderItem(order=order, book=book, quantity=qty).save()
+                except Book.DoesNotExist:
+                    pass
+            for cname, qty, price in custom_items:
+                OrderItem(order=order, book=None, custom_book_name=cname, quantity=qty, unit_price=price).save()
+            for book_id, qty in tc_items:
+                try:
+                    book = Book.objects.get(id=book_id, is_active=True)
+                    OrderItem(order=order, book=book, quantity=qty, is_teacher_copy=True).save()
+                except Book.DoesNotExist:
+                    pass
+            for cname, qty, price in tc_custom_items:
+                OrderItem(order=order, book=None, custom_book_name=cname, quantity=qty, unit_price=price, is_teacher_copy=True).save()
+
+            # 관리자에게 수정 알림
+            _notify_order_edited(order)
+            return redirect('simple_confirm', slug=slug, order_id=order.pk)
+
+    # 기존 항목을 edit_rows / edit_tb_rows 로 분리
+    edit_rows = []
+    edit_tb_rows = []
+    for item in order.items.select_related('book', 'book__publisher'):
+        row = {}
+        if item.book:
+            row = {
+                'series': item.book.series or '기타',
+                'book_id': str(item.book_id),
+                'qty': item.quantity,
+                'is_custom': False,
+            }
+        else:
+            row = {
+                'is_custom': True,
+                'custom_name': item.custom_book_name,
+                'qty': item.quantity,
+                'unit_price': item.unit_price,
+            }
+        if item.is_teacher_copy:
+            edit_tb_rows.append(row)
+        else:
+            edit_rows.append(row)
+
+    edit_rows_json = json.dumps(edit_rows, ensure_ascii=False) if edit_rows else '[]'
+    edit_tb_rows_json = json.dumps(edit_tb_rows, ensure_ascii=False) if edit_tb_rows else '[]'
+
+    return render(request, 'simple/order.html', {
+        'agency': agency,
+        'teacher': teacher,
+        'delivery': delivery,
+        'series_list': series_list,
+        'books_json': books_json,
+        'slug': slug,
+        'error': error,
+        'copy_rows_json': edit_rows_json,
+        'recent_books_json': '[]',
+        'edit_mode': True,
+        'edit_order': order,
+        'edit_tb_rows_json': edit_tb_rows_json,
+    })
+
+
+def _notify_order_edited(order):
+    """주문 수정 시 관리자에게 이메일 알림 (비동기)"""
+    import threading
+
+    def _send(order_pk):
+        try:
+            from django.conf import settings as conf
+            from .email_utils import send_reply_email
+
+            o = (Order.objects.select_related('agency', 'teacher', 'delivery')
+                 .prefetch_related('items', 'items__book', 'items__book__publisher')
+                 .get(pk=order_pk))
+
+            account_id = getattr(conf, 'NAVER_EMAIL_2_ID', '')
+            account_pw = getattr(conf, 'NAVER_EMAIL_2_PW', '')
+            if not account_id or not account_pw:
+                return
+
+            admin_email = f'{account_id}@naver.com'
+            items = o.items.all()
+            item_lines = []
+            total = 0
+            for item in items:
+                name = item.display_name
+                price = item.list_price
+                amount = price * item.quantity
+                total += amount
+                item_lines.append(f'  - {name} x {item.quantity}권 = {amount:,}원')
+
+            subject = f'[북마트 주문수정] {o.order_no} - {o.delivery.name}'
+            body = (
+                f'*** 주문이 수정되었습니다 ***\n\n'
+                f'주문번호: {o.order_no}\n'
+                f'업체: {o.agency.name}\n'
+                f'선생님: {o.teacher.name} ({o.teacher.phone})\n'
+                f'배송지: {o.delivery.name}\n'
+                f'주소: {o.delivery.address}\n'
+                f'\n── 수정된 교재 목록 ──\n'
+                + '\n'.join(item_lines) +
+                f'\n──────────\n'
+                f'합계: {total:,}원 (정가 기준)\n'
+            )
+            if o.memo:
+                body += f'메모: {o.memo}\n'
+
+            send_reply_email(account_id, account_pw, admin_email, subject, body)
+        except Exception:
+            pass
+
+    threading.Thread(target=_send, args=(order.pk,), daemon=True).start()
+
+
 # ── 배송현황 ──────────────────────────────────────────────────────────────────
 
 @simple_session_required

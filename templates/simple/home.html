@@ -191,7 +191,9 @@
       <a href="{% url 'simple_confirm' slug=slug order_id=order.pk %}" style="color:inherit;text-decoration:none">{{ order.order_no }}</a>
     </span>
     <div>
-      <a href="{% url 'simple_order' slug=slug %}?copy={{ order.pk }}" class="reorder-btn">재주문</a>
+      {% if order.status == 'pending' %}
+      <a href="{% url 'simple_order_edit' slug=slug order_id=order.pk %}" class="reorder-btn" style="background:#fff7ed;border-color:#fb923c;color:#ea580c">수정</a>
+      {% endif %}
       <span class="order-date">{{ order.ordered_at|date:"m/d H:i" }}</span>
     </div>
   </div>

@@ -7,6 +7,7 @@ urlpatterns = [
     path('s/<str:slug>/', views_simple.simple_landing, name='simple_landing'),
     path('s/<str:slug>/home/', views_simple.simple_home, name='simple_home'),
     path('s/<str:slug>/order/', views_simple.simple_order, name='simple_order'),
+    path('s/<str:slug>/order/<int:order_id>/edit/', views_simple.simple_order_edit, name='simple_order_edit'),
     path('s/<str:slug>/confirm/<int:order_id>/', views_simple.simple_confirm, name='simple_confirm'),
     path('s/<str:slug>/orders/', views_simple.simple_order_list, name='simple_order_list'),
     path('s/<str:slug>/delivery/', views_simple.simple_delivery_status, name='simple_delivery_status'),

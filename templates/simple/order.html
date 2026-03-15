@@ -100,7 +100,7 @@
 
 <div class="simple-card" style="padding:16px" x-data="orderForm()">
   <div style="margin-bottom:12px;display:flex;justify-content:space-between;align-items:center">
-    <h2 style="margin-bottom:0">교재 주문</h2>
+    <h2 style="margin-bottom:0">{% if edit_mode %}주문 수정{% else %}교재 주문{% endif %}</h2>
     <span style="font-size:12px;color:#64748b">{{ agency.name }} | {{ teacher.name }}{% if delivery %} | {{ delivery.name }}{% endif %}</span>
   </div>
 
@@ -388,7 +388,7 @@
     </div>
 
     <div x-show="orderError" x-text="orderError" style="color:#dc2626;font-size:13px;margin-top:8px;padding:6px 10px;background:#fef2f2;border-radius:6px" x-cloak></div>
-    <button type="button" class="btn btn-primary btn-block" style="margin-top:8px" @click="submitOrder">주문 완료</button>
+    <button type="button" class="btn btn-primary btn-block" style="margin-top:8px" @click="submitOrder">{% if edit_mode %}수정 완료{% else %}주문 완료{% endif %}</button>
   </form>
 </div>
 {% endblock %}
@@ -419,7 +419,17 @@ function orderForm() {
     seriesFilter: '',
     // 교재용 책
     tbSearchQuery: '', tbSearchResults: [], showTbResults: false,
-    tbRows: [{ series: '', book_id: '', qty: 1, list_price: 0, is_custom: false }],
+    tbRows: (() => {
+      const tb = {{ edit_tb_rows_json|default:"[]"|safe }};
+      if (tb.length) {
+        return tb.map(r => {
+          if (r.is_custom) return { is_custom: true, custom_name: r.custom_name, qty: r.qty, unit_price: r.unit_price || 0 };
+          const b = BOOKS.find(b => b.id == r.book_id);
+          return { series: r.series || '', book_id: r.book_id, qty: r.qty, list_price: b ? b.list_price : 0, is_custom: false };
+        });
+      }
+      return [{ series: '', book_id: '', qty: 1, list_price: 0, is_custom: false }];
+    })(),
     // 교재
     rows: (() => {
       const copy = {{ copy_rows_json|safe }};
