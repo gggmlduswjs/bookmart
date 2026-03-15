@@ -69,10 +69,14 @@ def send_ship_notification(order) -> bool:
         delivery_part = '\n(직접배송)'
     else:
         delivery_part = ''
+    link_part = ''
+    if order.agency and order.agency.agency_code:
+        link_part = f'\n\n주문현황 확인:\nhttps://bookmart6196.link/s/{order.agency.agency_code}/'
     message = (
         f'[북마트] {teacher.name} 선생님\n'
         f'{order.delivery.name} 교재 발송됐습니다.'
         f'{delivery_part}'
+        f'{link_part}'
     )
     return send_sms(receiver, message)
 
@@ -90,6 +94,9 @@ def send_order_confirmation(order) -> bool:
     if order.requested_delivery_date:
         parts.append(f'요청 배송일: {order.requested_delivery_date}')
     parts.append(f'주문번호: {order.order_no}')
+    # 간편주문 현황 링크
+    if order.agency and order.agency.agency_code:
+        parts.append(f'\n주문현황 확인:\nhttps://bookmart6196.link/s/{order.agency.agency_code}/')
     message = '\n'.join(parts)
     return send_sms(receiver, message)
 
