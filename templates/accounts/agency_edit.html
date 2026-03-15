@@ -33,6 +33,19 @@
       <input type="text" name="new_password" class="form-control" placeholder="변경할 비밀번호 입력 (미입력 시 유지)">
     </div>
 
+    <div class="form-group">
+      <label class="form-label">업체 분류</label>
+      <input type="text" name="agency_category" class="form-control" value="{{ agency_user.agency_category }}" placeholder="아이샘, 더봄, 참다손 등">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">거래원장 형식</label>
+      <select name="ledger_format" class="form-control">
+        <option value="full" {% if agency_user.ledger_format == 'full' %}selected{% endif %}>정석 (정가/공급률/매출액)</option>
+        <option value="simple" {% if agency_user.ledger_format == 'simple' %}selected{% endif %}>간소화 (수량/단가만)</option>
+      </select>
+    </div>
+
     <hr style="margin:20px 0">
 
     <div class="form-group">

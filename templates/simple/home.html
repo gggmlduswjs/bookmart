@@ -1,0 +1,257 @@
+{% extends 'simple/base.html' %}
+{% block title %}주문현황 - {{ agency.name }}{% endblock %}
+
+{% block extra_style %}
+.greeting {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 14px;
+}
+.greeting .name-area {
+  font-size: 15px; font-weight: 700; color: #1e293b;
+}
+.greeting .name-area .name { color: #2563eb; }
+.greeting .settings-link {
+  font-size: 12px; color: #94a3b8; text-decoration: none;
+  padding: 4px 8px; border-radius: 6px;
+}
+.greeting .settings-link:hover { background: #f1f5f9; color: #64748b; }
+
+/* KPI 카드 */
+.kpi-row {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
+  margin-bottom: 14px;
+}
+.kpi-card {
+  background: #fff; border: 1px solid #e2e8f0; border-radius: 10px;
+  padding: 12px 10px; text-align: center;
+}
+.kpi-card .count {
+  font-size: 28px; font-weight: 800; line-height: 1.2;
+}
+.kpi-card .label {
+  font-size: 11px; font-weight: 600; color: #64748b; margin-top: 2px;
+}
+.kpi-pending .count { color: #2563eb; }
+.kpi-shipping .count { color: #ea580c; }
+.kpi-delivered .count { color: #059669; }
+
+/* 새 주문 버튼 */
+.new-order-btn {
+  display: block; width: 100%; padding: 14px; margin-bottom: 16px;
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  color: #fff; font-size: 16px; font-weight: 700;
+  border: none; border-radius: 10px; cursor: pointer;
+  text-align: center; text-decoration: none;
+  box-shadow: 0 2px 8px rgba(37,99,235,0.25);
+  transition: transform 0.1s, box-shadow 0.1s;
+}
+.new-order-btn:hover {
+  transform: translateY(-1px); box-shadow: 0 4px 12px rgba(37,99,235,0.35);
+  color: #fff;
+}
+.new-order-btn:active { transform: scale(0.98); }
+
+/* 주문 카드 */
+.order-card {
+  background: #fff; border: 1px solid #e2e8f0; border-radius: 10px;
+  padding: 14px; margin-bottom: 10px;
+  transition: box-shadow 0.15s;
+}
+.order-card:active { box-shadow: 0 0 0 2px rgba(37,99,235,0.2); }
+.order-card .card-top {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 6px;
+}
+.order-card .order-no {
+  font-size: 12px; font-weight: 600; color: #64748b;
+}
+.order-card .order-date {
+  font-size: 11px; color: #94a3b8;
+}
+.order-card .card-body {
+  font-size: 13px; color: #1e293b; margin-bottom: 8px;
+}
+.order-card .card-body .school {
+  font-weight: 600; margin-bottom: 2px;
+}
+.order-card .card-body .items {
+  color: #64748b; font-size: 12px;
+}
+.order-card .card-bottom {
+  display: flex; justify-content: space-between; align-items: center;
+}
+.order-card .price {
+  font-size: 14px; font-weight: 700; color: #1e293b;
+}
+.order-card .reorder-btn {
+  font-size: 10px; padding: 2px 8px; background: #f1f5f9; border: 1px solid #e2e8f0;
+  border-radius: 4px; color: #475569; text-decoration: none; margin-left: 6px;
+}
+.order-card .reorder-btn:hover { background: #e2e8f0; }
+
+/* 상태 칩 */
+.status-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 10px; border-radius: 12px;
+  font-size: 11px; font-weight: 700;
+}
+.status-pending { background: #eff6ff; color: #2563eb; }
+.status-shipping { background: #fff7ed; color: #ea580c; }
+.status-delivered { background: #ecfdf5; color: #059669; }
+.status-cancelled { background: #f1f5f9; color: #94a3b8; text-decoration: line-through; }
+
+/* 배송 단계 */
+.status-steps {
+  display: flex; align-items: center; gap: 0; margin: 10px 0 6px;
+}
+.status-step {
+  flex: 1; text-align: center; font-size: 11px;
+}
+.status-step .dot {
+  width: 22px; height: 22px; border-radius: 50%;
+  background: #e2e8f0; color: #94a3b8;
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 3px; font-size: 10px; font-weight: 700;
+}
+.status-step.done .dot { background: #059669; color: #fff; }
+.status-step.current .dot { background: #2563eb; color: #fff; box-shadow: 0 0 0 3px rgba(37,99,235,0.2); }
+.status-step .step-label { color: #94a3b8; font-weight: 500; }
+.status-step.done .step-label { color: #059669; }
+.status-step.current .step-label { color: #2563eb; font-weight: 700; }
+.status-line {
+  flex: 0 0 auto; width: 24px; height: 2px; background: #e2e8f0; margin-bottom: 16px;
+}
+.status-line.done { background: #059669; }
+
+/* 운송장 */
+.tracking-box {
+  background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 6px;
+  padding: 8px 10px; font-size: 12px; color: #0369a1; margin-top: 6px;
+}
+.tracking-box a { color: #0369a1; font-weight: 600; text-decoration: underline; }
+.tracking-btn {
+  display: inline-block; margin-top: 6px; padding: 4px 12px;
+  background: #0369a1; color: #fff; border-radius: 4px;
+  font-size: 11px; font-weight: 600; text-decoration: none;
+}
+
+.section-title {
+  font-size: 13px; font-weight: 700; color: #64748b;
+  margin-bottom: 10px; padding-left: 2px;
+}
+
+.empty-state {
+  text-align: center; padding: 32px 16px; color: #94a3b8;
+  font-size: 14px;
+}
+{% endblock %}
+
+{% block content %}
+<div class="simple-nav">
+  <a href="{% url 'simple_home' slug=slug %}" class="active"><span class="nav-icon">&#128203;</span> 현황</a>
+  <a href="{% url 'simple_order' slug=slug %}"><span class="nav-icon">&#128221;</span> 주문</a>
+</div>
+
+<div class="greeting">
+  <div class="name-area">
+    <span class="name">{{ teacher.name }}</span> 선생님
+  </div>
+  <a href="{% url 'simple_set_password' slug=slug %}" class="settings-link">&#9881; 설정</a>
+</div>
+
+<!-- KPI 카드 -->
+<div class="kpi-row">
+  <div class="kpi-card kpi-pending">
+    <div class="count">{{ counts.pending }}</div>
+    <div class="label">접수</div>
+  </div>
+  <div class="kpi-card kpi-shipping">
+    <div class="count">{{ counts.shipping }}</div>
+    <div class="label">발송중</div>
+  </div>
+  <div class="kpi-card kpi-delivered">
+    <div class="count">{{ counts.delivered }}</div>
+    <div class="label">완료</div>
+  </div>
+</div>
+
+<!-- 새 주문 버튼 -->
+<a href="{% url 'simple_order' slug=slug %}" class="new-order-btn">
+  + 새 주문하기
+</a>
+
+<!-- 주문 내역 + 배송 통합 -->
+<div class="section-title">주문내역</div>
+
+{% if orders %}
+{% for order in orders %}
+<div class="order-card">
+  <div class="card-top">
+    <span class="order-no">
+      <a href="{% url 'simple_confirm' slug=slug order_id=order.pk %}" style="color:inherit;text-decoration:none">{{ order.order_no }}</a>
+    </span>
+    <div>
+      <a href="{% url 'simple_order' slug=slug %}?copy={{ order.pk }}" class="reorder-btn">재주문</a>
+      <span class="order-date">{{ order.ordered_at|date:"m/d H:i" }}</span>
+    </div>
+  </div>
+  <div class="card-body">
+    <div class="school">{{ order.delivery.name }}</div>
+    <div class="items">{{ order.items_summary }}</div>
+  </div>
+  <div class="card-bottom">
+    <span class="price">{{ order.list_price_total|floatformat:0 }}원</span>
+    {% if order.status == 'pending' %}
+      <span class="status-chip status-pending">접수</span>
+    {% elif order.status == 'shipping' %}
+      <span class="status-chip status-shipping">발송중</span>
+    {% elif order.status == 'delivered' %}
+      <span class="status-chip status-delivered">완료</span>
+    {% elif order.status == 'cancelled' %}
+      <span class="status-chip status-cancelled">취소</span>
+    {% endif %}
+  </div>
+
+  <!-- 배송 단계 (접수 제외 — 발송중/완료만 표시) -->
+  {% if order.status != 'cancelled' %}
+  <div class="status-steps">
+    <div class="status-step {% if order.status == 'pending' %}current{% else %}done{% endif %}">
+      <div class="dot">1</div>
+      <div class="step-label">접수</div>
+    </div>
+    <div class="status-line {% if order.status != 'pending' %}done{% endif %}"></div>
+    <div class="status-step {% if order.status == 'shipping' %}current{% elif order.status == 'delivered' %}done{% endif %}">
+      <div class="dot">2</div>
+      <div class="step-label">발송</div>
+    </div>
+    <div class="status-line {% if order.status == 'delivered' %}done{% endif %}"></div>
+    <div class="status-step {% if order.status == 'delivered' %}current{% endif %}">
+      <div class="dot">3</div>
+      <div class="step-label">완료</div>
+    </div>
+  </div>
+  {% else %}
+  <div style="margin-top:8px;background:#fef2f2;border:1px solid #fca5a5;border-radius:6px;padding:6px 10px;font-size:12px;color:#991b1b;text-align:center;font-weight:600">
+    주문이 취소되었습니다
+  </div>
+  {% endif %}
+
+  {% if order.carrier == 'direct' %}
+  <div class="tracking-box">직접배송</div>
+  {% elif order.tracking_no %}
+  <div class="tracking-box">
+    운송장: <a href="https://www.hanjin.com/kor/CMS/DeliveryMgr/WaybillResult.do?mession=open&wblnumText2={{ order.tracking_no }}" target="_blank" rel="noopener">{{ order.tracking_no }}</a> (한진택배)
+    <div style="margin-top:4px">
+      <a href="https://www.hanjin.com/kor/CMS/DeliveryMgr/WaybillResult.do?mession=open&wblnumText2={{ order.tracking_no }}" target="_blank" rel="noopener" class="tracking-btn">배송 추적</a>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endfor %}
+{% else %}
+<div class="empty-state">
+  아직 주문이 없습니다.<br>
+  위 버튼으로 첫 주문을 해보세요!
+</div>
+{% endif %}
+{% endblock %}

@@ -83,54 +83,32 @@ def dashboard(request):
     # 최근 활동 로그
     recent_activity = AuditLog.objects.select_related('user').order_by('-created_at')[:5]
 
-    # 교재 현황: 업체별 취급 교재 수
-    from books.models import Book
-    total_books = Book.objects.filter(is_active=True).count()
-    agencies_all = User.objects.filter(role='agency', is_active=True).order_by('name')
-    agency_book_stats = []
-    for a in agencies_all:
-        cnt = a.available_books.filter(is_active=True).count()
-        agency_book_stats.append({'name': a.name, 'count': cnt, 'id': a.pk})
-    assigned_agencies = sum(1 for s in agency_book_stats if s['count'] > 0)
-    unassigned_agencies = sum(1 for s in agency_book_stats if s['count'] == 0)
+    # 최근 주문 10건
+    recent_orders = (
+        Order.objects
+        .select_related('agency', 'teacher', 'delivery')
+        .prefetch_related('items', 'items__book')
+        .order_by('-ordered_at')[:10]
+    )
+    for o in recent_orders:
+        items_all = list(o.items.all())
+        count = len(items_all)
+        first = items_all[0] if items_all else None
+        if first:
+            name = first.book.name if first.book else first.custom_book_name
+            o.items_summary = f'{name} 외 {count - 1}종' if count > 1 else name
+        else:
+            o.items_summary = '-'
 
-    # 오늘의 할 일
-    todo_items = []
-    inbox_total = unprocessed_inbox + call_pending
-    if inbox_total > 0:
-        parts = []
-        if inbox_email: parts.append(f'이메일 {inbox_email}')
-        if inbox_sms: parts.append(f'SMS {inbox_sms}')
-        if call_pending: parts.append(f'통화 {call_pending}')
-        todo_items.append({
-            'label': f'미처리 수신함 {inbox_total}건',
-            'sub': ' / '.join(parts),
-            'url': reverse('inbox_list') + '?tab=email&hide_done=1',
-            'btn': '처리하기',
-            'color': '#f59e0b',
-            'urgent': inbox_total >= 10,
-        })
-    if pending_orders > 0:
-        sub = ''
-        if pending_overdue: sub = f'초과 {pending_overdue}건'
-        elif pending_imminent: sub = f'임박 {pending_imminent}건'
-        todo_items.append({
-            'label': f'발송 대기 {pending_orders}건',
-            'sub': sub,
-            'url': reverse('delivery_manage') + '?tab=pending',
-            'btn': '운송장 입력',
-            'color': '#3b82f6',
-            'urgent': pending_overdue > 0,
-        })
-    if pending_returns_count > 0:
-        todo_items.append({
-            'label': f'반품 대기 {pending_returns_count}건',
-            'sub': '',
-            'url': reverse('return_list') + '?status=requested',
-            'btn': '확인하기',
-            'color': '#ef4444',
-            'urgent': False,
-        })
+    # 이번 달 매출
+    month_start = today.replace(day=1)
+    month_revenue = OrderItem.objects.filter(
+        order__ordered_at__date__gte=month_start,
+        order__status__in=['pending', 'shipping', 'delivered'],
+    ).aggregate(total=Sum('amount'))['total'] or 0
+
+    # 총 주문 건수
+    total_orders = Order.objects.filter(status__in=['pending', 'shipping', 'delivered']).count()
 
     return render(request, 'orders/dashboard.html', {
         'unprocessed_inbox': unprocessed_inbox,
@@ -139,10 +117,7 @@ def dashboard(request):
         'call_pending': call_pending,
         'pending_orders': pending_orders,
         'pending_overdue': pending_overdue,
-        'pending_imminent': pending_imminent,
         'shipping_orders': shipping_orders,
-        'shipping_hanjin': shipping_hanjin,
-        'shipping_direct': shipping_direct,
         'today_orders': today_orders,
         'today_vs_yesterday': today_vs_yesterday,
         'deadline_city': deadline_city,
@@ -153,13 +128,10 @@ def dashboard(request):
         'delivered_today': delivered_today,
         'pending_returns_count': pending_returns_count,
         'today_revenue': today_revenue,
+        'month_revenue': month_revenue,
+        'total_orders': total_orders,
         'overdue_delivery_count': overdue_delivery_count,
-        'recent_activity': recent_activity,
-        'todo_items': todo_items,
-        'total_books': total_books,
-        'agency_book_stats': agency_book_stats,
-        'assigned_agencies': assigned_agencies,
-        'unassigned_agencies': unassigned_agencies,
+        'recent_orders': recent_orders,
     })
 
 

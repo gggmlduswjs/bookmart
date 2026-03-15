@@ -4,255 +4,309 @@
 
 {% block extra_css %}
 <style>
-  .section-label {
-    font-size: 11px; font-weight: 700; color: #9ca3af;
-    text-transform: uppercase; letter-spacing: 0.5px;
-    margin-bottom: 12px;
-  }
-
-  /* Alert */
-  .dash-alert {
-    background: #fef2f2; border-left: 3px solid #ef4444;
-    border-radius: 8px; padding: 12px 18px; margin-bottom: 28px;
+  /* ── 알림 배너 ── */
+  .alert-banner {
+    background: linear-gradient(135deg, #fef2f2, #fff1f2);
+    border: 1px solid #fecaca; border-radius: 10px;
+    padding: 14px 20px; margin-bottom: 20px;
     display: flex; align-items: center; gap: 12px;
   }
-  .dash-alert-text { flex: 1; }
-  .dash-alert-title { font-weight: 700; color: #dc2626; font-size: 13px; }
-  .dash-alert-desc { font-size: 11px; color: #991b1b; margin-top: 1px; }
-  .dash-alert-btn {
-    background: #dc2626; color: #fff; border: none; padding: 6px 16px;
+  .alert-icon { font-size: 18px; }
+  .alert-text { flex: 1; font-size: 13px; font-weight: 600; color: #dc2626; }
+  .alert-text small { font-weight: 400; color: #991b1b; }
+  .alert-btn {
+    background: #dc2626; color: #fff; border: none; padding: 7px 18px;
     border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;
-    text-decoration: none;
+    text-decoration: none; white-space: nowrap;
   }
-  .dash-alert-btn:hover { background: #b91c1c; }
+  .alert-btn:hover { background: #b91c1c; color: #fff; }
 
-  /* KPI Cards */
-  .kpi-grid {
-    display: grid; grid-template-columns: repeat(4, 1fr);
-    gap: 16px; margin-bottom: 32px;
+  /* ── 상단 KPI ── */
+  .kpi-row {
+    display: grid; grid-template-columns: repeat(5, 1fr);
+    gap: 12px; margin-bottom: 24px;
   }
-  .kpi {
-    background: #fff; border: 1px solid #e5e7eb; border-radius: 12px;
-    padding: 22px 20px; text-decoration: none; color: inherit;
-    transition: all 0.2s; cursor: pointer;
+  .kpi-card {
+    background: #fff; border: 1px solid #e5e7eb; border-radius: 10px;
+    padding: 16px 18px; text-decoration: none; color: inherit;
+    transition: all 0.15s; position: relative;
   }
-  .kpi:hover { border-color: #d1d5db; box-shadow: 0 2px 12px rgba(0,0,0,0.04); }
-  .kpi-label { font-size: 12px; color: #9ca3af; font-weight: 500; margin-bottom: 8px; }
-  .kpi-num {
-    font-size: 40px; font-weight: 800; line-height: 1;
-    letter-spacing: -1.5px;
+  .kpi-card:hover { border-color: #d1d5db; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
+  .kpi-card .label { font-size: 11px; color: #9ca3af; font-weight: 600; margin-bottom: 6px; }
+  .kpi-card .num { font-size: 32px; font-weight: 800; line-height: 1; letter-spacing: -1px; }
+  .kpi-card .sub { font-size: 11px; color: #b0b8c4; margin-top: 6px; }
+  .kpi-card .badge {
+    position: absolute; top: 10px; right: 12px;
+    font-size: 10px; font-weight: 700; padding: 2px 7px;
+    border-radius: 10px; color: #fff;
   }
-  .kpi-sub { font-size: 11px; color: #d1d5db; margin-top: 8px; }
 
-  /* Deadline */
-  .dl-row {
-    display: grid; grid-template-columns: 1fr 1fr;
-    gap: 16px; margin-bottom: 32px;
+  /* ── 마감 바 ── */
+  .deadline-bar {
+    display: flex; gap: 12px; margin-bottom: 24px;
   }
-  .dl-card {
-    background: #fff; border: 1px solid #e5e7eb; border-radius: 12px;
-    padding: 18px 22px;
-    display: flex; align-items: baseline; justify-content: space-between;
+  .dl-chip {
+    flex: 1; background: #fff; border: 1px solid #e5e7eb; border-radius: 10px;
+    padding: 12px 18px; display: flex; align-items: center; justify-content: space-between;
   }
-  .dl-card.urgent { border-color: #fde68a; background: #fffdf5; }
-  .dl-name { font-size: 13px; font-weight: 600; color: #6b7280; }
-  .dl-cutoff { font-size: 12px; color: #d1d5db; margin-top: 2px; }
-  .dl-remain { font-size: 28px; font-weight: 800; letter-spacing: -1px; }
-  .dl-remain.warn { color: #d97706; }
-  .dl-remain.ok { color: #059669; }
-  .dl-remain.past { color: #dc2626; }
-  .dl-unit { font-size: 13px; font-weight: 600; color: #9ca3af; margin-left: 2px; }
+  .dl-chip.urgent { border-color: #fde68a; background: #fffdf5; }
+  .dl-chip .dl-label { font-size: 12px; color: #6b7280; font-weight: 600; }
+  .dl-chip .dl-label small { font-weight: 400; color: #9ca3af; }
+  .dl-chip .dl-time { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; }
+  .dl-time.ok { color: #059669; }
+  .dl-time.warn { color: #d97706; }
+  .dl-time.past { color: #dc2626; }
 
-  /* Bottom Row */
-  .bottom-row {
-    display: grid; grid-template-columns: 1fr 1fr;
+  /* ── 2컬럼 레이아웃 ── */
+  .two-col {
+    display: grid; grid-template-columns: 3fr 2fr;
     gap: 16px;
   }
-  .card {
-    background: #fff; border: 1px solid #e5e7eb; border-radius: 12px;
-    padding: 20px 22px;
-  }
-  .card-title {
-    font-size: 12px; font-weight: 700; color: #9ca3af;
-    text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 16px;
-  }
 
-  /* Summary table */
-  .s-table { width: 100%; border-collapse: collapse; }
-  .s-table td { padding: 8px 0; font-size: 13px; border-bottom: 1px solid #f3f4f6; }
-  .s-table tr:last-child td { border-bottom: none; }
-  .s-table .lbl { color: #6b7280; }
-  .s-table .val { text-align: right; font-weight: 700; color: #111827; font-variant-numeric: tabular-nums; }
-
-  /* Activity */
-  .a-item {
-    display: flex; align-items: center; gap: 10px;
-    padding: 8px 0; border-bottom: 1px solid #f3f4f6; font-size: 12px;
+  /* ── 카드 공통 ── */
+  .panel {
+    background: #fff; border: 1px solid #e5e7eb; border-radius: 10px;
+    padding: 0; overflow: hidden;
   }
-  .a-item:last-child { border-bottom: none; }
-  .a-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; background: #d1d5db; }
-  .a-dot.c-blue { background: #3b82f6; }
-  .a-dot.c-amber { background: #f59e0b; }
-  .a-dot.c-green { background: #10b981; }
-  .a-dot.c-red { background: #ef4444; }
-  .a-text { flex: 1; color: #6b7280; }
-  .a-text b { color: #374151; font-weight: 600; }
-  .a-time { color: #d1d5db; font-size: 10px; flex-shrink: 0; font-variant-numeric: tabular-nums; }
-
-  /* Todo */
-  .todo-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 28px; }
-  .todo-item {
+  .panel-head {
     display: flex; align-items: center; justify-content: space-between;
-    background: #fff; border: 1px solid #e5e7eb; border-radius: 10px;
-    padding: 14px 18px; text-decoration: none; color: inherit;
-    transition: all 0.15s;
+    padding: 14px 18px; border-bottom: 1px solid #f1f5f9;
   }
-  .todo-item:hover { border-color: #d1d5db; box-shadow: 0 2px 8px rgba(0,0,0,0.04); text-decoration: none; }
-  .todo-urgent { border-left: 3px solid #ef4444; background: #fffbfb; }
-  .todo-label { font-size: 14px; font-weight: 600; color: #1e293b; }
-  .todo-sub { font-size: 12px; color: #94a3b8; margin-top: 2px; }
-  .todo-btn {
-    padding: 6px 16px; border-radius: 6px; font-size: 12px;
-    font-weight: 600; color: #fff; white-space: nowrap; flex-shrink: 0;
+  .panel-title { font-size: 13px; font-weight: 700; color: #374151; }
+  .panel-more {
+    font-size: 11px; color: #9ca3af; text-decoration: none; font-weight: 600;
   }
-  .todo-empty {
-    text-align: center; padding: 24px; color: #94a3b8; font-size: 14px;
-    background: #fff; border: 1px solid #e5e7eb; border-radius: 10px;
-    margin-bottom: 28px;
+  .panel-more:hover { color: #6b7280; }
+
+  /* ── 주문 테이블 ── */
+  .order-table { width: 100%; border-collapse: collapse; }
+  .order-table th {
+    font-size: 11px; color: #9ca3af; font-weight: 600; text-align: left;
+    padding: 8px 12px; border-bottom: 1px solid #f1f5f9;
+    background: #fafbfc;
+  }
+  .order-table td {
+    font-size: 12px; padding: 10px 12px; border-bottom: 1px solid #f8f9fa;
+    color: #374151; vertical-align: middle;
+  }
+  .order-table tr:last-child td { border-bottom: none; }
+  .order-table tr:hover td { background: #f8fafc; }
+  .order-table .order-no { font-weight: 600; color: #2563eb; }
+  .order-table .school-name { font-weight: 600; color: #1e293b; }
+
+  /* 상태 칩 */
+  .st {
+    display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 8px;
+    border-radius: 10px; white-space: nowrap;
+  }
+  .st-pending { background: #dbeafe; color: #1d4ed8; }
+  .st-shipping { background: #d1fae5; color: #047857; }
+  .st-delivered { background: #f3f4f6; color: #6b7280; }
+  .st-cancelled { background: #fee2e2; color: #dc2626; }
+
+  /* 경로 칩 */
+  .src {
+    display: inline-block; font-size: 10px; padding: 1px 6px;
+    border-radius: 4px; color: #6b7280; background: #f3f4f6;
+  }
+
+  /* ── 오늘 요약 ── */
+  .summary-list { padding: 0; }
+  .summary-item {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 12px 18px; border-bottom: 1px solid #f8f9fa;
+    font-size: 13px;
+  }
+  .summary-item:last-child { border-bottom: none; }
+  .summary-item .s-label { color: #6b7280; }
+  .summary-item .s-val { font-weight: 700; color: #1e293b; font-variant-numeric: tabular-nums; }
+
+  /* ── 할일 리스트 ── */
+  .todo-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 18px; border-bottom: 1px solid #f8f9fa;
+    text-decoration: none; color: inherit; transition: background 0.1s;
+  }
+  .todo-item:last-child { border-bottom: none; }
+  .todo-item:hover { background: #f8fafc; }
+  .todo-dot {
+    width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+  }
+  .todo-text { flex: 1; font-size: 13px; color: #374151; font-weight: 500; }
+  .todo-text small { color: #9ca3af; font-weight: 400; }
+  .todo-go {
+    font-size: 11px; font-weight: 600; padding: 4px 12px;
+    border-radius: 5px; color: #fff; white-space: nowrap;
+  }
+
+  .empty-msg {
+    padding: 24px; text-align: center; color: #94a3b8; font-size: 13px;
   }
 
   @media (max-width: 1000px) {
-    .kpi-grid { grid-template-columns: repeat(2, 1fr); }
-    .dl-row, .bottom-row { grid-template-columns: 1fr; }
+    .kpi-row { grid-template-columns: repeat(3, 1fr); }
+    .two-col { grid-template-columns: 1fr; }
+    .deadline-bar { flex-direction: column; }
+  }
+  @media (max-width: 640px) {
+    .kpi-row { grid-template-columns: repeat(2, 1fr); }
   }
 </style>
 {% endblock %}
 
 {% block content %}
+{# ── 알림 배너 ── #}
 {% if overdue_delivery_count > 0 %}
-<div class="dash-alert">
-  <div class="dash-alert-text">
-    <div class="dash-alert-title">배송일 초과 {{ overdue_delivery_count }}건</div>
-    <div class="dash-alert-desc">즉시 확인이 필요합니다</div>
-  </div>
-  <a href="{% url 'order_list' %}?status=pending" class="dash-alert-btn">확인</a>
+<div class="alert-banner">
+  <span class="alert-icon">&#9888;</span>
+  <span class="alert-text">배송일 초과 {{ overdue_delivery_count }}건 <small>- 즉시 확인 필요</small></span>
+  <a href="{% url 'order_list' %}?status=pending" class="alert-btn">확인하기</a>
 </div>
 {% endif %}
 
-{% if todo_items %}
-<div class="section-label">오늘의 할 일</div>
-<div class="todo-list">
-  {% for item in todo_items %}
-  <a class="todo-item {% if item.urgent %}todo-urgent{% endif %}" href="{{ item.url }}">
-    <div>
-      <div class="todo-label">{{ item.label }}</div>
-      {% if item.sub %}<div class="todo-sub">{{ item.sub }}</div>{% endif %}
-    </div>
-    <span class="todo-btn" style="background:{{ item.color }}">{{ item.btn }}</span>
+{# ── KPI 카드 ── #}
+<div class="kpi-row">
+  <a class="kpi-card" href="{% url 'inbox_list' %}?tab=email&hide_done=1">
+    <div class="label">미처리</div>
+    <div class="num" style="color:{% if unprocessed_inbox|add:call_pending > 0 %}#f59e0b{% else %}#d1d5db{% endif %}">{{ unprocessed_inbox|add:call_pending }}</div>
+    <div class="sub">이메일 {{ inbox_email }} / SMS {{ inbox_sms }}{% if call_pending %} / 통화 {{ call_pending }}{% endif %}</div>
   </a>
-  {% endfor %}
-</div>
-{% else %}
-<div class="todo-empty">
-  <div style="font-size:20px;margin-bottom:6px;color:#10b981">&#10003;</div>
-  <div>처리할 항목이 없습니다</div>
-</div>
-{% endif %}
-
-<div class="section-label">처리 현황</div>
-<div class="kpi-grid">
-  <a class="kpi" href="{% url 'inbox_list' %}?tab=email&hide_done=1">
-    <div class="kpi-label">미처리 수신함</div>
-    <div class="kpi-num" style="color:#f59e0b">{{ unprocessed_inbox|add:call_pending }}</div>
-    <div class="kpi-sub">이메일 {{ inbox_email }} / SMS {{ inbox_sms }}{% if call_pending %} / 통화 {{ call_pending }}{% endif %}</div>
+  <a class="kpi-card" href="{% url 'delivery_manage' %}?tab=pending">
+    <div class="label">발송 대기</div>
+    <div class="num" style="color:{% if pending_orders > 0 %}#3b82f6{% else %}#d1d5db{% endif %}">{{ pending_orders }}</div>
+    <div class="sub">{% if pending_overdue %}초과 {{ pending_overdue }}건{% else %}-{% endif %}</div>
+    {% if pending_overdue > 0 %}<span class="badge" style="background:#ef4444">긴급</span>{% endif %}
   </a>
-  <a class="kpi" href="{% url 'delivery_manage' %}?tab=pending">
-    <div class="kpi-label">발송 대기</div>
-    <div class="kpi-num" style="color:#3b82f6">{{ pending_orders }}</div>
-    <div class="kpi-sub">{% if pending_overdue %}초과 {{ pending_overdue }}{% endif %}{% if pending_overdue and pending_imminent %} / {% endif %}{% if pending_imminent %}임박 {{ pending_imminent }}{% endif %}{% if not pending_overdue and not pending_imminent %}-{% endif %}</div>
+  <a class="kpi-card" href="{% url 'delivery_manage' %}?tab=shipping">
+    <div class="label">발송중</div>
+    <div class="num" style="color:{% if shipping_orders > 0 %}#10b981{% else %}#d1d5db{% endif %}">{{ shipping_orders }}</div>
+    <div class="sub">-</div>
   </a>
-  <a class="kpi" href="{% url 'delivery_manage' %}?tab=shipping">
-    <div class="kpi-label">발송중</div>
-    <div class="kpi-num" style="color:#10b981">{{ shipping_orders }}</div>
-    <div class="kpi-sub">{% if shipping_hanjin %}한진 {{ shipping_hanjin }}{% endif %}{% if shipping_hanjin and shipping_direct %} / {% endif %}{% if shipping_direct %}직배 {{ shipping_direct }}{% endif %}{% if not shipping_hanjin and not shipping_direct %}-{% endif %}</div>
+  <a class="kpi-card" href="{% url 'order_list' %}">
+    <div class="label">오늘 접수</div>
+    <div class="num" style="color:#1e293b">{{ today_orders }}</div>
+    <div class="sub">어제 대비 {{ today_vs_yesterday }}</div>
   </a>
-  <a class="kpi" href="{% url 'order_list' %}">
-    <div class="kpi-label">오늘 접수</div>
-    <div class="kpi-num" style="color:#1e293b">{{ today_orders }}</div>
-    <div class="kpi-sub">어제 대비 {{ today_vs_yesterday }}</div>
+  <a class="kpi-card" href="{% url 'order_list' %}">
+    <div class="label">이번달 매출</div>
+    <div class="num" style="color:#1e293b; font-size:22px">&#8361;{{ month_revenue|intcomma }}</div>
+    <div class="sub">총 {{ total_orders }}건</div>
   </a>
 </div>
 
-<div class="section-label">마감</div>
-<div class="dl-row">
-  <div class="dl-card" id="dl-city-card">
-    <div>
-      <div class="dl-name">시내 마감</div>
-      <div class="dl-cutoff">{{ deadline_city|date:"H:i" }}{% if pending_city %} &middot; 대기 {{ pending_city }}건{% endif %}</div>
-    </div>
-    <div><span class="dl-remain ok" id="dl-city-remain">-</span><span class="dl-unit" id="dl-city-unit"></span></div>
+{# ── 마감 ── #}
+<div class="deadline-bar">
+  <div class="dl-chip" id="dl-city-card">
+    <div class="dl-label">시내 마감 <small>{{ deadline_city|date:"H:i" }}{% if pending_city %} &middot; {{ pending_city }}건{% endif %}</small></div>
+    <div><span class="dl-time ok" id="dl-city-remain">-</span></div>
   </div>
-  <div class="dl-card" id="dl-region-card">
-    <div>
-      <div class="dl-name">지방 마감</div>
-      <div class="dl-cutoff">{{ deadline_region|date:"H:i" }}{% if pending_region %} &middot; 대기 {{ pending_region }}건{% endif %}</div>
-    </div>
-    <div><span class="dl-remain ok" id="dl-region-remain">-</span><span class="dl-unit" id="dl-region-unit"></span></div>
+  <div class="dl-chip" id="dl-region-card">
+    <div class="dl-label">지방 마감 <small>{{ deadline_region|date:"H:i" }}{% if pending_region %} &middot; {{ pending_region }}건{% endif %}</small></div>
+    <div><span class="dl-time ok" id="dl-region-remain">-</span></div>
   </div>
 </div>
 
-<div class="section-label">교재 현황</div>
-<div class="card" style="margin-bottom:32px">
-  <div style="display:flex;align-items:center;gap:16px;margin-bottom:14px">
-    <div style="font-size:13px;color:#6b7280">전체 교재 <b style="color:#1e293b;font-size:18px">{{ total_books }}</b>종</div>
-    <div style="font-size:12px;color:#94a3b8">업체 지정 {{ assigned_agencies }}/{{ assigned_agencies|add:unassigned_agencies }}개</div>
-    <a href="{% url 'book_list' %}" style="margin-left:auto;font-size:12px" class="btn btn-outline btn-sm">교재 관리</a>
-  </div>
-  <table class="s-table">
-    <thead>
-      <tr>
-        <td class="lbl" style="font-weight:600;border-bottom:2px solid #e5e7eb;padding-bottom:6px">업체명</td>
-        <td class="val" style="font-weight:600;border-bottom:2px solid #e5e7eb;padding-bottom:6px">취급 교재</td>
-      </tr>
-    </thead>
-    <tbody>
-      {% for s in agency_book_stats %}
-      <tr>
-        <td class="lbl">{{ s.name }}</td>
-        <td class="val">
-          {% if s.count > 0 %}
-            {{ s.count }}종
-          {% else %}
-            <span style="color:#dc2626">미지정</span>
-          {% endif %}
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
-
-<div class="bottom-row">
-  <div class="card">
-    <div class="card-title">오늘 요약</div>
-    <table class="s-table">
-      <tr><td class="lbl">접수 주문</td><td class="val">{{ today_orders }}건</td></tr>
-      <tr><td class="lbl">발송 완료</td><td class="val">{{ delivered_today }}건</td></tr>
-      <tr><td class="lbl">반품 대기</td><td class="val">{{ pending_returns_count }}건</td></tr>
-      <tr><td class="lbl">오늘 매출</td><td class="val">&#8361;{{ today_revenue|intcomma }}</td></tr>
+{# ── 2컬럼: 최근주문 + 사이드 ── #}
+<div class="two-col">
+  {# 좌측: 최근 주문 #}
+  <div class="panel">
+    <div class="panel-head">
+      <span class="panel-title">최근 주문</span>
+      <a href="{% url 'order_list' %}" class="panel-more">전체보기 &rsaquo;</a>
+    </div>
+    {% if recent_orders %}
+    <table class="order-table">
+      <thead>
+        <tr>
+          <th>주문번호</th>
+          <th>일시</th>
+          <th>학교/업체</th>
+          <th>교재</th>
+          <th>경로</th>
+          <th>상태</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for o in recent_orders %}
+        <tr>
+          <td><a class="order-no" href="{% url 'order_list' %}?q={{ o.order_no }}">{{ o.order_no|truncatechars:14 }}</a></td>
+          <td style="color:#9ca3af;white-space:nowrap">{{ o.ordered_at|date:"m/d H:i" }}</td>
+          <td>
+            <span class="school-name">{{ o.delivery.name|truncatechars:10 }}</span>
+            <br><span style="font-size:10px;color:#9ca3af">{{ o.agency.name }}</span>
+          </td>
+          <td style="max-width:180px">{{ o.items_summary|truncatechars:24 }}</td>
+          <td><span class="src">{{ o.get_source_display }}</span></td>
+          <td>
+            <span class="st st-{{ o.status }}">{{ o.get_status_display }}</span>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
     </table>
+    {% else %}
+    <div class="empty-msg">주문이 없습니다</div>
+    {% endif %}
   </div>
-  <div class="card">
-    <div class="card-title">최근 활동</div>
-    {% for log in recent_activity %}
-    <div class="a-item">
-      <span class="a-dot {% if log.action == 'order_create' or log.action == 'order_edit' %}c-blue{% elif log.action == 'order_deliver' %}c-green{% elif log.action == 'order_cancel' or log.action == 'return_create' or log.action == 'return_confirm' or log.action == 'return_reject' %}c-red{% else %}c-amber{% endif %}"></span>
-      <span class="a-text"><b>{{ log.get_action_display }}</b> {% if log.detail %}{{ log.detail|truncatechars:30 }}{% endif %}</span>
-      <span class="a-time">{{ log.created_at|date:"H:i" }}</span>
+
+  {# 우측: 오늘요약 + 할일 #}
+  <div style="display:flex;flex-direction:column;gap:16px">
+    <div class="panel">
+      <div class="panel-head">
+        <span class="panel-title">오늘 요약</span>
+      </div>
+      <div class="summary-list">
+        <div class="summary-item">
+          <span class="s-label">접수</span>
+          <span class="s-val">{{ today_orders }}건</span>
+        </div>
+        <div class="summary-item">
+          <span class="s-label">발송완료</span>
+          <span class="s-val">{{ delivered_today }}건</span>
+        </div>
+        <div class="summary-item">
+          <span class="s-label">반품대기</span>
+          <span class="s-val" style="{% if pending_returns_count > 0 %}color:#dc2626{% endif %}">{{ pending_returns_count }}건</span>
+        </div>
+        <div class="summary-item">
+          <span class="s-label">오늘 매출</span>
+          <span class="s-val">&#8361;{{ today_revenue|intcomma }}</span>
+        </div>
+      </div>
     </div>
-    {% empty %}
-    <div style="color:#9ca3af;font-size:13px;padding:10px 0;text-align:center">활동 기록이 없습니다</div>
-    {% endfor %}
+
+    <div class="panel">
+      <div class="panel-head">
+        <span class="panel-title">처리 필요</span>
+      </div>
+      {% with inbox_total=unprocessed_inbox|add:call_pending %}
+      {% if inbox_total > 0 or pending_orders > 0 or pending_returns_count > 0 %}
+        {% if inbox_total > 0 %}
+        <a class="todo-item" href="{% url 'inbox_list' %}?tab=email&hide_done=1">
+          <span class="todo-dot" style="background:#f59e0b"></span>
+          <span class="todo-text">미처리 수신함 {{ inbox_total }}건 <small>이메일 {{ inbox_email }}{% if call_pending %} / 통화 {{ call_pending }}{% endif %}</small></span>
+          <span class="todo-go" style="background:#f59e0b">처리</span>
+        </a>
+        {% endif %}
+        {% if pending_orders > 0 %}
+        <a class="todo-item" href="{% url 'delivery_manage' %}?tab=pending">
+          <span class="todo-dot" style="background:#3b82f6"></span>
+          <span class="todo-text">발송 대기 {{ pending_orders }}건 {% if pending_overdue %}<small style="color:#dc2626">초과 {{ pending_overdue }}</small>{% endif %}</span>
+          <span class="todo-go" style="background:#3b82f6">처리</span>
+        </a>
+        {% endif %}
+        {% if pending_returns_count > 0 %}
+        <a class="todo-item" href="{% url 'return_list' %}?status=requested">
+          <span class="todo-dot" style="background:#ef4444"></span>
+          <span class="todo-text">반품 대기 {{ pending_returns_count }}건</span>
+          <span class="todo-go" style="background:#ef4444">확인</span>
+        </a>
+        {% endif %}
+      {% else %}
+        <div class="empty-msg" style="color:#10b981">&#10003; 처리할 항목이 없습니다</div>
+      {% endif %}
+      {% endwith %}
+    </div>
   </div>
 </div>
 {% endblock %}
@@ -262,46 +316,39 @@
 (function(){
   var CITY = {h: {{ deadline_city|date:"G" }}, m: {{ deadline_city|date:"i" }}};
   var REGION = {h: {{ deadline_region|date:"G" }}, m: {{ deadline_region|date:"i" }}};
-
   function update(){
-    calc(CITY, 'dl-city-remain', 'dl-city-unit', 'dl-city-card');
-    calc(REGION, 'dl-region-remain', 'dl-region-unit', 'dl-region-card');
+    calc(CITY, 'dl-city-remain', 'dl-city-card');
+    calc(REGION, 'dl-region-remain', 'dl-region-card');
   }
-
-  function calc(dl, remainId, unitId, cardId){
+  function calc(dl, remainId, cardId){
     var now = new Date();
     var target = new Date(now);
     target.setHours(dl.h, dl.m, 0, 0);
     var el = document.getElementById(remainId);
-    var unitEl = document.getElementById(unitId);
     var card = document.getElementById(cardId);
     if(!el) return;
     var diff = target - now;
     if(diff <= 0){
       el.textContent = '마감';
-      el.className = 'dl-remain past';
-      unitEl.textContent = '';
+      el.className = 'dl-time past';
       card.classList.remove('urgent');
     } else {
       var h = Math.floor(diff / 3600000);
       var m = Math.floor((diff % 3600000) / 60000);
       if(h > 0){
-        el.textContent = h + ':' + (m < 10 ? '0' : '') + m;
-        unitEl.textContent = '';
+        el.textContent = h + '시간 ' + m + '분';
       } else {
-        el.textContent = m;
-        unitEl.textContent = '분';
+        el.textContent = m + '분';
       }
       if(diff < 3600000){
-        el.className = 'dl-remain warn';
+        el.className = 'dl-time warn';
         card.classList.add('urgent');
       } else {
-        el.className = 'dl-remain ok';
+        el.className = 'dl-time ok';
         card.classList.remove('urgent');
       }
     }
   }
-
   update();
   setInterval(update, 30000);
 })();

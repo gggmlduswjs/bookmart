@@ -190,6 +190,9 @@ def agency_edit(request, pk):
             agency_user.plain_password = new_pw
             agency_user.must_change_password = True
             update_fields.extend(['password', 'plain_password', 'must_change_password'])
+        agency_user.agency_category = request.POST.get('agency_category', '').strip()
+        agency_user.ledger_format = request.POST.get('ledger_format', 'full').strip()
+        update_fields.extend(['agency_category', 'ledger_format'])
         agency_user.save(update_fields=update_fields)
 
         info.rep_name = request.POST.get('rep_name', '').strip()

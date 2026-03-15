@@ -67,10 +67,10 @@ def simple_landing(request, slug):
             action='visit',
         )
 
-    # 이미 세션 있으면 주문 페이지로
+    # 이미 세션 있으면 홈(대시보드)으로
     teacher = _get_session_teacher(request, agency)
     if teacher:
-        return redirect('simple_order', slug=slug)
+        return redirect('simple_home', slug=slug)
 
     error = None
     active_tab = 'new'
@@ -88,12 +88,13 @@ def simple_landing(request, slug):
                     role='teacher', agency=agency, is_active=True
                 ).first()
                 if existing:
+                    # 기존 회원 → 바로 홈(대시보드)으로
                     request.session['simple_teacher_id'] = existing.pk
                     request.session['simple_agency_code'] = str(agency.agency_code)
                     auth_login(request, existing, backend='django.contrib.auth.backends.ModelBackend')
                     from django.urls import reverse
                     return HttpResponse(
-                        json.dumps({'exists': True, 'redirect': reverse('simple_order', args=[slug])}),
+                        json.dumps({'exists': True, 'redirect': reverse('simple_home', args=[slug])}),
                         content_type='application/json'
                     )
             return HttpResponse(
@@ -121,7 +122,7 @@ def simple_landing(request, slug):
                     request.session['simple_teacher_id'] = teacher.pk
                     request.session['simple_agency_code'] = str(agency.agency_code)
                     auth_login(request, teacher, backend='django.contrib.auth.backends.ModelBackend')
-                    return redirect('simple_order_list', slug=slug)
+                    return redirect('simple_home', slug=slug)
 
         else:
             # ── 신규 주문 모드 ──
@@ -173,14 +174,14 @@ def simple_landing(request, slug):
                             action='register',
                         )
 
-                    # 배송지(학교) 생성 또는 매칭
-                    delivery, _ = DeliveryAddress.objects.get_or_create(
-                        agency=agency,
-                        name=school,
-                        defaults={'address': address, 'phone': phone},
-                    )
-                    teacher.delivery_address = delivery
-                    teacher.save(update_fields=['delivery_address'])
+                # 배송지(학교) 생성 또는 매칭 (기존/신규 모두)
+                delivery, _ = DeliveryAddress.objects.get_or_create(
+                    agency=agency,
+                    name=school,
+                    defaults={'address': address, 'phone': phone},
+                )
+                teacher.delivery_address = delivery
+                teacher.save(update_fields=['delivery_address'])
 
                 # 세션에 저장 + Django 로그인
                 request.session['simple_teacher_id'] = teacher.pk
@@ -196,6 +197,46 @@ def simple_landing(request, slug):
     })
 
 
+# ── 홈 (주문현황 대시보드) ─────────────────────────────────────────────────────
+
+@simple_session_required
+def simple_home(request, slug):
+    """로그인 후 바로 보이는 대시보드 — 주문현황 한눈에"""
+    teacher = request.simple_teacher
+    agency = request.simple_agency
+
+    orders = (
+        Order.objects.filter(teacher=teacher)
+        .select_related('delivery')
+        .prefetch_related('items', 'items__book')
+        .order_by('-ordered_at')[:20]
+    )
+
+    # 상태별 카운트
+    counts = {'pending': 0, 'shipping': 0, 'delivered': 0}
+    for order in orders:
+        if order.status in counts:
+            counts[order.status] += 1
+        # 요약 정보
+        all_items = order.items.all()
+        order.list_price_total = sum(item.list_price * item.quantity for item in all_items)
+        count = all_items.count()
+        first = all_items.first()
+        if first:
+            name = first.display_name
+            order.items_summary = f'{name} 외 {count - 1}건' if count > 1 else name
+        else:
+            order.items_summary = '-'
+
+    return render(request, 'simple/home.html', {
+        'agency': agency,
+        'teacher': teacher,
+        'orders': orders,
+        'counts': counts,
+        'slug': slug,
+    })
+
+
 # ── 주문 ────────────────────────────────────────────────────────────────────────
 
 @simple_session_required
@@ -203,9 +244,6 @@ def simple_order(request, slug):
     agency = request.simple_agency
     teacher = request.simple_teacher
     delivery = teacher.delivery_address
-
-    if not delivery:
-        return redirect('simple_landing', slug=slug)
 
     # 업체 취급 교재만 필터링 (지정 없으면 전체)
     agency_books = agency.available_books.filter(is_active=True)
@@ -233,18 +271,19 @@ def simple_order(request, slug):
         # 상세정보가 있으면 주소에 합침
         if new_detail:
             new_addr = f'{new_addr} ({new_detail})' if new_addr else new_detail
-        if new_school and new_school != delivery.name:
-            delivery, _ = DeliveryAddress.objects.get_or_create(
-                agency=agency, name=new_school,
-                defaults={'address': new_addr, 'phone': new_phone},
-            )
-            if new_addr:
-                delivery.address = new_addr
-            if new_phone:
-                delivery.phone = new_phone
-            delivery.save()
-            teacher.delivery_address = delivery
-            teacher.save(update_fields=['delivery_address'])
+        if not delivery or (new_school and new_school != delivery.name):
+            if new_school:
+                delivery, _ = DeliveryAddress.objects.get_or_create(
+                    agency=agency, name=new_school,
+                    defaults={'address': new_addr, 'phone': new_phone},
+                )
+                if new_addr:
+                    delivery.address = new_addr
+                if new_phone:
+                    delivery.phone = new_phone
+                delivery.save()
+                teacher.delivery_address = delivery
+                teacher.save(update_fields=['delivery_address'])
         else:
             if new_addr and new_addr != delivery.address:
                 delivery.address = new_addr
@@ -254,19 +293,46 @@ def simple_order(request, slug):
                 delivery.save(update_fields=['phone'])
 
         # Save location_detail separately
-        detail_val = request.POST.get('delivery_detail', '').strip()
-        if detail_val and delivery.location_detail != detail_val:
-            delivery.location_detail = detail_val
-            delivery.save(update_fields=['location_detail'])
+        if delivery:
+            detail_val = request.POST.get('delivery_detail', '').strip()
+            if detail_val and delivery.location_detail != detail_val:
+                delivery.location_detail = detail_val
+                delivery.save(update_fields=['location_detail'])
 
         items = []
         custom_items = []
+        # 일반 교재
         i = 0
         while f'book_{i}' in request.POST or f'custom_name_{i}' in request.POST:
             book_id = request.POST.get(f'book_{i}', '').strip()
             custom_name = request.POST.get(f'custom_name_{i}', '').strip()
             qty_str = request.POST.get(f'qty_{i}', '').strip()
             custom_price_str = request.POST.get(f'custom_price_{i}', '').strip()
+
+            if book_id and qty_str:
+                try:
+                    qty = int(qty_str)
+                    if qty > 0:
+                        items.append((int(book_id), qty))
+                except (ValueError, TypeError):
+                    pass
+            elif custom_name and qty_str:
+                try:
+                    qty = int(qty_str)
+                    price = int(custom_price_str) if custom_price_str else 0
+                    if qty > 0:
+                        custom_items.append((custom_name, qty, price))
+                except (ValueError, TypeError):
+                    pass
+            i += 1
+
+        # 교재용 책 (tb_ 접두사)
+        i = 0
+        while f'tb_book_{i}' in request.POST or f'tb_custom_name_{i}' in request.POST:
+            book_id = request.POST.get(f'tb_book_{i}', '').strip()
+            custom_name = request.POST.get(f'tb_custom_name_{i}', '').strip()
+            qty_str = request.POST.get(f'tb_qty_{i}', '').strip()
+            custom_price_str = request.POST.get(f'tb_custom_price_{i}', '').strip()
 
             if book_id and qty_str:
                 try:

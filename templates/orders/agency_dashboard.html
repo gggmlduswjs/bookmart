@@ -1,264 +1,235 @@
 {% extends "base.html" %}
+{% load humanize %}
 {% block title %}대시보드 - {{ request.user.name }}{% endblock %}
 
 {% block extra_css %}
 <style>
-  .dash-cards {
-    display: grid;
-    grid-template-columns: repeat(5, 1fr);
-    gap: 12px;
-    margin-bottom: 16px;
+  /* ── KPI 카드 ── */
+  .kpi-row {
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    gap: 12px; margin-bottom: 24px;
   }
-  .dash-card {
-    background: #fff;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    padding: 18px 16px;
-    text-align: center;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
-    transition: box-shadow 0.15s;
+  .kpi-card {
+    background: #fff; border: 1px solid #e5e7eb; border-radius: 10px;
+    padding: 16px 18px; text-decoration: none; color: inherit;
+    transition: all 0.15s;
   }
-  .dash-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
-  .dash-card .card-label { font-size: 14px; color: #64748b; margin-bottom: 6px; }
-  .dash-card .card-value { font-size: 32px; font-weight: 700; color: #1e40af; }
-  .dash-card .card-value.blue { color: #2563eb; }
-  .dash-card .card-value.green { color: #059669; }
-  .dash-card .card-value.orange { color: #ea580c; }
-  .dash-card .card-value.purple { color: #7c3aed; }
-  .dash-card .card-sub { font-size: 12px; color: #94a3b8; margin-top: 4px; }
+  .kpi-card:hover { border-color: #d1d5db; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
+  .kpi-card .label { font-size: 11px; color: #9ca3af; font-weight: 600; margin-bottom: 6px; }
+  .kpi-card .num { font-size: 32px; font-weight: 800; line-height: 1; letter-spacing: -1px; }
+  .kpi-card .sub { font-size: 11px; color: #b0b8c4; margin-top: 6px; }
 
-  .dash-buttons {
-    display: flex;
-    gap: 8px;
-    margin-bottom: 16px;
-    flex-wrap: wrap;
+  /* ── 빠른 액션 ── */
+  .quick-actions {
+    display: flex; gap: 8px; margin-bottom: 24px; flex-wrap: wrap;
   }
-  .dash-buttons .btn { padding: 10px 20px; font-size: 13px; font-weight: 600; }
+  .qa-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 9px 18px; border-radius: 8px; font-size: 13px; font-weight: 600;
+    text-decoration: none; transition: all 0.15s; border: 1px solid #e5e7eb;
+    background: #fff; color: #374151;
+  }
+  .qa-btn:hover { border-color: #d1d5db; box-shadow: 0 2px 8px rgba(0,0,0,0.04); color: #374151; }
+  .qa-btn.primary { background: #e8720c; color: #fff; border-color: #e8720c; }
+  .qa-btn.primary:hover { background: #d4650a; color: #fff; }
 
-  .dash-mid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-    margin-bottom: 16px;
+  /* ── 2컬럼 ── */
+  .two-col {
+    display: grid; grid-template-columns: 3fr 2fr;
+    gap: 16px; margin-bottom: 24px;
   }
-  .dash-section {
-    background: #fff;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
+
+  /* ── 패널 공통 ── */
+  .panel {
+    background: #fff; border: 1px solid #e5e7eb; border-radius: 10px;
     overflow: hidden;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
   }
-  .dash-section-title {
-    background: #334155;
-    color: #f1f5f9;
-    padding: 10px 16px;
-    font-size: 14px;
-    font-weight: 600;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+  .panel-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 18px; border-bottom: 1px solid #f1f5f9;
   }
-  .dash-section-title a { color: #94a3b8; font-size: 12px; text-decoration: none; }
-  .dash-section-title a:hover { color: #fff; }
-  .dash-section-body { padding: 10px 12px; }
-  .dash-section-body ul { list-style: none; padding: 0; margin: 0; }
-  .dash-section-body li {
-    padding: 8px 0;
-    font-size: 14px;
-    border-bottom: 1px solid #f0f0f0;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-  .dash-section-body li:last-child { border-bottom: none; }
-  .dash-section-body li a { color: #1155cc; }
-  .dash-section-body .empty { color: #94a3b8; font-size: 14px; padding: 8px 0; }
+  .panel-title { font-size: 13px; font-weight: 700; color: #374151; }
+  .panel-more { font-size: 11px; color: #9ca3af; text-decoration: none; font-weight: 600; }
+  .panel-more:hover { color: #6b7280; }
 
+  /* ── 주문 리스트 ── */
+  .order-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 18px; border-bottom: 1px solid #f8f9fa;
+    text-decoration: none; color: inherit; transition: background 0.1s;
+  }
+  .order-item:last-child { border-bottom: none; }
+  .order-item:hover { background: #f8fafc; }
+  .order-name { font-size: 13px; font-weight: 600; color: #1e293b; }
+  .order-name small { font-weight: 400; color: #9ca3af; }
+  .order-meta { font-size: 11px; color: #9ca3af; margin-top: 2px; }
+  .order-right { text-align: right; }
+
+  /* 상태 칩 */
+  .st {
+    display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 8px;
+    border-radius: 10px; white-space: nowrap;
+  }
+  .st-pending { background: #dbeafe; color: #1d4ed8; }
+  .st-shipping { background: #d1fae5; color: #047857; }
+  .st-delivered { background: #f3f4f6; color: #6b7280; }
+  .st-cancelled { background: #fee2e2; color: #dc2626; }
+
+  /* ── 학교 테이블 ── */
   .school-table { width: 100%; border-collapse: collapse; }
   .school-table th {
-    background: #f8fafc;
-    padding: 8px 10px;
-    font-size: 12px;
-    color: #64748b;
-    text-align: left;
-    border-bottom: 1px solid #e2e8f0;
+    font-size: 11px; color: #9ca3af; font-weight: 600; text-align: left;
+    padding: 8px 14px; border-bottom: 1px solid #f1f5f9; background: #fafbfc;
   }
   .school-table td {
-    padding: 8px 10px;
-    font-size: 13px;
-    border-bottom: 1px solid #f0f0f0;
+    font-size: 12px; padding: 10px 14px; border-bottom: 1px solid #f8f9fa;
+    color: #374151;
   }
   .school-table tr:last-child td { border-bottom: none; }
-  .school-table .clickable { cursor: pointer; }
-  .school-table .clickable:hover { text-decoration: underline; }
-
-  .dash-full { margin-bottom: 16px; }
-
-  @media (max-width: 768px) {
-    .dash-cards { grid-template-columns: 1fr 1fr; }
-    .dash-mid { grid-template-columns: 1fr; }
+  .school-table tr:hover td { background: #f8fafc; }
+  .school-table .school-name { font-weight: 600; color: #1e293b; }
+  .school-table .cnt { text-align: center; }
+  .mini-badge {
+    display: inline-block; font-size: 10px; font-weight: 700; padding: 1px 7px;
+    border-radius: 8px; min-width: 20px; text-align: center;
   }
-  @media (max-width: 480px) {
-    .dash-cards { grid-template-columns: 1fr; }
+  .mini-badge.blue { background: #dbeafe; color: #1d4ed8; }
+  .mini-badge.orange { background: #ffedd5; color: #c2410c; }
+  .dash { color: #d1d5db; }
+
+  .empty-msg {
+    padding: 24px; text-align: center; color: #94a3b8; font-size: 13px;
+  }
+
+  @media (max-width: 900px) {
+    .kpi-row { grid-template-columns: repeat(2, 1fr); }
+    .two-col { grid-template-columns: 1fr; }
   }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="page-title">
-  대시보드
-  <span class="subtitle">{{ request.user.name }}</span>
+{# ── KPI ── #}
+<div class="kpi-row">
+  <a class="kpi-card" href="{% url 'order_list' %}">
+    <div class="label">오늘 주문</div>
+    <div class="num" style="color:{% if today_orders > 0 %}#2563eb{% else %}#d1d5db{% endif %}">{{ today_orders }}</div>
+    <div class="sub">건</div>
+  </a>
+  <a class="kpi-card" href="{% url 'order_list' %}?status=pending">
+    <div class="label">접수 대기</div>
+    <div class="num" style="color:{% if pending_orders > 0 %}#f59e0b{% else %}#d1d5db{% endif %}">{{ pending_orders }}</div>
+    <div class="sub">건</div>
+  </a>
+  <a class="kpi-card" href="{% url 'order_list' %}?status=shipping">
+    <div class="label">발송중</div>
+    <div class="num" style="color:{% if shipping_orders > 0 %}#10b981{% else %}#d1d5db{% endif %}">{{ shipping_orders }}</div>
+    <div class="sub">건</div>
+  </a>
+  <a class="kpi-card" href="{% url 'order_list' %}">
+    <div class="label">이번달 매출</div>
+    <div class="num" style="color:#1e293b;font-size:22px">&#8361;{{ month_amount|floatformat:0|intcomma }}</div>
+    <div class="sub">원</div>
+  </a>
 </div>
 
-<!-- KPI 카드 5개 -->
-<div class="dash-cards">
-  <div class="dash-card">
-    <div class="card-label">관리 학교</div>
-    <div class="card-value">{{ total_schools }}</div>
-  </div>
-  <div class="dash-card">
-    <div class="card-label">오늘 주문</div>
-    <div class="card-value blue">{{ today_orders }}</div>
-  </div>
-  <div class="dash-card">
-    <div class="card-label">접수 대기</div>
-    <div class="card-value orange">{{ pending_orders }}</div>
-  </div>
-  <div class="dash-card">
-    <div class="card-label">발송중</div>
-    <div class="card-value purple">{{ shipping_orders }}</div>
-  </div>
-  <div class="dash-card">
-    <div class="card-label">이번 달 주문</div>
-    <div class="card-value green">{{ month_amount|floatformat:0 }}</div>
-    <div class="card-sub">원</div>
-  </div>
+{# ── 빠른 액션 ── #}
+<div class="quick-actions">
+  <a href="{% url 'order_list' %}" class="qa-btn primary">주문현황</a>
+  <a href="{% url 'order_list' %}?status=shipping" class="qa-btn">배송현황</a>
+  <a href="{% url 'agency_link' %}" class="qa-btn">간편주문 링크</a>
+  <a href="{% url 'ledger' %}" class="qa-btn">거래내역</a>
+  <a href="{% url 'teacher_list' %}" class="qa-btn">선생님 관리</a>
 </div>
 
-<!-- 빠른 액션 버튼 (KPI 바로 아래) -->
-<div class="dash-buttons">
-  <a href="{% url 'order_list' %}" class="btn btn-orange">주문현황</a>
-  <a href="{% url 'order_list' %}?status=shipping" class="btn btn-dark">배송현황</a>
-  <a href="{% url 'teacher_list' %}" class="btn btn-outline">선생님관리</a>
-  <a href="{% url 'agency_link' %}" class="btn btn-outline">간편주문링크</a>
-  <a href="{% url 'ledger' %}" class="btn btn-outline">거래내역</a>
-</div>
-
-<!-- 2컬럼: 최근 주문 + 반품 -->
-<div class="dash-mid">
-  <div class="dash-section">
-    <div class="dash-section-title">
-      최근 주문
-      <a href="{% url 'order_list' %}">전체보기 &rarr;</a>
+{# ── 2컬럼: 최근 주문 + 반품 ── #}
+<div class="two-col">
+  <div class="panel">
+    <div class="panel-head">
+      <span class="panel-title">최근 주문</span>
+      <a href="{% url 'order_list' %}" class="panel-more">전체보기 &rsaquo;</a>
     </div>
-    <div class="dash-section-body">
-      <ul>
-        {% for order in recent_orders %}
-        <li>
-          <div>
-            <a href="{% url 'order_detail' order.pk %}">
-              {{ order.delivery.name|truncatechars:12 }}
-              <span style="color:#888;font-size:12px">/ {{ order.teacher.name }}</span>
-            </a>
-            <div style="font-size:11px;color:#999;margin-top:2px">{{ order.order_no }}</div>
-          </div>
-          <div style="text-align:right">
-            {% if order.status == 'pending' %}<span class="badge badge-blue">접수</span>
-            {% elif order.status == 'shipping' %}<span class="badge badge-orange">발송중</span>
-            {% elif order.status == 'delivered' %}<span class="badge badge-green">발송완료</span>
-            {% elif order.status == 'cancelled' %}<span class="badge badge-gray">취소</span>
-            {% endif %}
-            <div style="font-size:11px;color:#999;margin-top:2px">{{ order.ordered_at|date:"m/d H:i" }}</div>
-          </div>
-        </li>
-        {% empty %}
-        <li class="empty">주문 내역이 없습니다.</li>
-        {% endfor %}
-      </ul>
-    </div>
+    {% for order in recent_orders %}
+    <a class="order-item" href="{% url 'order_detail' order.pk %}">
+      <div>
+        <div class="order-name">{{ order.delivery.name|truncatechars:12 }} <small>{{ order.teacher.name }}</small></div>
+        <div class="order-meta">{{ order.order_no }} &middot; {{ order.ordered_at|date:"m/d H:i" }}</div>
+      </div>
+      <div class="order-right">
+        <span class="st st-{{ order.status }}">{{ order.get_status_display }}</span>
+      </div>
+    </a>
+    {% empty %}
+    <div class="empty-msg">주문 내역이 없습니다</div>
+    {% endfor %}
   </div>
 
-  <div class="dash-section">
-    <div class="dash-section-title">
-      반품 현황
-      <a href="{% url 'return_list' %}">전체보기 &rarr;</a>
+  <div class="panel">
+    <div class="panel-head">
+      <span class="panel-title">반품 현황</span>
+      <a href="{% url 'return_list' %}" class="panel-more">전체보기 &rsaquo;</a>
     </div>
-    <div class="dash-section-body">
-      <ul>
-        {% for ret in pending_returns %}
-        <li>
-          <a href="{% url 'return_detail' ret.pk %}">
-            {{ ret.delivery.name|truncatechars:12 }}
-            <span style="color:#888;font-size:12px">/ {{ ret.teacher.name }}</span>
-          </a>
-          <div style="text-align:right">
-            <span class="badge badge-orange">요청</span>
-            <div style="font-size:11px;color:#999;margin-top:2px">{{ ret.requested_at|date:"m/d H:i" }}</div>
-          </div>
-        </li>
-        {% empty %}
-        <li class="empty">대기 중인 반품이 없습니다.</li>
-        {% endfor %}
-      </ul>
-    </div>
+    {% for ret in pending_returns %}
+    <a class="order-item" href="{% url 'return_detail' ret.pk %}">
+      <div>
+        <div class="order-name">{{ ret.delivery.name|truncatechars:12 }} <small>{{ ret.teacher.name }}</small></div>
+        <div class="order-meta">{{ ret.requested_at|date:"m/d H:i" }}</div>
+      </div>
+      <div class="order-right">
+        <span class="st st-pending">요청</span>
+      </div>
+    </a>
+    {% empty %}
+    <div class="empty-msg">대기 중인 반품이 없습니다</div>
+    {% endfor %}
   </div>
 </div>
 
-<!-- 학교별 현황 -->
-<div class="dash-full">
-  <div class="dash-section">
-    <div class="dash-section-title">
-      학교별 현황
-      <a href="{% url 'delivery_list' %}">학교관리 &rarr;</a>
-    </div>
-    <div class="dash-section-body" style="padding:0">
-      <table class="school-table">
-        <thead>
-          <tr>
-            <th>학교</th>
-            <th class="center">선생님</th>
-            <th class="center">접수</th>
-            <th class="center">발송중</th>
-            <th>최근 주문</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for s in school_stats %}
-          <tr>
-            <td><strong>{{ s.school.name }}</strong></td>
-            <td class="center">{{ s.teacher_count }}명</td>
-            <td class="center">
-              {% if s.pending %}
-                <a href="{% url 'order_list' %}?status=pending&school={{ s.school.pk }}" class="clickable">
-                  <span class="badge badge-blue">{{ s.pending }}</span>
-                </a>
-              {% else %}
-                <span style="color:#ccc">-</span>
-              {% endif %}
-            </td>
-            <td class="center">
-              {% if s.shipping %}
-                <a href="{% url 'order_list' %}?status=shipping&school={{ s.school.pk }}" class="clickable">
-                  <span class="badge badge-orange">{{ s.shipping }}</span>
-                </a>
-              {% else %}
-                <span style="color:#ccc">-</span>
-              {% endif %}
-            </td>
-            <td style="font-size:12px;color:#666">
-              {% if s.last_ordered %}
-                {{ s.last_ordered|date:"m/d" }}
-              {% else %}
-                <span style="color:#ccc">주문 없음</span>
-              {% endif %}
-            </td>
-          </tr>
-          {% empty %}
-          <tr><td colspan="5" class="center" style="padding:16px;color:#888">등록된 학교가 없습니다.</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
+{# ── 학교별 현황 ── #}
+<div class="panel">
+  <div class="panel-head">
+    <span class="panel-title">학교별 현황</span>
+    <a href="{% url 'delivery_list' %}" class="panel-more">학교관리 &rsaquo;</a>
   </div>
+  {% if school_stats %}
+  <table class="school-table">
+    <thead>
+      <tr>
+        <th>학교</th>
+        <th class="cnt">선생님</th>
+        <th class="cnt">접수</th>
+        <th class="cnt">발송중</th>
+        <th>최근 주문</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in school_stats %}
+      <tr>
+        <td class="school-name">{{ s.school.name }}</td>
+        <td class="cnt">{{ s.teacher_count }}명</td>
+        <td class="cnt">
+          {% if s.pending %}
+          <span class="mini-badge blue">{{ s.pending }}</span>
+          {% else %}
+          <span class="dash">-</span>
+          {% endif %}
+        </td>
+        <td class="cnt">
+          {% if s.shipping %}
+          <span class="mini-badge orange">{{ s.shipping }}</span>
+          {% else %}
+          <span class="dash">-</span>
+          {% endif %}
+        </td>
+        <td style="font-size:11px;color:#9ca3af">
+          {% if s.last_ordered %}{{ s.last_ordered|date:"m/d" }}{% else %}<span class="dash">-</span>{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty-msg">등록된 학교가 없습니다</div>
+  {% endif %}
 </div>
 {% endblock %}

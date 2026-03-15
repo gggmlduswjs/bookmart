@@ -67,6 +67,9 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     agency_category = models.CharField(max_length=30, blank=True, verbose_name='업체 분류',
                                        help_text='아이센, 미래정보, 참다손 등')
+    ledger_format = models.CharField(max_length=10, blank=True, default='full',
+                                      choices=[('full', '정석(정가/공급률)'), ('simple', '간소화(수량만)')],
+                                      verbose_name='거래원장 형식')
     is_individual = models.BooleanField(default=False, verbose_name='개인선생님')
     supply_rate_override = models.DecimalField(
         max_digits=5, decimal_places=2, null=True, blank=True,

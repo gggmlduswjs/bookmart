@@ -88,6 +88,29 @@ def ledger(request):
     total_sales = total_returns = total_paid = 0
 
     if selected_agency:
+        # 전월이월 계산: 해당 월 이전의 모든 매출 - 반품 - 입금
+        from django.db.models import Sum as DSum
+        cutoff = date(year, month, 1)
+
+        prev_sales = OrderItem.objects.filter(
+            order__agency=selected_agency,
+            order__status__in=[Order.Status.SHIPPING, Order.Status.DELIVERED],
+            order__ordered_at__date__lt=cutoff,
+        ).aggregate(total=DSum('amount'))['total'] or 0
+
+        prev_returns = ReturnItem.objects.filter(
+            ret__agency=selected_agency,
+            ret__status=Return.Status.CONFIRMED,
+            ret__confirmed_at__date__lt=cutoff,
+        ).aggregate(total=DSum('confirmed_amount'))['total'] or 0
+
+        prev_paid = Payment.objects.filter(
+            agency=selected_agency,
+            paid_at__lt=cutoff,
+        ).aggregate(total=DSum('amount'))['total'] or 0
+
+        carry_over = prev_sales - prev_returns - prev_paid
+
         order_items = (
             OrderItem.objects
             .filter(
@@ -103,6 +126,7 @@ def ledger(request):
             rows.append({
                 'date': oi.order.ordered_at.date(),
                 'type': '매출',
+                'order_no': oi.order.order_no,
                 'delivery': oi.order.delivery.name,
                 'publisher': oi.display_publisher,
                 'book': oi.display_name,
@@ -110,6 +134,9 @@ def ledger(request):
                 'list_price': oi.list_price,
                 'supply_rate': oi.supply_rate,
                 'amount': oi.amount,
+                'sale_amount': oi.amount,
+                'return_amount': 0,
+                'payment_amount': 0,
             })
             total_sales += oi.amount
 
@@ -129,6 +156,7 @@ def ledger(request):
             rows.append({
                 'date': ri.ret.confirmed_at.date(),
                 'type': '반품',
+                'order_no': '',
                 'delivery': ri.ret.delivery.name,
                 'publisher': ri.book.publisher.name if ri.book else '',
                 'book': ri.book.name if ri.book else '',
@@ -136,6 +164,9 @@ def ledger(request):
                 'list_price': ri.list_price,
                 'supply_rate': ri.supply_rate,
                 'amount': -confirmed_amount,
+                'sale_amount': 0,
+                'return_amount': confirmed_amount,
+                'payment_amount': 0,
                 'return_pk': ri.ret.pk,
             })
             total_returns += confirmed_amount
@@ -146,23 +177,51 @@ def ledger(request):
             paid_at__month=month,
         ).order_by('paid_at')
         for p in payments:
+            rows.append({
+                'date': p.paid_at,
+                'type': '수금',
+                'order_no': '',
+                'delivery': '',
+                'publisher': '',
+                'book': p.memo or '입금',
+                'qty': 0,
+                'list_price': 0,
+                'supply_rate': 0,
+                'amount': -p.amount,
+                'sale_amount': 0,
+                'return_amount': 0,
+                'payment_amount': p.amount,
+            })
             total_paid += p.amount
 
-        rows.sort(key=lambda r: (r['delivery'], r['date']))
+        # 날짜순 정렬 (잔액 누적 계산용)
+        rows.sort(key=lambda r: r['date'])
+
+        # 잔액 누적
+        running = carry_over
+        for row in rows:
+            running += row['sale_amount'] - row['return_amount'] - row['payment_amount']
+            row['running_balance'] = running
+
+        # 학교별 그룹핑 (별도 복사본)
+        rows_by_school = sorted(rows, key=lambda r: (r['delivery'], r['date']))
+        from itertools import groupby
+        grouped_rows = []
+        for delivery_name, items in groupby(rows_by_school, key=lambda r: r['delivery']):
+            if not delivery_name:
+                continue
+            items_list = list(items)
+            subtotal = sum(r['amount'] for r in items_list)
+            grouped_rows.append({
+                'delivery': delivery_name,
+                'items': items_list,
+                'subtotal': subtotal,
+            })
+    else:
+        carry_over = 0
+        payments = []
 
     balance = total_sales - total_returns - total_paid
-
-    # 학교별 그룹핑
-    from itertools import groupby
-    grouped_rows = []
-    for delivery_name, items in groupby(rows, key=lambda r: r['delivery']):
-        items_list = list(items)
-        subtotal = sum(r['amount'] for r in items_list)
-        grouped_rows.append({
-            'delivery': delivery_name,
-            'items': items_list,
-            'subtotal': subtotal,
-        })
 
     return render(request, 'orders/ledger.html', {
         'mode': 'detail',
@@ -174,14 +233,16 @@ def ledger(request):
         'years': range(today.year - 2, today.year + 1),
         'months': range(1, 13),
         'rows': rows,
-        'grouped_rows': grouped_rows,
+        'grouped_rows': grouped_rows if selected_agency else [],
         'total_sales': total_sales,
         'total_returns': total_returns,
         'total_paid': total_paid,
         'balance': balance,
-        'payments': payments if selected_agency else [],
+        'carry_over': carry_over,
+        'payments': payments,
         'agency_categories': agency_categories,
         'category_filter': category_filter,
+        'ledger_format': selected_agency.ledger_format if selected_agency else 'full',
     })
 
 
@@ -362,33 +423,68 @@ def export_ledger(request):
 
     ws = wb.active
     ws.title = '거래내역'
-    ws.append(['날짜', '구분', '배송지', '출판사', '교재명', '수량', '정가', '공급률', '금액'])
+    is_simple = selected_agency.ledger_format == 'simple'
+
+    if is_simple:
+        ws.append(['처리일자', '상품명', '출판사', '수량', '단가'])
+    else:
+        ws.append(['처리일자', '상품명', '출판사', '수량', '정가', '단가', '%', '매출액'])
+
+    # 전체 행 수집 후 거래처별 그룹핑 (극동 형식)
+    all_rows = []
 
     order_items = OrderItem.objects.filter(
         order__agency=selected_agency,
         order__status__in=[Order.Status.SHIPPING, Order.Status.DELIVERED],
         order__ordered_at__year=year, order__ordered_at__month=month,
-    ).select_related('order', 'order__delivery', 'book', 'book__publisher').order_by('order__ordered_at')
+    ).select_related('order', 'order__delivery', 'book', 'book__publisher').order_by('order__delivery__name', 'order__ordered_at')
 
     for oi in order_items:
-        ws.append([
-            oi.order.ordered_at.strftime('%Y-%m-%d'), '매출',
-            oi.order.delivery.name, oi.display_publisher, oi.display_name,
-            oi.quantity, oi.list_price, float(oi.supply_rate), oi.amount,
-        ])
+        all_rows.append({
+            'date': oi.order.ordered_at.strftime('%Y-%m-%d'),
+            'delivery': oi.order.delivery.name,
+            'delivery_phone': oi.order.teacher.phone if oi.order.teacher else '',
+            'book': oi.display_name,
+            'publisher': oi.display_publisher,
+            'qty': oi.quantity,
+            'list_price': oi.list_price,
+            'unit_price': oi.unit_price,
+            'supply_rate': float(oi.supply_rate),
+            'amount': oi.amount,
+        })
 
     return_items = ReturnItem.objects.filter(
         ret__agency=selected_agency, ret__status=Return.Status.CONFIRMED,
         ret__confirmed_at__year=year, ret__confirmed_at__month=month,
-    ).select_related('ret', 'ret__delivery', 'book', 'book__publisher').order_by('ret__confirmed_at')
+    ).select_related('ret', 'ret__delivery', 'book', 'book__publisher').order_by('ret__delivery__name', 'ret__confirmed_at')
 
     for ri in return_items:
-        ws.append([
-            ri.ret.confirmed_at.strftime('%Y-%m-%d'), '반품',
-            ri.ret.delivery.name, ri.book.publisher.name if ri.book else '', ri.book.name if ri.book else '',
-            -(ri.confirmed_qty or 0), ri.list_price, float(ri.supply_rate),
-            -(ri.confirmed_amount or 0),
-        ])
+        all_rows.append({
+            'date': ri.ret.confirmed_at.strftime('%Y-%m-%d'),
+            'delivery': ri.ret.delivery.name,
+            'delivery_phone': '',
+            'book': ri.book.name if ri.book else '',
+            'publisher': ri.book.publisher.name if ri.book else '',
+            'qty': -(ri.confirmed_qty or 0),
+            'list_price': ri.list_price,
+            'unit_price': ri.unit_price if hasattr(ri, 'unit_price') else 0,
+            'supply_rate': float(ri.supply_rate),
+            'amount': -(ri.confirmed_amount or 0),
+        })
+
+    # 거래처(학교)별 그룹핑
+    from itertools import groupby
+    all_rows.sort(key=lambda r: (r['delivery'], r['date']))
+    for delivery_name, items in groupby(all_rows, key=lambda r: r['delivery']):
+        items_list = list(items)
+        phone = items_list[0].get('delivery_phone', '') if items_list else ''
+        ws.append([f'거래처명: ', delivery_name, f'{phone} F:'])
+        for row in items_list:
+            if is_simple:
+                ws.append([row['date'], row['book'], row['publisher'], row['qty'], row['unit_price']])
+            else:
+                ws.append([row['date'], row['book'], row['publisher'], row['qty'],
+                           row['list_price'], row['unit_price'], row['supply_rate'], row['amount']])
 
     buf = io.BytesIO()
     wb.save(buf)

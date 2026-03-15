@@ -94,55 +94,45 @@
 
 {% block content %}
 <div class="simple-nav">
-  <a href="{% url 'simple_order' slug=slug %}" class="active"><span class="nav-icon">📝</span> 주문</a>
-  <a href="{% url 'simple_order_list' slug=slug %}"><span class="nav-icon">📋</span> 내역</a>
-  <a href="{% url 'simple_delivery_status' slug=slug %}"><span class="nav-icon">🚚</span> 배송</a>
-  <a href="{% url 'simple_set_password' slug=slug %}"><span class="nav-icon">🔒</span> 설정</a>
+  <a href="{% url 'simple_home' slug=slug %}"><span class="nav-icon">&#128203;</span> 현황</a>
+  <a href="{% url 'simple_order' slug=slug %}" class="active"><span class="nav-icon">&#128221;</span> 주문</a>
 </div>
 
 <div class="simple-card" style="padding:16px" x-data="orderForm()">
   <div style="margin-bottom:12px;display:flex;justify-content:space-between;align-items:center">
     <h2 style="margin-bottom:0">교재 주문</h2>
-    <span style="font-size:12px;color:#64748b">{{ agency.name }} | {{ teacher.name }} | {{ delivery.name }}</span>
+    <span style="font-size:12px;color:#64748b">{{ agency.name }} | {{ teacher.name }}{% if delivery %} | {{ delivery.name }}{% endif %}</span>
   </div>
 
   {% if error %}
   <div class="error-msg">{{ error }}</div>
   {% endif %}
 
-  <!-- 배송요청지 (접힘) -->
+  <!-- 배송요청지 (항상 표시) -->
   <div class="delivery-box">
-    <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer" @click="showDelivery = !showDelivery">
-      <div class="section-title" style="margin-bottom:0">
-        배송요청지
-        <span style="font-size:12px;font-weight:normal;color:#64748b" x-text="deliverySchool + ' · ' + (deliveryAddr || '주소 미입력')"></span>
-      </div>
-      <span style="font-size:11px;color:#2563eb;font-weight:600" x-text="showDelivery ? '접기' : '변경'"></span>
+    <div class="section-title" style="margin-bottom:8px">배송요청지</div>
+    <div class="form-row">
+      <label>학교명</label>
+      <input type="text" x-model="deliverySchool" placeholder="OO초등학교">
     </div>
-    <div x-show="showDelivery" x-collapse x-cloak style="margin-top:10px">
-      <div class="form-row">
-        <label>학교명</label>
-        <input type="text" x-model="deliverySchool" placeholder="OO초등학교">
+    <div class="form-row">
+      <label>주소</label>
+      <div style="display:flex;gap:6px;flex:1">
+        <input type="text" x-model="deliveryAddr" placeholder="주소" style="flex:1">
+        <button type="button" class="btn btn-outline btn-sm" @click="openPostcode()" style="white-space:nowrap">주소 검색</button>
       </div>
-      <div class="form-row">
-        <label>주소</label>
-        <div style="display:flex;gap:6px;flex:1">
-          <input type="text" x-model="deliveryAddr" placeholder="주소" style="flex:1">
-          <button type="button" class="btn btn-outline btn-sm" @click="openPostcode()" style="white-space:nowrap">주소 검색</button>
-        </div>
-      </div>
-      <div class="form-row">
-        <label>상세정보</label>
-        <input type="text" x-model="deliveryDetail" placeholder="예: 4층 컴퓨터실 앞, 관리실 경유 등">
-      </div>
-      <div class="form-row">
-        <label>연락처</label>
-        <input type="text" x-model="deliveryPhone" @input="deliveryPhone = formatPhone(deliveryPhone)" placeholder="010-1234-5678" style="max-width:180px">
-      </div>
-      <div class="form-row">
-        <label>요청 배송일</label>
-        <input type="date" name="requested_delivery_date" style="max-width:180px">
-      </div>
+    </div>
+    <div class="form-row">
+      <label>상세정보</label>
+      <input type="text" x-model="deliveryDetail" placeholder="예: 4층 컴퓨터실 앞, 관리실 경유 등">
+    </div>
+    <div class="form-row">
+      <label>연락처</label>
+      <input type="text" x-model="deliveryPhone" @input="deliveryPhone = formatPhone(deliveryPhone)" placeholder="010-1234-5678" style="max-width:180px">
+    </div>
+    <div class="form-row">
+      <label>요청 배송일</label>
+      <input type="date" name="requested_delivery_date" style="max-width:180px">
     </div>
   </div>
 
@@ -289,6 +279,107 @@
       합계: <span x-text="total().toLocaleString()" style="font-size:16px;color:#2563eb"></span>원
     </div>
 
+    <!-- 교재용 책 주문 -->
+    <div style="margin-top:20px;border-top:2px solid #e2e8f0;padding-top:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <h2 style="margin-bottom:0;border-left-color:#ea580c">교재용 책 주문</h2>
+        <span style="font-size:11px;color:#64748b">선생님 교재용</span>
+      </div>
+
+      <!-- 교재용 검색 -->
+      <div class="book-search-wrap">
+        <span class="book-search-icon">&#128269;</span>
+        <input type="text" class="book-search-input" x-model="tbSearchQuery" @input="searchTbBooks()" @focus="showTbResults = tbSearchQuery.length > 0" @click.outside="showTbResults = false" placeholder="교재용 책 검색..." autocomplete="off">
+        <div class="book-search-results" x-show="showTbResults && tbSearchResults.length" x-cloak>
+          <template x-for="b in tbSearchResults" :key="b.id">
+            <div class="book-result-item" @click="addTbBook(b)">
+              <div>
+                <span class="book-name" x-text="b.name"></span>
+                <span class="book-meta" x-text="b.series + ' · ' + b.publisher"></span>
+              </div>
+              <span class="book-price" x-text="b.list_price.toLocaleString() + '원'"></span>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <div class="order-row-wrap" style="border:1px solid #e2e8f0;border-radius:10px 10px 0 0;overflow:hidden">
+        <table class="data-table">
+          <thead>
+            <tr style="background:#92400e">
+              <th style="width:28%">시리즈</th>
+              <th style="width:30%">교재</th>
+              <th class="right" style="width:65px">정가</th>
+              <th class="center" style="width:55px">수량</th>
+              <th class="right" style="width:65px">금액</th>
+              <th style="width:30px"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-for="(row, index) in tbRows" :key="index">
+              <tr style="background:#fffbeb">
+                <template x-if="!row.is_custom">
+                  <td>
+                    <select x-model="row.series" @change="row.book_id = ''; row.list_price = 0">
+                      <option value="">시리즈</option>
+                      {% for s in series_list %}
+                      <option value="{{ s }}">{{ s }}</option>
+                      {% endfor %}
+                    </select>
+                  </td>
+                </template>
+                <template x-if="row.is_custom">
+                  <td>
+                    <input type="text" x-model="row.custom_series" style="width:100%" placeholder="출판사/시리즈">
+                  </td>
+                </template>
+                <template x-if="!row.is_custom">
+                  <td>
+                    <select x-model="row.book_id" @change="updatePrice(row)">
+                      <option value="">교재</option>
+                      <template x-for="b in getBooks(row.series)" :key="b.id">
+                        <option :value="b.id" x-text="b.name"></option>
+                      </template>
+                    </select>
+                    <input type="hidden" :name="'tb_book_' + index" :value="row.book_id">
+                  </td>
+                </template>
+                <template x-if="row.is_custom">
+                  <td>
+                    <input type="text" :name="'tb_custom_name_' + index" x-model="row.custom_name"
+                           style="width:100%" placeholder="교재명 입력">
+                  </td>
+                </template>
+                <td class="right">
+                  <template x-if="!row.is_custom">
+                    <span x-text="row.list_price ? row.list_price.toLocaleString() : '-'" style="color:#666;font-size:12px"></span>
+                  </template>
+                  <template x-if="row.is_custom">
+                    <input type="number" :name="'tb_custom_price_' + index" x-model.number="row.unit_price"
+                           style="width:55px;padding:4px;text-align:right;font-size:11px" placeholder="단가">
+                  </template>
+                </td>
+                <td class="center">
+                  <input type="number" :name="'tb_qty_' + index" x-model.number="row.qty" min="1" max="9999">
+                </td>
+                <td class="right" style="font-weight:bold;font-size:12px">
+                  <span x-text="rowAmount(row) ? rowAmount(row).toLocaleString() : '-'"></span>
+                </td>
+                <td class="center">
+                  <button type="button" class="btn btn-sm btn-red" @click="tbRows.splice(index, 1)" x-show="tbRows.length > 1" style="padding:2px 6px;font-size:11px">X</button>
+                </td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+      <div class="order-total-bar">
+        <button type="button" class="btn btn-outline btn-sm" @click="tbRows.push({ series: '', book_id: '', qty: 1, list_price: 0, is_custom: false })" style="float:left">+ 행 추가</button>
+        <button type="button" class="btn btn-outline btn-sm" @click="tbRows.push({ is_custom: true, custom_series: '', custom_name: '', qty: 1, unit_price: 0 })" style="float:left;margin-left:4px;color:#ea580c;border-color:#ea580c">+ 직접입력</button>
+        합계: <span x-text="tbTotal().toLocaleString()" style="font-size:16px;color:#ea580c"></span>원
+      </div>
+    </div>
+
     <div style="margin-top:12px">
       <div class="form-group">
         <label>메모</label>
@@ -309,12 +400,11 @@ const BOOKS = {{ books_json|safe }};
 function orderForm() {
   return {
     orderTab: 'direct',
-    showDelivery: false,
     // 배송지
-    deliverySchool: '{{ delivery.name|escapejs }}',
-    deliveryAddr: '{{ delivery.address|escapejs }}',
+    deliverySchool: '{{ delivery.name|default:""|escapejs }}',
+    deliveryAddr: '{{ delivery.address|default:""|escapejs }}',
     deliveryDetail: '',
-    deliveryPhone: '{{ delivery.phone|escapejs }}',
+    deliveryPhone: '{{ delivery.phone|default:""|escapejs }}',
     // 엑셀
     excelLoading: false, excelUnmatched: [],
     // 교재 검색
@@ -327,6 +417,9 @@ function orderForm() {
     })(),
     orderError: '',
     seriesFilter: '',
+    // 교재용 책
+    tbSearchQuery: '', tbSearchResults: [], showTbResults: false,
+    tbRows: [{ series: '', book_id: '', qty: 1, list_price: 0, is_custom: false }],
     // 교재
     rows: (() => {
       const copy = {{ copy_rows_json|safe }};
@@ -420,6 +513,23 @@ function orderForm() {
       this.showSearchResults = false;
       if (book.series && !this.seriesFilter) this.seriesFilter = book.series;
     },
+    searchTbBooks() {
+      var q = this.tbSearchQuery.toLowerCase().replace(/\s/g, '');
+      if (!q || q.length < 1) { this.tbSearchResults = []; this.showTbResults = false; return; }
+      this.tbSearchResults = BOOKS.filter(function(b) {
+        var name = b.name.toLowerCase().replace(/\s/g, '');
+        var series = b.series.toLowerCase().replace(/\s/g, '');
+        var pub = b.publisher.toLowerCase().replace(/\s/g, '');
+        return name.includes(q) || series.includes(q) || pub.includes(q);
+      }).slice(0, 10);
+      this.showTbResults = true;
+    },
+    addTbBook(book) {
+      this.tbRows.push({ series: book.series || '', book_id: String(book.id), qty: 1, list_price: book.list_price, is_custom: false });
+      this.tbSearchQuery = '';
+      this.showTbResults = false;
+    },
+    tbTotal() { return this.tbRows.reduce((s, r) => s + this.rowAmount(r), 0); },
     addRecentBook(book) {
       // Don't add duplicates
       if (this.rows.some(function(r) { return r.book_id == String(book.id); })) {
