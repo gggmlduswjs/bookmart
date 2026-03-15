@@ -326,7 +326,9 @@ def simple_order(request, slug):
                     pass
             i += 1
 
-        # 교재용 책 (tb_ 접두사)
+        # 교사용 책 (tb_ 접두사)
+        tc_items = []
+        tc_custom_items = []
         i = 0
         while f'tb_book_{i}' in request.POST or f'tb_custom_name_{i}' in request.POST:
             book_id = request.POST.get(f'tb_book_{i}', '').strip()
@@ -338,7 +340,7 @@ def simple_order(request, slug):
                 try:
                     qty = int(qty_str)
                     if qty > 0:
-                        items.append((int(book_id), qty))
+                        tc_items.append((int(book_id), qty))
                 except (ValueError, TypeError):
                     pass
             elif custom_name and qty_str:
@@ -346,12 +348,12 @@ def simple_order(request, slug):
                     qty = int(qty_str)
                     price = int(custom_price_str) if custom_price_str else 0
                     if qty > 0:
-                        custom_items.append((custom_name, qty, price))
+                        tc_custom_items.append((custom_name, qty, price))
                 except (ValueError, TypeError):
                     pass
             i += 1
 
-        if not items and not custom_items:
+        if not items and not custom_items and not tc_items and not tc_custom_items:
             error = '주문할 교재를 1권 이상 선택하세요.'
         else:
             requested_delivery_date = request.POST.get('requested_delivery_date', '').strip() or None
@@ -374,6 +376,19 @@ def simple_order(request, slug):
                 OrderItem(
                     order=order, book=None,
                     custom_book_name=cname, quantity=qty, unit_price=price,
+                ).save()
+            # 교사용
+            for book_id, qty in tc_items:
+                try:
+                    book = Book.objects.get(id=book_id, is_active=True)
+                    OrderItem(order=order, book=book, quantity=qty, is_teacher_copy=True).save()
+                except Book.DoesNotExist:
+                    pass
+            for cname, qty, price in tc_custom_items:
+                OrderItem(
+                    order=order, book=None,
+                    custom_book_name=cname, quantity=qty, unit_price=price,
+                    is_teacher_copy=True,
                 ).save()
 
             LinkAccessLog.objects.create(

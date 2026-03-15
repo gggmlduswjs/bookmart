@@ -282,14 +282,14 @@
     <!-- 교재용 책 주문 -->
     <div style="margin-top:20px;border-top:2px solid #e2e8f0;padding-top:16px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-        <h2 style="margin-bottom:0;border-left-color:#ea580c">교재용 책 주문</h2>
-        <span style="font-size:11px;color:#64748b">선생님 교재용</span>
+        <h2 style="margin-bottom:0;border-left-color:#ea580c">교사용 책 주문</h2>
+        <span style="font-size:11px;color:#64748b">선생님 교사용</span>
       </div>
 
       <!-- 교재용 검색 -->
       <div class="book-search-wrap">
         <span class="book-search-icon">&#128269;</span>
-        <input type="text" class="book-search-input" x-model="tbSearchQuery" @input="searchTbBooks()" @focus="showTbResults = tbSearchQuery.length > 0" @click.outside="showTbResults = false" placeholder="교재용 책 검색..." autocomplete="off">
+        <input type="text" class="book-search-input" x-model="tbSearchQuery" @input="searchTbBooks()" @focus="showTbResults = tbSearchQuery.length > 0" @click.outside="showTbResults = false" placeholder="교사용 책 검색..." autocomplete="off">
         <div class="book-search-results" x-show="showTbResults && tbSearchResults.length" x-cloak>
           <template x-for="b in tbSearchResults" :key="b.id">
             <div class="book-result-item" @click="addTbBook(b)">

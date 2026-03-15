@@ -134,6 +134,7 @@ class OrderItem(models.Model):
         verbose_name='교재', null=True, blank=True
     )
     custom_book_name = models.CharField(max_length=255, blank=True, default='', verbose_name='커스텀 교재명')
+    is_teacher_copy = models.BooleanField(default=False, verbose_name='교사용')
     quantity = models.IntegerField(verbose_name='수량')
     # 주문 시점 스냅샷
     list_price = models.IntegerField(verbose_name='정가(스냅샷)')
@@ -151,7 +152,8 @@ class OrderItem(models.Model):
 
     @property
     def display_name(self):
-        return self.book.name if self.book else self.custom_book_name
+        name = self.book.name if self.book else self.custom_book_name
+        return f'[교사용] {name}' if self.is_teacher_copy else name
 
     @property
     def display_publisher(self):
