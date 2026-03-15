@@ -71,7 +71,7 @@ def send_ship_notification(order) -> bool:
         delivery_part = ''
     link_part = ''
     if order.agency and order.agency.agency_code:
-        link_part = f'\n\n주문현황 확인:\nhttps://bookmart6196.link/s/{order.agency.agency_code}/'
+        link_part = f'\n\n주문현황 확인:\nhttps://bookmart6196.link/s/{order.agency.agency_code}/\n(이름과 전화번호를 입력하면 주문현황을 확인할 수 있습니다)'
     message = (
         f'[북마트] {teacher.name} 선생님\n'
         f'{order.delivery.name} 교재 발송됐습니다.'
@@ -96,7 +96,8 @@ def send_order_confirmation(order) -> bool:
     parts.append(f'주문번호: {order.order_no}')
     # 간편주문 현황 링크
     if order.agency and order.agency.agency_code:
-        parts.append(f'\n주문현황 확인:\nhttps://bookmart6196.link/s/{order.agency.agency_code}/')
+        parts.append(f'\n주문현황 확인:\nhttps://bookmart6196.link/s/{order.agency.agency_code}/\n(이름과 전화번호를 입력하면 주문현황을 확인할 수 있습니다)')
+
     message = '\n'.join(parts)
     return send_sms(receiver, message)
 
