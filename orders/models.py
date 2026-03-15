@@ -91,6 +91,7 @@ class Order(models.Model):
     ordered_at = models.DateTimeField(default=timezone.now, verbose_name='주문일시')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True, verbose_name='수정일시')
+    is_edited = models.BooleanField(default=False, verbose_name='수정됨')
     is_deleted = models.BooleanField(default=False, verbose_name='삭제여부')
     deleted_at = models.DateTimeField(null=True, blank=True, verbose_name='삭제일시')
 

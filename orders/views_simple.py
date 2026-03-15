@@ -217,16 +217,12 @@ def simple_home(request, slug):
     for order in orders:
         if order.status in counts:
             counts[order.status] += 1
-        # 요약 정보
-        all_items = order.items.all()
-        order.list_price_total = sum(item.list_price * item.quantity for item in all_items)
-        count = all_items.count()
-        first = all_items.first()
-        if first:
-            name = first.display_name
-            order.items_summary = f'{name} 외 {count - 1}건' if count > 1 else name
-        else:
-            order.items_summary = '-'
+        # 항목 정보
+        all_items = list(order.items.all())
+        for item in all_items:
+            item.list_price_amount = item.list_price * item.quantity
+        order.list_price_total = sum(item.list_price_amount for item in all_items)
+        order.items_list = all_items
 
     return render(request, 'simple/home.html', {
         'agency': agency,
@@ -583,7 +579,8 @@ def simple_order_edit(request, slug, order_id):
             order.memo = request.POST.get('memo', '')
             requested_delivery_date = request.POST.get('requested_delivery_date', '').strip() or None
             order.requested_delivery_date = requested_delivery_date
-            order.save(update_fields=['delivery', 'memo', 'requested_delivery_date', 'updated_at'])
+            order.is_edited = True
+            order.save(update_fields=['delivery', 'memo', 'requested_delivery_date', 'is_edited', 'updated_at'])
 
             for book_id, qty in items:
                 try:

@@ -74,8 +74,23 @@
 .order-card .card-body .school {
   font-weight: 600; margin-bottom: 2px;
 }
-.order-card .card-body .items {
-  color: #64748b; font-size: 12px;
+.order-card .card-body .items-list {
+  margin-top: 4px;
+}
+.order-card .item-row {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px; color: #475569; padding: 2px 0;
+  border-bottom: 1px solid #f8fafc;
+}
+.order-card .item-row:last-child { border-bottom: none; }
+.order-card .item-name {
+  flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.order-card .item-qty {
+  color: #64748b; font-size: 11px; white-space: nowrap;
+}
+.order-card .item-price {
+  color: #1e293b; font-weight: 600; font-size: 11px; white-space: nowrap;
 }
 .order-card .card-bottom {
   display: flex; justify-content: space-between; align-items: center;
@@ -199,7 +214,15 @@
   </div>
   <div class="card-body">
     <div class="school">{{ order.delivery.name }}</div>
-    <div class="items">{{ order.items_summary }}</div>
+    <div class="items-list">
+      {% for item in order.items_list %}
+      <div class="item-row">
+        <span class="item-name">{{ item.display_name }}</span>
+        <span class="item-qty">{{ item.quantity }}권</span>
+        <span class="item-price">{{ item.list_price_amount|floatformat:0 }}원</span>
+      </div>
+      {% endfor %}
+    </div>
   </div>
   <div class="card-bottom">
     <span class="price">{{ order.list_price_total|floatformat:0 }}원</span>

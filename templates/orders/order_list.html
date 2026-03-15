@@ -209,6 +209,7 @@
             <span class="source-dot source-{{ order.source }}" title="{% if order.source == 'simple' or order.source == 'teacher' %}간편주문{% elif order.source == 'inbox' %}수신함{% elif order.source == 'call' %}통화주문{% else %}관리자{% endif %}"></span>
             {% endif %}
             <span class="order-no">{{ order.order_no }}</span>
+            {% if order.is_edited %}<span style="display:inline-block;padding:1px 5px;background:#fff7ed;color:#ea580c;border:1px solid #fb923c;border-radius:4px;font-size:9px;font-weight:700;margin-left:4px;vertical-align:middle">수정</span>{% endif %}
           </div>
         </td>
 

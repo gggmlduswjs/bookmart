@@ -40,7 +40,7 @@
   <!-- 주문 정보 -->
   <div class="content-box" style="width:260px;flex-shrink:0">
     <table class="form-table" style="width:100%">
-      <tr><th style="width:80px">주문번호</th><td style="font-size:11px">{{ order.order_no }}</td></tr>
+      <tr><th style="width:80px">주문번호</th><td style="font-size:11px">{{ order.order_no }}{% if order.is_edited %} <span style="display:inline-block;padding:1px 5px;background:#fff7ed;color:#ea580c;border:1px solid #fb923c;border-radius:4px;font-size:9px;font-weight:700">수정됨</span>{% endif %}</td></tr>
       <tr><th>배송지</th><td><strong>{{ order.delivery.name }}</strong>{% if order.delivery.location_detail %} <span style="font-size:11px;color:#64748b">({{ order.delivery.location_detail }})</span>{% endif %}</td></tr>
       {% if order.delivery.region %}
       <tr><th>지역</th><td>{{ order.delivery.get_region_display }}</td></tr>
