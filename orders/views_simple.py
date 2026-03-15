@@ -10,7 +10,7 @@ from django.http import Http404, HttpResponse
 from accounts.models import User
 from books.models import Book
 from .models import Order, OrderItem, DeliveryAddress, LinkAccessLog
-from .sms import send_order_confirmation
+from .sms import send_order_confirmation, send_order_edit_notification
 
 
 def _get_agency_or_404(slug):
@@ -599,7 +599,8 @@ def simple_order_edit(request, slug, order_id):
             for cname, qty, price in tc_custom_items:
                 OrderItem(order=order, book=None, custom_book_name=cname, quantity=qty, unit_price=price, is_teacher_copy=True).save()
 
-            # 관리자에게 수정 알림
+            # 수정 알림 (선생님 SMS + 관리자 이메일)
+            send_order_edit_notification(order)
             _notify_order_edited(order)
             return redirect('simple_confirm', slug=slug, order_id=order.pk)
 

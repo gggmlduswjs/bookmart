@@ -102,6 +102,23 @@ def send_order_confirmation(order) -> bool:
     return send_sms(receiver, message)
 
 
+def send_order_edit_notification(order) -> bool:
+    """주문 수정 완료 문자"""
+    teacher = order.teacher
+    receiver = teacher.phone
+    parts = [
+        f'[북마트] {teacher.name} 선생님',
+        f'{order.delivery.name} 교재 주문이 수정되었습니다.',
+    ]
+    if order.agency:
+        parts.append(f'업체: {order.agency.name}')
+    parts.append(f'주문번호: {order.order_no}')
+    if order.agency and order.agency.agency_code:
+        parts.append(f'\n주문현황 확인:\nhttps://bookmart6196.link/s/{order.agency.agency_code}/\n(이름과 전화번호를 입력하면 주문현황을 확인할 수 있습니다)')
+    message = '\n'.join(parts)
+    return send_sms(receiver, message)
+
+
 def send_delivery_notification(order) -> bool:
     """배송 완료 문자"""
     teacher = order.teacher
